@@ -204,7 +204,7 @@ sub subOptions($) {
 
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'subtitle'} }) {
-		my ($language, $note, $iso, $text, $type) = $track->{'description'} =~ /^([^\(]+)(?:\s+\(([^\)]+)\))?\s+\(iso(\d+\-\d+)\:\s+\w\w\w\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|UTF\-\d+)\)/i;
+		my ($language, $note, $iso, $text, $type) = $track->{'description'} =~ /^([^\(]+)(?:\s+\(([^\)]+)\))?\s+\(iso(\d+\-\d+)\:\s+\w\w\w\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
 		if (!defined($iso)) {
 			print STDERR 'Could not parse subtitle description: ' . $track->{'description'} . "\n";
 
