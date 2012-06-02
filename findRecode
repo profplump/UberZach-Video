@@ -55,7 +55,7 @@ for i in ${FILES}; do
 	STRINGS="`head -c 10000000 "${i}" | strings -n 10`"
 	if echo "${STRINGS}" | grep -q HandBrake; then
 		HANDBRAKE=1
-	elif echo "${STRINGS}" | grep -E '^x264 - core (79|112|120)' | grep -E 'threads=(12|24)' | grep -Eq 'crf=2[05].0'; then
+	elif echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125)' | grep -E 'threads=(12|24)' | grep -Eq 'crf=2[05].0'; then
 		HANDBRAKE=1
 	fi
 	if [ $HANDBRAKE -eq 1 ]; then
