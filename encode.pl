@@ -21,6 +21,7 @@ my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my %LANG_INCLUDE_ISO    = ('639-1' => 1);
 my $HB_EXEC             = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG               = 0;
+my $FORCE_MKV           = 0;
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
@@ -87,7 +88,7 @@ if ($title) {
 }
 
 # Ensure we have an output file name
-# Allow forced use of MKV wrapper if the output file name is provided and ends in .MKV
+# Force MKV output if the output file name is provided and ends in .MKV
 if (!defined($out_file) || length($out_file) < 1) {
 	$out_file = $in_file;
 } else {
@@ -133,6 +134,22 @@ foreach my $title (keys(%titles)) {
 		print STDERR basename($0) . ': Overriding unlikely autocrop values: ' . join(':', @{ $scan->{'crop'} }) . "\n";
 		my @crop = (0, 0, 0, 0);
 		$scan->{'crop'} = \@crop;
+	}
+	
+	# Force MKV output if the title contains PGS subtitles
+	foreach my $track (values(%{ $scan->{'subtitle_parsed'} })) {
+		if ($track->{'type'} eq 'PGS') {
+			$FORMAT = 'mkv';
+			last;
+		}
+	}
+
+	# Force MKV output if the title contains DTS audio (technically MP4 is supported buy QuickTime hates it)
+	foreach my $track (values(%{ $scan->{'audio_parsed'} })) {
+		if ($track->{'codec'} =~ /DTS/i) {
+			$FORMAT = 'mkv';
+			last;
+		}
 	}
 
 	# Select a file name extension that matches the format
@@ -219,6 +236,10 @@ sub subOptions($) {
 		} else {
 			$text = 0;
 		}
+		
+		# Standardize the codes
+		$iso = uc($iso);
+		$type = uc($type);
 
 		# Push all parsed data into an array
 		my %data = ('language' => $language, 'note' => $note, 'iso' => $iso, 'text' => $text, 'type' => $type);
@@ -230,6 +251,9 @@ sub subOptions($) {
 			printHash(\%data);
 		}
 	}
+
+	# Push the parsed data back up the chain
+	$scan->{'subtitle_parsed'} = \%tracks;
 
 	# Keep subtitles in our prefered langauges, and all text-based subtitles (they're small)
 	my @keep = ();
@@ -303,6 +327,9 @@ sub audioOptions($) {
 			printHash(\%data);
 		}
 	}
+	
+	# Push the parsed data back up the chain
+	$scan->{'audio_parsed'} = \%tracks;
 
 	# Find the track with the most channels for each codec, and the highest number of channels among all types of tracks
 	# Then choose the most desired codec among the set of codecs that contain the highest number of channels
