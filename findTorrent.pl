@@ -40,7 +40,7 @@ my $SIZE_BONUS       = 7;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
-my $PROTOCOL         = 'http';
+my $PROTOCOL         = 'https';
 my $UA               = 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X 10_5_5; en-us) AppleWebKit/525.18 (KHTML, like Gecko) Version/3.1.2 Safari/525.20.1';
 my $TIMEOUT          = 15;
 my %ENABLE_SOURCE    = ('TPB' => 1, 'ISO' => 0);
