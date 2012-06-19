@@ -7,7 +7,7 @@ use IPC::Open3;
 use File::Basename;
 
 # Parameters
-my @video_params        = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50', '--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ca_aac', '--mixdown', 'dpl2', '--ab', '192');
+my @video_params        = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50', '--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3', '--mixdown', 'dpl2', '--ab', '192');
 my $FORMAT              = 'mp4';
 my $QUALITY             = 20;
 my $HD_QUALITY          = 20;
