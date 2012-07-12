@@ -33,6 +33,7 @@ my $host          = 'http://localhost:9091';
 my $url           = $host . '/transmission/rpc';
 my $content       = '{"method":"torrent-get","arguments":{"fields":["hashString","id","addedDate","comment","creator","dateCreated","isPrivate","name","totalSize","pieceCount","pieceSize","downloadedEver","error","errorString","eta","haveUnchecked","haveValid","leftUntilDone","metadataPercentComplete","peersConnected","peersGettingFromUs","peersSendingToUs","rateDownload","rateUpload","recheckProgress","sizeWhenDone","status","trackerStats","uploadedEver","uploadRatio","seedRatioLimit","seedRatioMode","downloadDir","files","fileStats"]}}';
 my $delContent    = '{"method":"torrent-remove","arguments":{"ids":["#_ID_#"], "delete-local-data":"true"}';
+my $delSleep      = 5;
 my $RAR_MIN_FILES = 4;
 
 # Debug
@@ -405,6 +406,9 @@ sub delTor($) {
 	if ($DEBUG) {
 		print STDERR 'Deleting torrent: ' . $tor->{'name'} . "\n";
 	}
+
+	# Sleep to avoid bugs in Transmission (i.e. multiple deletes fail)
+	sleep($delSleep);
 
 	# Construct the content
 	my $id      = $tor->{'hashString'};
