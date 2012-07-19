@@ -108,11 +108,17 @@ if (!defined($out_file) || length($out_file) < 1) {
 	}
 }
 
+# Keep the original format around so we can reset between tracks
+my $FORMAT_ORIG = $FORMAT;
+
 # Encode each title
 foreach my $title (keys(%titles)) {
 	if ($DEBUG) {
 		print STDERR 'Setting options for title: ' . $title . "\n";
 	}
+
+	# Reset
+	$FORMAT = $FORMAT_ORIG;
 
 	# Parse the title's audio and subtitle tracks
 	my $scan  = $titles{$title};
