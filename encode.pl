@@ -28,6 +28,16 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
 	$DEBUG = 1;
 }
 
+# Allow overrides for audio languages
+if ($ENV{'AUDIO_EXECLUDE_REGEX'}) {
+	$AUDIO_EXCLUDE_REGEX = $ENV{'AUDIO_EXCLUDE_REGEX'};
+}
+
+# Allow overrides for subtitle languages
+if ($ENV{'SUB_INCLUDE_REGEX'}) {
+	$SUB_INCLUDE_REGEX = $ENV{'SUB_INCLUDE_REGEX'};
+}
+
 # Command-line parameters
 my ($in_file, $out_file, $title) = @ARGV;
 if (!defined($in_file) || length($in_file) < 1 || !-r $in_file) {
@@ -116,7 +126,7 @@ foreach my $title (keys(%titles)) {
 	}
 
 	# Skip tracks that have no audio
-	if (scalar(@{ $scan->{'audio'} }) < 1) {
+	if (scalar(@{ $scan->{'audio'} }) < 1 || scalar(@audio) < 1) {
 		print STDERR basename($0) . ': No audio detected in: ' . $in_file . ':' . $title . ". Skipping title...\n";
 		next;
 	}
