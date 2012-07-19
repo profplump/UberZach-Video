@@ -1,18 +1,6 @@
 #!/bin/bash
 set -e
 
-# Parameters
-# Allow environmental overrides
-if [ -z "${RECODE_MIN_RATIO}" ]; then
-	RECODE_MIN_RATIO=40
-fi
-if [ -z "${RECODE_MAX_DIFF}" ]; then
-	RECODE_MAX_DIFF=8
-fi
-if [ -z "${KEEP_IN}" ]; then
-	KEEP_IN=0
-fi
-
 # Command-line parameters
 IN="${1}"
 OUT="${2}"
@@ -27,54 +15,79 @@ if [ -e "${OUT}" ]; then
 	exit 1
 fi
 
+# Parameters
+# Allow environmental overrides
+# Provide looser default matching to TS, MPEG, and MPG sources
+if [ -z "${RECODE_SIZE_RATIO}" ]; then
+	RECODE_SIZE_RATIO=40
+	if echo "${IN}" | grep -E -i -q "\.(ts|mpe?g)$"; then
+		RECODE_SIZE_RATIO=10
+	fi
+fi
+if [ -z "${RECODE_LENGTH_RATIO}" ]; then
+	RECODE_LENGTH_RATIO=90
+	if echo "${IN}" | grep -E -i -q "\.(ts|mpe?g)$"; then
+		RECODE_LENGTH_RATIO=70
+	fi
+fi
+
+# Delayed error indicator
+if [ -z "${KEEP_IN}" ]; then
+	KEEP_IN=0
+fi
+
 # Recode
 export RECODE_OUTFILE=1
 OUT="`~/bin/video/encode.pl "${IN}" "${OUT}"`"
 
-# Remove the original if all went well
-# Some sanity checking here, but mostly relying on the -e flag
-if [ -r "${IN}" ]; then
+# Ensure the output file exists
+if [ -z "${OUT}" ] || [ ! -r "${OUT}" ]; then
+	echo "`basename "${0}"`: Output file not defined or does not exist. Aborting..." 1>&2
+	exit 1
+fi
 
-	# Ensure the output file exists
-	if [ -z "${OUT}" ] || [ ! -r "${OUT}" ]; then
-		echo "`basename "${0}"`: Output file not defined or does not exist. Aborting..." 1>&2
-		exit 1
-	fi
+# Bail if the original disappeared
+if [ ! -r "${IN}" ]; then
+	echo "`basename "${0}"`: Input file does not exist. Aborting..." 1>&2
+	exit 1
+fi
 
-	# Check to be sure the output video has a reasonable file size
-	SIZE_RATIO=0
-	SIZE_IN="`stat -f %z "${IN}" 2>/dev/null`"
-	SIZE_OUT="`stat -f %z "${OUT}" 2>/dev/null`"
-	if [ -n "${SIZE_IN}" ] && [ -n "${SIZE_OUT}" ]; then
-		SIZE_RATIO=$(( $SIZE_OUT * 100 / $SIZE_IN ))
-	fi
-	if [ $SIZE_RATIO -lt $RECODE_MIN_RATIO ]; then
-		echo "`basename "${0}"`: Output file too small: ${OUT}. Aborting..." 1>&2
-		rm -f "${OUT}"
-		exit 1
-	fi
-
-	# Check to be sure the videos are (about) the same duration
-	LENGTH_DIFF=$(( $RECODE_MAX_DIFF + 1 ))
-	LENGTH_IN="`~/bin/video/movInfo.pl "${IN}" LENGTH | sed 's%\..*$%%'`"
-	LENGTH_OUT="`~/bin/video/movInfo.pl "${OUT}" LENGTH | sed 's%\..*$%%'`"
-	if [ -z "${LENGTH_IN}" ] || [ -z "${LENGTH_OUT}" ]; then
-		echo "`basename "${0}"`: Unable to determine length_in or length_out. Leaving all files in place." 1>&2
-		exit 1
-	fi
-	if [ -n "${LENGTH_OUT}" ] && [ -n "${LENGTH_IN}" ]; then
-		LENGTH_DIFF=$(( 100 -  ( $LENGTH_OUT * 100 / $LENGTH_IN ) ))
-		if [ $LENGTH_DIFF -lt 0 ]; then
-			LENGTH_DIFF=$(( $LENGTH_DIFF * -1 ))
-		fi
-	fi
-	if [ $LENGTH_DIFF -gt $RECODE_MAX_DIFF ] ; then
+# Check to be sure the output video has a minimum file size
+SIZE_RATIO=0
+SIZE_IN="`stat -f %z "${IN}" 2>/dev/null`"
+SIZE_OUT="`stat -f %z "${OUT}" 2>/dev/null`"
+if [ -z "${SIZE_IN}" ] || [ -z "${SIZE_OUT}" ]; then
+	KEEP_IN=1
+	echo "`basename "${0}"`: Unable to determine size_in or size_out." 1>&2
+else
+	SIZE_RATIO=$(( $SIZE_OUT * 100 / $SIZE_IN ))
+	if [ $SIZE_RATIO -lt $RECODE_SIZE_RATIO ]; then
 		KEEP_IN=1
-		echo "`basename "${0}"`: Output file duration (${LENGTH_OUT}) does not match input file duration (${LENGTH_IN}): ${IN}" 1>&2
+		echo "`basename "${0}"`: Output file size (${SIZE_OUT}) is not at least ${RECODE_SIZE_RATIO}% of the input file size (${SIZE_IN}): ${IN}" 1>&2
 	fi
+fi
 
-	# Remove the input file if all is well
-	if [ $KEEP_IN -eq 0 ]; then
-		rm -f "${IN}"
+# Check to be sure the videos are (about) the same duration
+LENGTH_RATIO=0
+LENGTH_IN="`~/bin/video/movInfo.pl "${IN}" LENGTH | sed 's%\..*$%%'`"
+LENGTH_OUT="`~/bin/video/movInfo.pl "${OUT}" LENGTH | sed 's%\..*$%%'`"
+if [ -z "${LENGTH_IN}" ] || [ -z "${LENGTH_OUT}" ]; then
+	KEEP_IN=1
+	echo "`basename "${0}"`: Unable to determine length_in or length_out." 1>&2
+else
+	LENGTH_RATIO=$(( $LENGTH_OUT * 100 / LENGTH_IN ))
+	if [ $LENGTH_RATIO -gt 100 ]; then
+		LENGTH_RATIO=$(( $LENGTH_IN * 100 / LENGTH_OUT ))
 	fi
+	if [ $LENGTH_RATIO -lt $RECODE_LENGTH_RATIO ]; then
+		KEEP_IN=1
+		echo "`basename "${0}"`: Output file duration (${LENGTH_OUT}) does not match input file duration (${LENGTH_IN}) to within ${RECODE_LENGTH_RATIO}%: ${IN}" 1>&2
+	fi
+fi
+
+# Remove the input file if all is well
+if [ $KEEP_IN -eq 0 ]; then
+	rm -f "${IN}"
+else
+	echo -e "`basename "${0}"`: Delayed error: Refusing to delete input file.\n" 1>&2
 fi
