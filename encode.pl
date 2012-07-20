@@ -28,6 +28,13 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
 	$DEBUG = 1;
 }
 
+# Additional arguments for HandBrake
+# Split on spaces; if you need spaces you'll have to work out something else
+if ($ENV{'HANDBRAKE_ARGS'}) {
+	my @args = split(/\s+/, $ENV{'HANDBRAKE_ARGS'});
+	push(@video_params, @args);
+}
+
 # Allow overrides for audio languages
 if ($ENV{'AUDIO_EXECLUDE_REGEX'}) {
 	$AUDIO_EXCLUDE_REGEX = $ENV{'AUDIO_EXCLUDE_REGEX'};
@@ -151,7 +158,7 @@ foreach my $title (keys(%titles)) {
 		my @crop = (0, 0, 0, 0);
 		$scan->{'crop'} = \@crop;
 	}
-	
+
 	# Force MKV output if the title contains PGS subtitles
 	foreach my $track (values(%{ $scan->{'subtitle_parsed'} })) {
 		if ($track->{'type'} eq 'PGS') {
@@ -252,9 +259,9 @@ sub subOptions($) {
 		} else {
 			$text = 0;
 		}
-		
+
 		# Standardize the codes
-		$iso = uc($iso);
+		$iso  = uc($iso);
 		$type = uc($type);
 
 		# Push all parsed data into an array
@@ -343,7 +350,7 @@ sub audioOptions($) {
 			printHash(\%data);
 		}
 	}
-	
+
 	# Push the parsed data back up the chain
 	$scan->{'audio_parsed'} = \%tracks;
 
