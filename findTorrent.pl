@@ -123,7 +123,7 @@ if ($ENABLE_SOURCE{'ISO'}) {
 #	print STDERR `printenv` . "\n";
 #}
 
-# Get the season name
+# Figure out what we're searching for
 my $show          = '';
 my @urls          = ();
 my $CUSTOM_SEARCH = 0;
@@ -534,44 +534,44 @@ $showRegex =~ s/[\W_]+/\[\\W_\].*/g;
 foreach my $tor (@tors) {
 
 	# Skip files that don't start with our show title
-	if (!($tor->{'title'} =~ /^${showRegex}\b/i)) {
+	if (!($tor->{'title'} =~ /^${showRegex}[\W_]/i)) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'title'} . "\n";
 		}
 		next;
 
 		# Skip pre-air files
 	} elsif ($tor->{'title'} =~ /preair/i) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "preair": ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping file: Title contains "preair": ' . $tor->{'title'} . "\n";
 		}
 		next;
 
 		# Skip SWESUB files
 	} elsif ($tor->{'title'} =~ /swesub/i) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "SWESUB": ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping file: Title contains "SWESUB": ' . $tor->{'title'} . "\n";
 		}
 		next;
 
 		# Skip .rus. files
 	} elsif ($tor->{'title'} =~ /\.rus\./i) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains ".rus.": ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping file: Title contains ".rus.": ' . $tor->{'title'} . "\n";
 		}
 		next;
 
 		# Skip german files
 	} elsif ($tor->{'title'} =~ /german/i) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'title'} . "\n";
 		}
 		next;
 
 		# Skip torrents that are too small
 	} elsif ($tor->{'size'} < $MIN_SIZE) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
 		}
 		next;
 	}
@@ -582,14 +582,14 @@ foreach my $tor (@tors) {
 		# Skip files that don't contain the right season number
 		if (!defined($tor->{'season'}) || $tor->{'season'} != $season) {
 			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for season number (' . $season . '): ' . $tor->{'url'} . "\n";
+				print STDERR 'Skipping file: No match for season number (' . $season . '): ' . $tor->{'title'} . "\n";
 			}
 			next;
 
 			# Skip files that don't contain the episode number
 		} elsif ((!defined($tor->{'episode'}) || !$need{ $tor->{'episode'} })) {
 			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'url'} . "\n";
+				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
 			}
 			next;
 		}
@@ -601,7 +601,7 @@ foreach my $tor (@tors) {
 		# Skip torrents with too few seeders/leachers
 		if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES{ $tor->{'source'} }->{'weight'} < $MIN_COUNT) {
 			if ($DEBUG) {
-				print STDERR 'Skipping file: Insufficient seeder/leacher count (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'url'} . "\n";
+				print STDERR 'Skipping file: Insufficient seeder/leacher count (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'title'} . "\n";
 			}
 			next;
 
@@ -611,7 +611,7 @@ foreach my $tor (@tors) {
 			&& $tor->{'seeds'} > $tor->{'leaches'} * $MAX_SEED_RATIO)
 		{
 			if ($DEBUG) {
-				print STDERR 'Skipping file: Unusual seeder/leacher ratio (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'url'} . "\n";
+				print STDERR 'Skipping file: Unusual seeder/leacher ratio (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'title'} . "\n";
 			}
 			next;
 
@@ -621,7 +621,7 @@ foreach my $tor (@tors) {
 	# Save good torrents
 	push(@{ $tors{ $tor->{'episode'} } }, $tor);
 	if ($DEBUG) {
-		print STDERR 'Possible URL (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . ' seeds/leaches, ' . $tor->{'size'} . ' MiB): ' . $tor->{'url'} . "\n";
+		print STDERR 'Possible URL (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . ' seeds/leaches, ' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
 	}
 }
 
