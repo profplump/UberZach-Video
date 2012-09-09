@@ -60,7 +60,7 @@ my %SOURCES = ();
 if ($ENABLE_SOURCE{'TPB'}) {
 
 	# Available TPB proxies, in order of preference
-	my @TPBs = ('thepiratebay.se/search/', 'tpb.jasohack.com/index.php?loadurl=/search/', 'http://tpb.allestec.com/index.php?loadurl=/search/');
+	my @TPBs = ('thepiratebay.se/search/', 'tpb.jasohack.com/index.php?loadurl=/search/', 'tpb.allestec.com/index.php?loadurl=/search/');
 
 	# Automatically select a TPB proxy that returns a search page
 	my $search_url = '';

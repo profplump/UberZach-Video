@@ -161,6 +161,9 @@ sub init_ua() {
 		);
 		$self->{'ua'}->cookie_jar($self->{'cookies'});
 	}
+
+	# Disable SSL hostname verification
+	$self->{'ua'}->ssl_opts('verify_hostname' => 0);
 }
 
 #----------------------------------------------------------------------
