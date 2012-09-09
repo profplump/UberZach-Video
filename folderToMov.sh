@@ -28,7 +28,7 @@ inFolder="`cd "${inFolder}" && pwd`"
 cd "${inFolder}"
 
 # Cycle through the folder looking for certain video files that should be converted to better containers
-for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[mM][kK][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV]; do
+for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[mM][kK][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV] *.[mM][pP][gG]; do
 	# Construct the full path
 	file="${inFolder}/${i}"
 
