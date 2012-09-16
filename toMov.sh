@@ -9,13 +9,23 @@ if [ -z "${inFile}" ] || [ ! -e "${inFile}" ]; then
 	exit 1
 fi
 
-# Exclude files with DTS soundtracks
-ACODECS="`~/bin/video/movInfo.pl "${inFile}" | grep AUDIO_CODEC`"
+# Grab some codec info
+INFO="`~/bin/video/movInfo.pl "${inFile}"`"
+ACODECS="`echo "${INFO}" | grep AUDIO_CODEC`"
 if [ -z "${ACODECS}" ]; then
 	echo "`basename "${0}"`: Could not determine audio codec" 1>&2
 	exit 2
 fi
+VCODECS="`echo "${INFO}" | grep VIDEO_CODEC`"
+if [ -z "${VCODECS}" ]; then
+	echo "`basename "${0}"`: Could not determine video codec" 1>&2
+	exit 2
+fi
+
+# Exclude files with DTS soundtracks or MPEG-1 streams
 if echo "${ACODECS}" | grep -q ffdca; then
+	exit 1
+elif echo "${VCODECS}" | grep -q ffmpeg1; then
 	exit 1
 fi
 

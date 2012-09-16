@@ -20,15 +20,31 @@ if [ $LOAD -gt $(( 2 * $CPU_COUNT )) ]; then
 	exit 0
 fi
 
+# Bail if WoW is running
+if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft.app/Contents/MacOS/World of Warcraft"; then
+	exit 0
+fi
+
 # Prefer recoding to rewrapping if the file is overrate
 ~/bin/video/findRecode0 "${inFolder}" | xargs -0 -n1 ~/bin/video/recode
+
+# MPEGs must be recoded, not just re-wrapped
+for i in "${inFolder}/"*.[mM][pP][gG] "${inFolder}/"*.[mM][pP][eE][gG]; do
+	# Make sure the file is reasonable
+	if [ ! -e "${i}" ]; then
+		continue
+	fi
+
+	# Recode
+	~/bin/video/recode "${i}"
+done
 
 # Move to the input folder
 inFolder="`cd "${inFolder}" && pwd`"
 cd "${inFolder}"
 
 # Cycle through the folder looking for certain video files that should be converted to better containers
-for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[mM][kK][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV] *.[mM][pP][gG]; do
+for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[mM][kK][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV]; do
 	# Construct the full path
 	file="${inFolder}/${i}"
 
@@ -37,11 +53,6 @@ for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[mM][kK][vV] *.[dD][iI][vV][xX] *.[fF][
 		continue
 	fi
 
-	# Bail if WoW is running
-	if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft.app/Contents/MacOS/World of Warcraft"; then
-		exit 0
-	fi
-
-	# Convert to M4V/MOV
+	# Rewrap as MOV
 	~/bin/video/toMov.sh "${file}"
 done
