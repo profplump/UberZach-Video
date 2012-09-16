@@ -57,7 +57,7 @@ my %titles = &scan($in_file);
 # Allow external subtitles for single-title files
 if (scalar(keys(%titles)) == 1) {
 	my $srt_file = $in_file;
-	$srt_file =~ s/\.\w{2,3}$/.srt/;
+	$srt_file =~ s/\.\w{2,4}$/.srt/;
 	if (-r $srt_file) {
 		if ($DEBUG) {
 			print STDERR 'Adding subtitles from: ' . $srt_file . "\n";
@@ -177,7 +177,7 @@ foreach my $title (keys(%titles)) {
 
 	# Select a file name extension that matches the format
 	my $title_out_file = $out_file;
-	$title_out_file =~ s/\.(?:\w{2,3}|dvdmedia)$//i;
+	$title_out_file =~ s/\.(?:\w{2,4}|dvdmedia)$//i;
 	if ($FORMAT eq 'mkv') {
 		$title_out_file .= '.mkv';
 	} else {
@@ -187,12 +187,12 @@ foreach my $title (keys(%titles)) {
 	# Force the title number into the output file name if there are multiple titles to be encoded
 	if (scalar(keys(%titles)) > 1) {
 		my $title_text = sprintf('%02d', $title);
-		$title_out_file =~ s/(\.\w{2,3})$/\-${title_text}${1}/;
+		$title_out_file =~ s/(\.\w{2,4})$/\-${title_text}${1}/;
 	}
 
 	# Output file
 	if (uc($title_out_file) eq uc($in_file)) {
-		$title_out_file =~ s/(\.\w{2,3})$/-recode${1}/;
+		$title_out_file =~ s/(\.\w{2,4})$/-recode${1}/;
 	}
 
 	# Build the arugment list
