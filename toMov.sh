@@ -22,10 +22,10 @@ if [ -z "${VCODECS}" ]; then
 	exit 2
 fi
 
-# Exclude files with DTS soundtracks or MPEG-1 streams
+# Exclude files with DTS soundtracks or MPEG-1/2 streams
 if echo "${ACODECS}" | grep -q ffdca; then
 	exit 1
-elif echo "${VCODECS}" | grep -q ffmpeg1; then
+elif echo "${VCODECS}" | grep -q ffmpeg[12]; then
 	exit 1
 fi
 
