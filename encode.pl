@@ -36,7 +36,7 @@ if ($ENV{'HANDBRAKE_ARGS'}) {
 }
 
 # Allow overrides for audio languages
-if ($ENV{'AUDIO_EXECLUDE_REGEX'}) {
+if ($ENV{'AUDIO_EXCLUDE_REGEX'}) {
 	$AUDIO_EXCLUDE_REGEX = $ENV{'AUDIO_EXCLUDE_REGEX'};
 }
 
