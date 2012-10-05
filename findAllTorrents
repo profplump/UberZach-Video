@@ -40,6 +40,11 @@ while read -d $'\0' SERIES ; do
 	~/bin/video/timeout -t 300 | \
 		~/bin/video/findTorrent.pl "${SERIES}" | ~/bin/download
 
+	# Print the series name on error
+	if [ $? -ne 0 ]; then
+		echo "${SERIES}"
+	fi
+
 # Loop on the null-delimited list of monitored series/seasons
 done < <(~/bin/video/torrentMonitored.pl null)
 
