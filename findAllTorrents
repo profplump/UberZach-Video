@@ -38,7 +38,7 @@ while read -d $'\0' SERIES ; do
 
 	# Actual search, with timeout to ensure we don't get stuck
 	~/bin/video/timeout -t 300 \
-		~/bin/video/findTorrent.pl "${SERIES}" \ |
+		~/bin/video/findTorrent.pl "${SERIES}" | \
 		~/bin/download
 
 	# Print the series name on error
