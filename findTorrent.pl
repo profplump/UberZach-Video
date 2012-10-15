@@ -534,7 +534,7 @@ $showRegex =~ s/[\W_]+/\[\\W_\].*/g;
 foreach my $tor (@tors) {
 
 	# Skip files that don't start with our show title
-	if (!($tor->{'title'} =~ /${showRegex}[\W_]/i)) {
+	if (!($tor->{'title'} =~ /^${showRegex}[\W_]/i)) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'title'} . "\n";
 		}
