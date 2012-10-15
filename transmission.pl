@@ -293,9 +293,9 @@ sub getDest($$$$) {
 	foreach my $show (@shows) {
 
 		# Match the folder name or the search_name
-		my $course_match = 0;
+		my $coarse_match = 0;
 		if ($show =~ /${sMatch}/i) {
-			$course_match = 1;
+			$coarse_match = 1;
 		} else {
 			my $search_name = '';
 			my $file        = $tvDir . '/' . $showsCan{$show} . '/search_name';
@@ -309,13 +309,13 @@ sub getDest($$$$) {
 				$search_name =~ s/^\s+//;
 				$search_name =~ s/\s+$//;
 				if ($search_name =~ /${sMatch}/i) {
-					$course_match = 1;
+					$coarse_match = 1;
 				}
 			}
 		}
 
 		# If we got a course match, continue checking
-		if ($course_match) {
+		if ($coarse_match) {
 
 			# Enforce any secondary matching rules (for ambiguous titles)
 			my $detail_match = 1;
@@ -604,6 +604,7 @@ sub seriesCleanup($) {
 	$name =~ s/\b(?:and|\&)\b/ /ig;
 	$name =~ s/^\s*The\b//ig;
 	if (!($name =~ /Being\W+Human/i) && !($name =~ /Top\W+Gear/i)) {
+		$name =~ s/\bAU\b?\s*$//ig;
 		$name =~ s/\bUS\b?\s*$//ig;
 		$name =~ s/\([^\)]*\)//g;
 	}
