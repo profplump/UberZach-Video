@@ -110,7 +110,7 @@ if (!defined($out_file) || length($out_file) < 1) {
 	$out_file = $in_file;
 } else {
 	my ($force_format) = $out_file =~ /\.(\w{2,4})$/;
-	if (lc($force_format) eq 'mkv') {
+	if (defined($force_format) && lc($force_format) eq 'mkv') {
 		$FORMAT = 'mkv';
 	}
 }
