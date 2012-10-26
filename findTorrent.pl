@@ -567,13 +567,6 @@ foreach my $tor (@tors) {
 			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'title'} . "\n";
 		}
 		next;
-
-		# Skip torrents that are too small
-	} elsif ($tor->{'size'} < $MIN_SIZE) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
-		}
-		next;
 	}
 
 	# Only apply season and episode number matches if CUSTOM_SEARCH is not in effect
@@ -615,6 +608,12 @@ foreach my $tor (@tors) {
 			}
 			next;
 
+			# Skip torrents that are too small
+		} elsif ($tor->{'size'} < $MIN_SIZE) {
+			if ($DEBUG) {
+				print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
+			}
+			next;
 		}
 	}
 
