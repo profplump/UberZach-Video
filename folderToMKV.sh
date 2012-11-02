@@ -54,5 +54,5 @@ for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV]; do
 	fi
 
 	# Rewrap as MOV
-	~/bin/video/toMov.sh "${file}"
+	~/bin/video/toMKV.sh "${file}"
 done

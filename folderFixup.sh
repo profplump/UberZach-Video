@@ -39,7 +39,7 @@ fi
 tmp="`mktemp -t 'folderFixup.XXXXXXXX'`"
 
 # Re-wrap or recode as needed
-find "${inFolder}" -mindepth 1 -type d -exec ~/bin/video/folderToMov.sh {} \; 1>>"${tmp}" 2>&1
+find "${inFolder}" -mindepth 1 -type d -exec ~/bin/video/folderToMKV.sh {} \; 1>>"${tmp}" 2>&1
 
 # Filter the output
 cat "${tmp}" | \

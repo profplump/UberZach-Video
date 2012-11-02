@@ -38,7 +38,7 @@ if [ -z "${outFile}" ]; then
 fi
 
 # Convert to MKV
-tmpFile="`mktemp -t toMov`"
+tmpFile="`mktemp -t toMKV`"
 outFile="${outFile}.mkv"
 mkvmerge -o "${tmpFile}" "${inFile}"
 
