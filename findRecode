@@ -5,7 +5,7 @@ FOLDER="/mnt/media/TV"
 MIN_RATE=275000
 MIN_SIZE="425M"
 MIN_HEIGHT=500
-NAME_REGEX="\.(mov|avi|mkv|mp4|ts)$"
+NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg)$"
 
 # Command-line overrides
 if [ -n "${1}" ]; then
