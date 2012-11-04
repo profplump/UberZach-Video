@@ -40,7 +40,7 @@ fi
 # Convert to MKV
 tmpFile="`mktemp -t toMKV`"
 outFile="${outFile}.mkv"
-mkvmerge -o "${tmpFile}" "${inFile}"
+mkvmerge --quiet -o "${tmpFile}" "${inFile}"
 
 # Check for errors
 if [ ! -e "${tmpFile}" ] || [ `stat -f '%z' "${tmpFile}"` -lt 1000 ]; then
