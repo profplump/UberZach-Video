@@ -37,10 +37,16 @@ if [ -z "${outFile}" ]; then
 	outFile="`dirname "${inFile}"`/${outFile}"
 fi
 
+# Merge external subtitles, if they exist
+srtFile="`echo "${inFile}" | sed 's%\.[^\.]*$%%'`.srt"
+if [ ! -e "${srtFile}" ]; then
+	srtFile=""
+fi
+
 # Convert to MKV
 tmpFile="`mktemp -t toMKV`"
 outFile="${outFile}.mkv"
-mkvmerge --quiet -o "${tmpFile}" "${inFile}"
+mkvmerge --quiet -o "${tmpFile}" "${inFile}" ${srtFile}
 
 # Check for errors
 if [ ! -e "${tmpFile}" ] || [ `stat -f '%z' "${tmpFile}"` -lt 1000 ]; then
@@ -55,7 +61,7 @@ fi
 # Move into place, dropping the original
 tmpOut="`mktemp "${outFile}.XXXXXXXX"`"
 cp -X "${tmpFile}" "${tmpOut}" && rm "${inFile}" && mv "${tmpOut}" "${outFile}"
-rm -f "${tmpFile}"
+rm -f "${tmpFile}" "${srtFile}"
 
 # Exit cleanly
 exit 0
