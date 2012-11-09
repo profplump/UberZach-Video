@@ -85,9 +85,13 @@ else
 	fi
 fi
 
-# Remove the input file if all is well
+# Remove the input file(s) if all is well
 if [ $KEEP_IN -eq 0 ]; then
 	rm -f "${IN}"
+	SRT="`echo "${IN}" | sed 's%\.[^\.]*$%%'`.srt"
+	if [ -e "${SRT}" ]; then
+		rm -f "${SRT}"
+	fi
 else
 	echo -e "`basename "${0}"`: Delayed error: Refusing to delete input file.\n" 1>&2
 fi
