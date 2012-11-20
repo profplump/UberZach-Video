@@ -17,7 +17,7 @@
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/tv/video/pms/PMSHelper.sh</string>
+		<string>/Users/tv/bin/video/pms/PMSHelper.sh</string>
 	</array>
 </dict>
 </plist>

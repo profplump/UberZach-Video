@@ -9,7 +9,7 @@
 	<key>RunAtLoad</key>
 	<true/>
 	<key>Label</key>
-	<string>com.uberzach.PMS</string>
+	<string>com.uberzach.PMS.check</string>
 	<key>KeepAlive</key>
 	<dict>
 		<key>NetworkState</key>
@@ -17,7 +17,7 @@
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/tv/video/pms/PMSCheck.sh</string>
+		<string>/Users/tv/bin/video/pms/PMSCheck.sh</string>
 		<string>30</string>
 	</array>
 </dict>
