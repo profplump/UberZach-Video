@@ -3,29 +3,8 @@
 # Command line
 inFile="${1}"
 outFile="${2}"
-movLength="${3}"
 if [ -z "${inFile}" ] || [ ! -e "${inFile}" ]; then
-	echo "Usage: `basename "${0}"` input_file [output_file] [mov_length]" 1>&2
-	exit 1
-fi
-
-# Grab some codec info
-INFO="`~/bin/video/movInfo.pl "${inFile}"`"
-ACODECS="`echo "${INFO}" | grep AUDIO_CODEC`"
-if [ -z "${ACODECS}" ]; then
-	echo "`basename "${0}"`: Could not determine audio codec" 1>&2
-	exit 2
-fi
-VCODECS="`echo "${INFO}" | grep VIDEO_CODEC`"
-if [ -z "${VCODECS}" ]; then
-	echo "`basename "${0}"`: Could not determine video codec" 1>&2
-	exit 2
-fi
-
-# Exclude files with DTS soundtracks or MPEG-1/2 streams
-if echo "${ACODECS}" | grep -q ffdca; then
-	exit 1
-elif echo "${VCODECS}" | grep -q ffmpeg[12]; then
+	echo "Usage: `basename "${0}"` input_file [output_file]" 1>&2
 	exit 1
 fi
 
