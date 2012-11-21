@@ -8,9 +8,22 @@ if [ -z "${inFile}" ] || [ ! -e "${inFile}" ]; then
 	exit 1
 fi
 
+# Grab some codec info
+INFO="`~/bin/video/movInfo.pl "${inFile}"`"
+VCODECS="`echo "${INFO}" | grep VIDEO_CODEC`"
+if [ -z "${VCODECS}" ]; then
+       echo "`basename "${0}"`: Could not determine video codec" 1>&2
+       exit 2
+fi
+
+# Exclude files with MPEG-1/2 streams
+if echo "${VCODECS}" | grep -q ffmpeg[12]; then
+       echo "Usage: `basename "${0}"` input_file [output_file]" 1>&2
+       exit 1
+fi
+
 # Construct the output file name
 if [ -z "${outFile}" ]; then
-	# Use the input file name with a .mov extension
 	outFile="`basename "${inFile}"`"
 	outFile="`echo "${outFile}" | sed 's%\.[A-Za-z0-9]*$%%'`"
 	outFile="`dirname "${inFile}"`/${outFile}"
