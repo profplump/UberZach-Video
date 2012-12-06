@@ -36,9 +36,11 @@ if [ ! -e "${srtFile}" ]; then
 fi
 
 # Convert to MKV
+# Hide some common AVI conversion warnings
 tmpFile="`mktemp -t toMKV`"
 outFile="${outFile}.mkv"
-mkvmerge --quiet -o "${tmpFile}" "${inFile}" ${srtFile}
+mkvmerge --quiet -o "${tmpFile}" "${inFile}" ${srtFile} 2>&1 | \
+	grep -v "The AVC video track is missing the 'CTTS' atom for frame timecode offsets."
 
 # Check for errors
 if [ ! -e "${tmpFile}" ] || [ `stat -f '%z' "${tmpFile}"` -lt 1000 ]; then
