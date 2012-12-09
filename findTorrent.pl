@@ -695,14 +695,14 @@ sub findSE($) {
 	my $season  = 0;
 	my $episode = 0;
 
-	if ($title =~ /s(?:eason|eries)?\s*(\d+)/i) {
+	if ($title =~ /[\W_]s(?:eason|eries)?\s*(\d+)/i) {
 		$season = $1;
 	} elsif ($title =~ /\b(\d+)x(\d+)\b/i) {
 		$season  = $1;
 		$episode = $2;
 	}
 
-	if (!$episode && $title =~ /e(?:ipsode)?\s*(\d+)/i) {
+	if (!$episode && $title =~ /e(?:ipsode)?\s*(\d{1,2})/i) {
 		$episode = $1;
 	}
 
