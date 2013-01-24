@@ -22,6 +22,7 @@ my %LANG_INCLUDE_ISO    = ('639-1' => 1);
 my $HB_EXEC             = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG               = 0;
 my $FORCE_MKV           = 0;
+my $AUDIO_COPY          = 0;
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
@@ -43,6 +44,11 @@ if ($ENV{'AUDIO_EXCLUDE_REGEX'}) {
 # Allow overrides for subtitle languages
 if ($ENV{'SUB_INCLUDE_REGEX'}) {
 	$SUB_INCLUDE_REGEX = $ENV{'SUB_INCLUDE_REGEX'};
+}
+
+# Allow copy-only audio transfers (for use in re-encoding)
+if ($ENV{'AUDIO_COPY'}) {
+	$AUDIO_COPY = 1;
 }
 
 # Command-line parameters
@@ -379,6 +385,11 @@ sub audioOptions($) {
 	if (!defined($mixdown) || $mixdown < 1) {
 		print STDERR basename($0) . ": No usable audio tracks in title\n";
 		return;
+	}
+
+	# Clear the mixdown selection if we're copying audio
+	if ($AUDIO_COPY) {
+		$mixdown = undef();
 	}
 
 	# Mixdown track first
