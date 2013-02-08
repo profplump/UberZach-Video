@@ -97,10 +97,12 @@ foreach my $tor (@{$torrents}) {
 	}
 
 	# Handle individual files and directories
-	my $file     = '';
+	my @files    = ();
 	my @newFiles = ();
 	my $path     = $tor->{'downloadDir'} . '/' . $tor->{'name'};
-	if (-d $path) {
+	if (!-d $path) {
+		push(@files, $path);
+	} else {
 
 		# State variables
 		my $IS_RAR  = '';
@@ -129,52 +131,56 @@ foreach my $tor (@{$torrents}) {
 			$IS_FAKE = 1;
 		}
 
-		# Find media files in valid torrents
-		if (!$IS_FAKE) {
-
-			# Unrar if necessary
-			if (defined($IS_RAR) && length($IS_RAR) > 0) {
-				@newFiles = &unrar($IS_RAR, $path);
+		# Delete fake torrents and bail
+		if ($IS_FAKE) {
+			if ($DEBUG) {
+				print STDERR 'Deleting fake torrent: ' . $tor->{'name'} . "\n";
 			}
+			delTor($tor);
+			next;
+		}
 
-			# Find exactly 1 media file
-			my @files = ();
-			my @tmpFiles = readDir($path, '/\.(?:avi|mkv|m4v|mov|mp4|ts|wmv)$/i');
-			foreach my $file (@tmpFiles) {
-				if ($file =~ /sample/i) {
-					next;
-				}
-				push(@files, $file);
-			}
-			if (scalar(@files) != 1) {
-				print STDERR 'Did not find exactly 1 media file in: ' . $path . "\n";
-				foreach my $fn (@files) {
-					print STDERR "\t" . $fn . "\n";
-				}
+		# Unrar if necessary
+		if (defined($IS_RAR) && length($IS_RAR) > 0) {
+			@newFiles = &unrar($IS_RAR, $path);
+		}
+
+		# Find all media files
+		my @tmpFiles = readDir($path, '/\.(?:avi|mkv|m4v|mov|mp4|ts|wmv)$/i');
+		foreach my $file (@tmpFiles) {
+			if ($file =~ /sample/i) {
 				next;
 			}
-			$file = $files[0];
-		} else {
-			$file = '';
+			push(@files, $file);
 		}
-	} else {
-		$file = $path;
 	}
 
-	# Do all the normal file naming/copying/etc. if we found a file
-	my $result = -1;
-	if (defined($file) && length($file) > 0 && -r $file) {
-		$result = &processFile($file, $path);
-	}
-	if (defined($result) && $result == 1) {
-		if ($DEBUG) {
-			print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
-		}
-	} elsif (defined($result) && $result == -1) {
-		print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
-	} else {
-		print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
+	# Bail if we found no files
+	if (scalar(@files) < 1) {
+		print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
 		next;
+	}
+
+	# Do all the normal file naming/copying/etc. if we found at least one file
+	my $failure = 0;
+	foreach my $file (@files) {
+		my $result = -1;
+		if (defined($file) && length($file) > 0 && -r $file) {
+			$result = &processFile($file, $path);
+		}
+		if (defined($result) && $result == 1) {
+			if ($DEBUG) {
+				print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
+			}
+		} elsif (defined($result) && $result == -1) {
+			print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
+			$failure = 1;
+			last;
+		} else {
+			print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
+			$failure = 1;
+			last;
+		}
 	}
 
 	# Delete any files we added
@@ -185,8 +191,11 @@ foreach my $tor (@{$torrents}) {
 		unlink($file);
 	}
 
-	# Remove the source torrent (it's either copied or bad by this point)
-	delTor($tor);
+	# Only delete the torrent on success
+	if (!$failure) {
+		delTor($tor);
+		next;
+	}
 }
 
 # Cleanup
