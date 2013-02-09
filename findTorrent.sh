@@ -11,6 +11,9 @@ usage() {
 }
 
 # Find the series directory
+if echo "${SERIES}" | grep -qE "\.\.?/"; then
+	SERIES="`cd "${SERIES}" && pwd`"
+fi
 if echo "${SERIES}" | grep -q "/"; then
 	SERIES_DIR="${SERIES}"
 else
