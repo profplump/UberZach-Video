@@ -32,6 +32,9 @@ fi
 # Merge external subtitles, if they exist
 srtFile="`echo "${inFile}" | sed 's%\.[^\.]*$%%'`.srt"
 if [ ! -e "${srtFile}" ]; then
+	srtFile="`echo "${inFile}" | sed 's%\.[^\.]*$%%'`.ssa"
+fi
+if [ ! -e "${srtFile}" ]; then
 	srtFile=""
 fi
 
@@ -39,8 +42,12 @@ fi
 # Hide some common AVI conversion warnings
 tmpFile="`mktemp -t toMKV`"
 outFile="${outFile}.mkv"
-mkvmerge --quiet -o "${tmpFile}" "${inFile}" ${srtFile} 2>&1 | \
-	grep -v "The AVC video track is missing the 'CTTS' atom for frame timecode offsets."
+if [ -n "${srtFile}" ]; then
+	OUT="`mkvmerge --quiet -o "${tmpFile}" "${inFile}" "${srtFile}" 2>&1`"
+else
+	OUT="`mkvmerge --quiet -o "${tmpFile}" "${inFile}" 2>&1`"
+fi
+echo "${OUT}" | grep -v "The AVC video track is missing the 'CTTS' atom for frame timecode offsets."
 
 # Check for errors
 if [ ! -e "${tmpFile}" ] || [ `stat -f '%z' "${tmpFile}"` -lt 1000 ]; then

@@ -89,6 +89,9 @@ fi
 if [ $KEEP_IN -eq 0 ]; then
 	rm -f "${IN}"
 	SRT="`echo "${IN}" | sed 's%\.[^\.]*$%%'`.srt"
+	if [ ! -e "${SRT}" ]; then
+		SRT="`echo "${IN}" | sed 's%\.[^\.]*$%%'`.ssa"
+	fi
 	if [ -e "${SRT}" ]; then
 		rm -f "${SRT}"
 	fi

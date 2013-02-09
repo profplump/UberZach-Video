@@ -64,6 +64,9 @@ my %titles = &scan($in_file);
 if (scalar(keys(%titles)) == 1) {
 	my $srt_file = $in_file;
 	$srt_file =~ s/\.\w{2,4}$/.srt/;
+	if (! -r $srt_file) {
+		$srt_file =~ s/\.\w{2,4}$/.ssa/;		
+	}
 	if (-r $srt_file) {
 		if ($DEBUG) {
 			print STDERR 'Adding subtitles from: ' . $srt_file . "\n";
