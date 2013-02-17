@@ -1,10 +1,11 @@
 #!/bin/bash
 
 if ! ~/bin/video/isMediaMounted; then
-	if ! open ~/bin/video/media; then
-		echo "`basename "${0}"`: No usable media alias available" 1>&2
+	osascript -e 'tell application "Finder" to mount volume "smb://atv@vera.uberzach.com/media"' >/dev/null
+	sleep 1
+	if ! ~/bin/video/isMediaMounted; then
+		echo "`basename "${0}"`: Unable to mount media volume"
 		exit 1
 	fi
-
 	open /Applications/Zach/Utilities/FixSMBLinks.app
 fi
