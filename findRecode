@@ -46,7 +46,7 @@ IFS=$'\n'
 for i in ${FILES}; do
 
 	# Skip invalid files
-	if [ -z "${i}" ] || [ ! -r "${i}" ]; then
+	if [ -z "${i}" ] || [ ! -r "${i}" ] || basename "${i}" | grep -q '^\._'; then
 		continue
 	fi
 
