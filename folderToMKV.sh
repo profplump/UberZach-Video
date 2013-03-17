@@ -21,7 +21,7 @@ if [ $LOAD -gt $(( 2 * $CPU_COUNT )) ]; then
 fi
 
 # Bail if WoW is running
-if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft.app/Contents/MacOS/World of Warcraft"; then
+if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft-64.app/Contents/MacOS/World of Warcraft-64"; then
 	exit 0
 fi
 
