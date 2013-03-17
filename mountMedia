@@ -2,10 +2,10 @@
 
 if ! ~/bin/video/isMediaMounted; then
 	osascript -e 'tell application "Finder" to mount volume "smb://atv@vera.uberzach.com/media"' >/dev/null
+	open /Applications/Zach/Utilities/FixSMBLinks.app
 	sleep 1
 	if ! ~/bin/video/isMediaMounted; then
 		echo "`basename "${0}"`: Unable to mount media volume"
 		exit 1
 	fi
-	open /Applications/Zach/Utilities/FixSMBLinks.app
 fi
