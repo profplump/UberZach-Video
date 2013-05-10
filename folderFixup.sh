@@ -46,4 +46,5 @@ cat "${tmp}" | \
 	grep -Ev "^cp: .*: could not copy extended attributes to .*: Operation not permitted$" | \
 	grep -v "GetFileInfo: could not get info about file (-1401)" | \
 	grep -v "ERROR: Unexpected Error. (-1401)  on file: " | \
-	grep -v "ERROR: Unexpected Error. (-5000)  on file: "
+	grep -v "ERROR: Unexpected Error. (-5000)  on file: " | \
+	grep -v "^ *$"
