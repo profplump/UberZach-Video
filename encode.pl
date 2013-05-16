@@ -17,6 +17,7 @@ my $HEIGHT              = undef();
 my $WIDTH               = undef();
 my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
 my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
+my $FORCE_MP4           = 0;
 
 # Applicaton configuration
 my $HD_WIDTH         = 1350;
@@ -44,6 +45,7 @@ if ($ENV{'MOBILE'}) {
 	$ENV{'WIDTH'}         = 1280;
 	$ENV{'AUDIO_BITRATE'} = 128;
 	$ENV{'STEREO_ONLY'}   = 1;
+	$ENV{'FORCE_MP4'}     = 1;
 }
 
 # Additional arguments for HandBrake
@@ -71,6 +73,11 @@ if ($ENV{'AUDIO_COPY'}) {
 # Allow AAC-only audio transfers (for use in mobile encoding)
 if ($ENV{'STEREO_ONLY'}) {
 	$STEREO_ONLY = 1;
+}
+
+# Allow MP4-only output format (for use in mobile encoding)
+if ($ENV{'FORCE_MP4'}) {
+	$FORCE_MP4 = 1;
 }
 
 # Allow overrides for video quality
@@ -212,16 +219,16 @@ foreach my $title (keys(%titles)) {
 		$scan->{'crop'} = \@crop;
 	}
 
-	# Force MKV output if the title contains PGS subtitles
-	foreach my $track (values(%{ $scan->{'subtitle_parsed'} })) {
+	# Force MKV muxing if the output contains PGS subtitles (there's no support in the MP4 muxer)
+	foreach my $track (values(%{ $scan->{'subtitle_selected'} })) {
 		if ($track->{'type'} eq 'PGS') {
 			$FORMAT = 'mkv';
 			last;
 		}
 	}
 
-	# Force MKV output if the title contains DTS audio (technically MP4 is supported buy QuickTime hates it)
-	foreach my $track (values(%{ $scan->{'audio_parsed'} })) {
+	# Force MKV muxing if the output contains DTS audio (technically MP4 is supported buy QuickTime hates it)
+	foreach my $track (values(%{ $scan->{'audio_selected'} })) {
 		if ($track->{'codec'} =~ /DTS/i) {
 			$FORMAT = 'mkv';
 			last;
@@ -309,10 +316,7 @@ sub subOptions($) {
 		my ($language, $note, $iso, $text, $type) = $track->{'description'} =~ /^([^\(]+)(?:\s+\(([^\)]+)\))?\s+\(iso(\d+\-\d+)\:\s+\w\w\w\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
 		if (!defined($iso)) {
 			print STDERR 'Could not parse subtitle description: ' . $track->{'description'} . "\n";
-
-			# Temporarily exit on parsing errors -- at least until we're sure about this new parser
-			#next;
-			exit(1);
+			next;
 		}
 
 		# Map text/bitmap into a boolean
@@ -340,9 +344,16 @@ sub subOptions($) {
 	# Push the parsed data back up the chain
 	$scan->{'subtitle_parsed'} = \%tracks;
 
-	# Keep subtitles in our prefered langauges, and all text-based subtitles (they're small)
+	# Select the subtitle tracks we want to keep
 	my @keep = ();
 	foreach my $index (keys(%tracks)) {
+
+		# Skip PGS tracks when we're forcing MP4 output (they're not allowed by the muxer)
+		if ($FORCE_MP4 && $tracks{$index}->{'type'} eq 'PGS') {
+			next;
+		}
+
+		# Keep tracks in our prefered language, and all text-based subtitles (they're small)
 		if (isValidSubLanguage($tracks{$index}->{'language'}, $tracks{$index}->{'iso'})) {
 			push(@keep, $index);
 		} elsif ($tracks{$index}->{'text'}) {
@@ -353,6 +364,13 @@ sub subOptions($) {
 			}
 		}
 	}
+
+	# Push the selected tracks back up the chain
+	my %tmp = ();
+	foreach my $num (@keep) {
+		$tmp{$num} = $tracks{$num};
+	}
+	$scan->{'subtitle_selected'} = \%tmp;
 
 	# Send back the argument string (if any)
 	if (scalar(@keep) < 1) {
@@ -370,10 +388,7 @@ sub audioOptions($) {
 		my ($language, $codec, $note, $channels, $iso) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso(\d+\-\d+)\:\s+\w\w\w\))?/;
 		if (!defined($channels)) {
 			print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
-
-			# Temporarily exit on parsing errors -- at least until we're sure about this new parser
-			#next;
-			exit(1);
+			next;
 		}
 
 		# Decode the channels string to a number
@@ -488,6 +503,13 @@ sub audioOptions($) {
 			}
 		}
 	}
+
+	# Push the selected tracks back up the chain
+	my %tmp = ();
+	foreach my $track (@audio_tracks) {
+		$tmp{ $track->{'index'} } = $track;
+	}
+	$scan->{'audio_selected'} = \%tmp;
 
 	# Consolidate from the hashes
 	my @output_tracks   = ();
