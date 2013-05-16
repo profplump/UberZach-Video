@@ -24,6 +24,8 @@ my $DEBUG               = 0;
 my $FORCE_MKV           = 0;
 my $AUDIO_COPY          = 0;
 my $STEREO_ONLY         = 0;
+my $HEIGHT              = undef();
+my $WIDTH               = undef();
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
@@ -61,6 +63,14 @@ if ($ENV{'STEREO_ONLY'}) {
 if ($ENV{'QUALITY'}) {
 	$QUALITY    = $ENV{'QUALITY'};
 	$HD_QUALITY = $ENV{'QUALITY'};
+}
+
+# Allow overrides for video height and width. The default is "same as source".
+if ($ENV{'HEIGHT'}) {
+	$HEIGHT = $ENV{'HEIGHT'};
+}
+if ($ENV{'WIDTH'}) {
+	$WIDTH = $ENV{'WIDTH'};
 }
 
 # Command-line parameters
@@ -209,6 +219,14 @@ foreach my $title (keys(%titles)) {
 	if (scalar(keys(%titles)) > 1) {
 		my $title_text = sprintf('%02d', $title);
 		$title_out_file =~ s/(\.\w{2,4})$/\-${title_text}${1}/;
+	}
+
+	# Limit the maximum height and width, if any is specified
+	if ($HEIGHT) {
+		push(@video_params, '--maxHeight', $HEIGHT);
+	}
+	if ($WIDTH) {
+		push(@video_params, '--maxWidth', $WIDTH);
 	}
 
 	# Output file
