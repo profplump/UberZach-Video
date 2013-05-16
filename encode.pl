@@ -51,6 +51,17 @@ if ($ENV{'AUDIO_COPY'}) {
 	$AUDIO_COPY = 1;
 }
 
+# Allow AAC-only audio transfers (for use in mobile encoding)
+if ($ENV{'STEREO_ONLY'}) {
+	$STEREO_ONLY = 1;
+}
+
+# Allow overrides for video quality
+if ($ENV{'QUALITY'}) {
+	$QUALITY    = $ENV{'QUALITY'};
+	$HD_QUALITY = $ENV{'QUALITY'};
+}
+
 # Command-line parameters
 my ($in_file, $out_file, $title) = @ARGV;
 if (!defined($in_file) || length($in_file) < 1 || !-r $in_file) {
@@ -64,8 +75,8 @@ my %titles = &scan($in_file);
 if (scalar(keys(%titles)) == 1) {
 	my $srt_file = $in_file;
 	$srt_file =~ s/\.\w{2,4}$/.srt/;
-	if (! -r $srt_file) {
-		$srt_file =~ s/\.\w{2,4}$/.ssa/;		
+	if (!-r $srt_file) {
+		$srt_file =~ s/\.\w{2,4}$/.ssa/;
 	}
 	if (-r $srt_file) {
 		if ($DEBUG) {
@@ -408,27 +419,31 @@ sub audioOptions($) {
 		push(@audio_tracks, \%track);
 	}
 
-	# Passthru DTS-MA, DTS, AC3, and AAC
-	# Keep other audio tracks, but recode to AAC (using Handbrake's audio-copy-mask/audio-fallback feature)
-	foreach my $index (keys(%tracks)) {
-		if ($mixdown == $index && $tracks{$index}->{'codec'} eq 'OTHER' && $tracks{$index}->{'channels'} <= 2) {
-			if ($DEBUG) {
-				print STDERR 'Skipping recode of track ' . $index . ' since it is already used as the default track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
+	# Keep all other audio tracks, unless STEREO_ONLY is set
+	if (!$STEREO_ONLY) {
+
+		# Passthru DTS-MA, DTS, AC3, and AAC
+		# Keep other audio tracks, but recode to AAC (using Handbrake's audio-copy-mask/audio-fallback feature)
+		foreach my $index (keys(%tracks)) {
+			if ($mixdown == $index && $tracks{$index}->{'codec'} eq 'OTHER' && $tracks{$index}->{'channels'} <= 2) {
+				if ($DEBUG) {
+					print STDERR 'Skipping recode of track ' . $index . ' since it is already used as the default track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
+				}
+				next;
+			} elsif (!$tracks{$index}->{'codec'}) {
+				if ($DEBUG) {
+					print STDERR 'Skipping track ' . $index . " due to invalid codec\n";
+				}
+				next;
+			} elsif (!isValidAudioLanguage($tracks{$index}->{'language'}, $tracks{$index}->{'iso'})) {
+				if ($DEBUG) {
+					print STDERR 'Skipping track ' . $index . ' due to language: ' . $tracks{$index}->{'language'} . "\n";
+				}
+				next;
+			} else {
+				my %track = ('index' => $index, 'encoder' => 'copy');
+				push(@audio_tracks, \%track);
 			}
-			next;
-		} elsif (!$tracks{$index}->{'codec'}) {
-			if ($DEBUG) {
-				print STDERR 'Skipping track ' . $index . " due to invalid codec\n";
-			}
-			next;
-		} elsif (!isValidAudioLanguage($tracks{$index}->{'language'}, $tracks{$index}->{'iso'})) {
-			if ($DEBUG) {
-				print STDERR 'Skipping track ' . $index . ' due to language: ' . $tracks{$index}->{'language'} . "\n";
-			}
-			next;
-		} else {
-			my %track = ('index' => $index, 'encoder' => 'copy');
-			push(@audio_tracks, \%track);
 		}
 	}
 
