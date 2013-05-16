@@ -38,6 +38,15 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
 	$DEBUG = 1;
 }
 
+# Shortcut config
+if ($ENV{'MOBILE'}) {
+	$ENV{'QUALITY'}       = 25;
+	$ENV{'HEIGHT'}        = 720;
+	$ENV{'WIDTH'}         = 1280;
+	$ENV{'AUDIO_BITRATE'} = 128;
+	$ENV{'STEREO_ONLY'}   = 1;
+}
+
 # Additional arguments for HandBrake
 # Split on spaces; if you need spaces you'll have to work out something else
 if ($ENV{'HANDBRAKE_ARGS'}) {
