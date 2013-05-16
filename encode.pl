@@ -6,26 +6,32 @@ use warnings;
 use IPC::Open3;
 use File::Basename;
 
-# Parameters
-my @video_params        = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50', '--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3', '--mixdown', 'dpl2', '--ab', '192');
+# Default configuration
 my $FORMAT              = 'mp4';
+my $AUDIO_BITRATE       = 192;
 my $QUALITY             = 20;
-my $HD_QUALITY          = 20;
-my $HD_WIDTH            = 1350;
-my $MIN_VIDEO_WIDTH     = 100;
-my $MAX_CROP_DIFF       = .1;
-my $MAX_DURA_DIFF       = 5;
-my @CODEC_ORDER         = ('DTS-HD', 'DTS', 'PCM', 'AC3', 'AAC', 'OTHER');
-my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
-my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
-my %LANG_INCLUDE_ISO    = ('639-1' => 1);
-my $HB_EXEC             = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
-my $DEBUG               = 0;
+my $HD_QUALITY          = 22;
 my $FORCE_MKV           = 0;
 my $AUDIO_COPY          = 0;
 my $STEREO_ONLY         = 0;
 my $HEIGHT              = undef();
 my $WIDTH               = undef();
+my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
+my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
+
+# Applicaton configuration
+my $HD_WIDTH         = 1350;
+my $MIN_VIDEO_WIDTH  = 100;
+my $MAX_CROP_DIFF    = .1;
+my $MAX_DURA_DIFF    = 5;
+my @CODEC_ORDER      = ('DTS-HD', 'DTS', 'PCM', 'AC3', 'AAC', 'OTHER');
+my %LANG_INCLUDE_ISO = ('639-1' => 1);
+my $HB_EXEC          = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
+my $DEBUG            = 0;
+
+# General parameters for HandBrake
+my @video_params = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50');
+my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3', '--mixdown', 'dpl2');
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
@@ -63,6 +69,11 @@ if ($ENV{'STEREO_ONLY'}) {
 if ($ENV{'QUALITY'}) {
 	$QUALITY    = $ENV{'QUALITY'};
 	$HD_QUALITY = $ENV{'QUALITY'};
+}
+
+# Allow overrides for audio bitrate
+if ($ENV{'AUDIO_BITRATE'}) {
+	$AUDIO_BITRATE = $ENV{'AUDIO_BITRATE'};
 }
 
 # Allow overrides for video height and width. The default is "same as source".
@@ -175,7 +186,10 @@ foreach my $title (keys(%titles)) {
 		next;
 	}
 
-	# Reduce the quality if the image size is particularly large
+	# Set the audio quality for re-encoded tracks
+	push(@audio, '--ab', $AUDIO_BITRATE);
+
+	# Set the video quality, using $HD_QUALITY for images larger than $HD_WIDTH (to allow lower quality on HD streams)
 	my $title_quality = $QUALITY;
 	if ($scan->{'size'}[0] > $HD_WIDTH) {
 		$title_quality = $HD_QUALITY;
@@ -243,6 +257,7 @@ foreach my $title (keys(%titles)) {
 	push(@args, '--quality', $title_quality);
 	push(@args, '--crop',    join(':', @{ $scan->{'crop'} }));
 	push(@args, @video_params);
+	push(@args, @audio_params);
 	push(@args, @audio);
 	push(@args, @subs);
 
