@@ -23,6 +23,7 @@ my $HB_EXEC             = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG               = 0;
 my $FORCE_MKV           = 0;
 my $AUDIO_COPY          = 0;
+my $STEREO_ONLY         = 0;
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
