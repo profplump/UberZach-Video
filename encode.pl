@@ -11,7 +11,6 @@ my $FORMAT              = 'mp4';
 my $AUDIO_BITRATE       = 192;
 my $QUALITY             = 20;
 my $HD_QUALITY          = 22;
-my $FORCE_MKV           = 0;
 my $AUDIO_COPY          = 0;
 my $STEREO_ONLY         = 0;
 my $HEIGHT              = undef();
