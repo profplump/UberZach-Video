@@ -45,7 +45,6 @@ if ($ENV{'MOBILE'}) {
 	$ENV{'WIDTH'}         = 1280;
 	$ENV{'AUDIO_BITRATE'} = 128;
 	$ENV{'STEREO_ONLY'}   = 1;
-	$ENV{'FORCE_MP4'}     = 1;
 }
 
 # Additional arguments for HandBrake
