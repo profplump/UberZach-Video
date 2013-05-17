@@ -47,13 +47,6 @@ if ($ENV{'MOBILE'}) {
 	$ENV{'STEREO_ONLY'}   = 1;
 }
 
-# Additional arguments for HandBrake
-# Split on spaces; if you need spaces you'll have to work out something else
-if ($ENV{'HANDBRAKE_ARGS'}) {
-	my @args = split(/\s+/, $ENV{'HANDBRAKE_ARGS'});
-	push(@video_params, @args);
-}
-
 # Allow overrides for audio languages
 if ($ENV{'AUDIO_EXCLUDE_REGEX'}) {
 	$AUDIO_EXCLUDE_REGEX = $ENV{'AUDIO_EXCLUDE_REGEX'};
@@ -92,16 +85,28 @@ if ($ENV{'AUDIO_BITRATE'}) {
 
 # Allow overrides for video height and width. The default is "same as source".
 if ($ENV{'HEIGHT'}) {
-	$HEIGHT = $ENV{'HEIGHT'};
+	push(@video_params, '--maxHeight', $ENV{'HEIGHT'});
 }
 if ($ENV{'WIDTH'}) {
-	$WIDTH = $ENV{'WIDTH'};
+	push(@video_params, '--maxWidth', $ENV{'WIDTH'});
+}
+
+# Additional arguments for HandBrake, to allow options not supported directly by this script
+# Split on spaces; if you need spaces you'll have to work out something else
+if ($ENV{'HANDBRAKE_ARGS'}) {
+	my @args = split(/\s+/, $ENV{'HANDBRAKE_ARGS'});
+	push(@video_params, @args);
 }
 
 # Command-line parameters
 my ($in_file, $out_file, $title) = @ARGV;
 if (!defined($in_file) || length($in_file) < 1 || !-r $in_file) {
 	die('Usage: ' . basename($0) . " in_file [out_file] [title]\n");
+}
+
+# Sanity checks
+if ($AUDIO_COPY && $STEREO_ONLY) {
+	die(basename($0) . ": AUDIO_COPY and STEREO_ONLY are mutually exclusive\n");
 }
 
 # Scan for title/track info
@@ -171,8 +176,8 @@ if (!defined($out_file) || length($out_file) < 1) {
 	}
 }
 
-# Keep the original format around so we can reset between tracks
-my $FORMAT_ORIG = $FORMAT;
+# Keep copies of our defaults so we can reset between tracks
+my $format_default = $FORMAT;
 
 # Encode each title
 foreach my $title (keys(%titles)) {
@@ -181,7 +186,7 @@ foreach my $title (keys(%titles)) {
 	}
 
 	# Reset
-	$FORMAT = $FORMAT_ORIG;
+	$FORMAT = $format_default;
 
 	# Parse the title's audio and subtitle tracks
 	my $scan  = $titles{$title};
@@ -247,14 +252,6 @@ foreach my $title (keys(%titles)) {
 	if (scalar(keys(%titles)) > 1) {
 		my $title_text = sprintf('%02d', $title);
 		$title_out_file =~ s/(\.\w{2,4})$/\-${title_text}${1}/;
-	}
-
-	# Limit the maximum height and width, if any is specified
-	if ($HEIGHT) {
-		push(@video_params, '--maxHeight', $HEIGHT);
-	}
-	if ($WIDTH) {
-		push(@video_params, '--maxWidth', $WIDTH);
 	}
 
 	# Output file
@@ -380,6 +377,7 @@ sub subOptions($) {
 
 sub audioOptions($) {
 	my ($scan) = @_;
+	my @retval = ();
 
 	# Type the audio tracks
 	my %tracks = ();
@@ -437,6 +435,9 @@ sub audioOptions($) {
 	my %bestByCodec  = ();
 	my $bestCodec    = undef();
 	my $mostChannels = 0;
+
+	# Loop point, in case we need to run the selector more than once
+	SELECT_AUDIO:
 	foreach my $codec (@CODEC_ORDER) {
 		$bestByCodec{$codec} = findBestAudioTrack(\%tracks, $codec);
 		if (defined($bestByCodec{$codec}) && (!defined($bestCodec) || $mostChannels < $tracks{ $bestByCodec{$codec} }->{'channels'})) {
@@ -453,6 +454,15 @@ sub audioOptions($) {
 
 	# Sanity check
 	if (!defined($mixdown) || $mixdown < 1) {
+
+		# If we applied an exclude filter, remove it and try again
+		if ($AUDIO_EXCLUDE_REGEX ne 'ACCEPT_ALL') {
+			$AUDIO_EXCLUDE_REGEX = 'ACCEPT_ALL';
+			print STDERR "No usable audio tracks found in title. Removing exclude filter...\n";
+			goto SELECT_AUDIO;
+		}
+
+		# If we got no audio, give up -- this file is not valid
 		print STDERR basename($0) . ": No usable audio tracks in title\n";
 		return;
 	}
@@ -468,6 +478,7 @@ sub audioOptions($) {
 		if ($DEBUG) {
 			print STDERR 'Using track ' . $mixdown . " as default AAC audio\n";
 			if ($tracks{$mixdown}->{'channels'} > 2) {
+				push(@retval, '--mixdown', 'dpl2');
 				print STDERR "\tMixing down with Dolby Pro Logic II encoding\n";
 			}
 		}
@@ -481,7 +492,7 @@ sub audioOptions($) {
 		# Passthru DTS-MA, DTS, AC3, and AAC
 		# Keep other audio tracks, but recode to AAC (using Handbrake's audio-copy-mask/audio-fallback feature)
 		foreach my $index (keys(%tracks)) {
-			if ($mixdown == $index && $tracks{$index}->{'codec'} eq 'OTHER' && $tracks{$index}->{'channels'} <= 2) {
+			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'codec'} eq 'OTHER' && $tracks{$index}->{'channels'} <= 2) {
 				if ($DEBUG) {
 					print STDERR 'Skipping recode of track ' . $index . ' since it is already used as the default track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
 				}
@@ -532,7 +543,9 @@ sub audioOptions($) {
 	}
 
 	# Send back the argument strings
-	return ('--audio', join(',', @output_tracks), '--aencoder', join(',', @output_encoders));
+	push(@retval, '--audio',    join(',', @output_tracks));
+	push(@retval, '--aencoder', join(',', @output_encoders));
+	return (@retval);
 }
 
 sub scan($) {
