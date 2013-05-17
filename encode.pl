@@ -504,11 +504,24 @@ sub audioOptions($) {
 	}
 
 	# Push the selected tracks back up the chain
-	my %tmp = ();
+	my %sel = ();
 	foreach my $track (@audio_tracks) {
-		$tmp{ $track->{'index'} } = $track;
+
+		# Copy the data, rather than just point to it -- we sometimes need modifications
+		my $index = $track->{'index'};
+		my %tmp   = %{ $tracks{$index} };
+
+		# The mixdown track needs special handling -- it appears twice, and with different settings
+		if ($track->{'encoder'} ne 'copy' && defined($mixdown) && $mixdown > 0 && $track->{'index'} == $mixdown) {
+			$index .= '_mixdown';
+			$tmp{'codec'}    = 'AAC';
+			$tmp{'channels'} = '2.0';
+		}
+
+		# Collect our (possibly modified) hash
+		$sel{$index} = \%tmp;
 	}
-	$scan->{'audio_selected'} = \%tmp;
+	$scan->{'audio_selected'} = \%sel;
 
 	# Consolidate from the hashes
 	my @output_tracks   = ();
