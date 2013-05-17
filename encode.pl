@@ -40,7 +40,7 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
 
 # Shortcut config
 if ($ENV{'MOBILE'}) {
-	$ENV{'QUALITY'}       = 25;
+	$ENV{'QUALITY'}       = 24;
 	$ENV{'HEIGHT'}        = 720;
 	$ENV{'WIDTH'}         = 1280;
 	$ENV{'AUDIO_BITRATE'} = 128;
