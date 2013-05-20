@@ -18,6 +18,7 @@ my $WIDTH               = undef();
 my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
 my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4           = 0;
+my $OUT_DIR             = undef();
 
 # Applicaton configuration
 my $HD_WIDTH         = 1350;
@@ -81,6 +82,11 @@ if ($ENV{'QUALITY'}) {
 # Allow overrides for audio bitrate
 if ($ENV{'AUDIO_BITRATE'}) {
 	$AUDIO_BITRATE = $ENV{'AUDIO_BITRATE'};
+}
+
+# Use an alternate output directory, if specified
+if ($ENV{'OUT_DIR'}) {
+	$OUT_DIR = $ENV{'OUT_DIR'};
 }
 
 # Allow overrides for video height and width. The default is "same as source".
@@ -174,6 +180,11 @@ if (!defined($out_file) || length($out_file) < 1) {
 	if (defined($force_format) && lc($force_format) eq 'mkv') {
 		$FORMAT = 'mkv';
 	}
+}
+
+# Override the output directory, if requested
+if ($OUT_DIR) {
+	$out_file = $OUT_DIR . basename($out_file);
 }
 
 # Keep copies of our defaults so we can reset between tracks
