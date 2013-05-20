@@ -87,6 +87,7 @@ if ($ENV{'AUDIO_BITRATE'}) {
 # Use an alternate output directory, if specified
 if ($ENV{'OUT_DIR'}) {
 	$OUT_DIR = $ENV{'OUT_DIR'};
+	$OUT_DIR =~ s/\/+$//;
 }
 
 # Allow overrides for video height and width. The default is "same as source".
@@ -184,7 +185,7 @@ if (!defined($out_file) || length($out_file) < 1) {
 
 # Override the output directory, if requested
 if ($OUT_DIR) {
-	$out_file = $OUT_DIR . basename($out_file);
+	$out_file = $OUT_DIR . '/' . basename($out_file);
 }
 
 # Keep copies of our defaults so we can reset between tracks
