@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters
-inFolder="/mnt/media/TV"
+inFolder="`~/bin/video/mediaPath`"
 
 # Command line
 if [ -n "${1}" ]; then

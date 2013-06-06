@@ -6,10 +6,22 @@ use warnings;
 use File::Basename;
 
 # Parameters
-my @BASE_DIRS = ('/mnt/media/TV', '/mnt/media/Download');
+my @BASE_DIRS = ();
 my @skipped   = ();
 my @monitored = ();
 my @done      = ();
+
+# Media path(s)
+{
+	my $path = `~/bin/video/mediaPath`;
+	if (-d $path) {
+		push(@BASE_DIRS, $path);
+	}
+	$path = dirname($path) . '/Downloads';
+	if (-d $path) {
+		push(@BASE_DIRS, $path);
+	}
+}
 
 # Command-line parameters
 my ($prg) = @ARGV;

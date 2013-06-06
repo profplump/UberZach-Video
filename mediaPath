@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Run silent, run deep
+SILENT=0
+if [ "`basename "${0}"`" == 'isMediaMounted' ]; then
+	SILENT=1
+fi
+
+# Check the possible paths
+for i in "${HOME}/media/TV" "/mnt/media/TV"; do
+	if [ -d "${i}" ]; then
+		if [ $SILENT -le 0 ]; then
+			dir="`dirname "${i}"`"
+			echo -n "${dir}"
+		fi
+		exit 0
+	fi
+done
+
+# Return false if we don't find anything
+exit 1

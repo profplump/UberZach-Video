@@ -1,6 +1,1 @@
-#!/bin/bash
-
-if [ -d /mnt/media/TV ]; then
-	exit 0
-fi
-exit 1
+mediaPath
