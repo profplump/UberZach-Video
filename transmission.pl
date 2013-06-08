@@ -27,7 +27,7 @@ sub runAndCheck(@);
 
 # Parameters
 my $maxAge        = 2.5 * 86400;
-my $tvDir         = `~/bin/video/mediaPath`;
+my $tvDir         = `~/bin/video/mediaPath` . '/TV';
 my $monitoredExec = '/Users/profplump/bin/video/torrentMonitored.pl';
 my $host          = 'http://localhost:9091';
 my $url           = $host . '/transmission/rpc';

@@ -13,11 +13,11 @@ my @done      = ();
 
 # Media path(s)
 {
-	my $path = `~/bin/video/mediaPath`;
+	my $path = `~/bin/video/mediaPath` . '/TV';
 	if (-d $path) {
 		push(@BASE_DIRS, $path);
 	}
-	$path = dirname($path) . '/Downloads';
+	$path .= '/Downloads';
 	if (-d $path) {
 		push(@BASE_DIRS, $path);
 	}
