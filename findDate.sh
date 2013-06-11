@@ -2,7 +2,7 @@
 set -e
 
 # Parameters
-TV_DIR="/Volumes/media/TV"
+TV_DIR="`~/bin/video/mediaPath`/TV";
 SERIES="${1}"
 SEARCH="${2}"
 DAYS_BACK="${3}"
