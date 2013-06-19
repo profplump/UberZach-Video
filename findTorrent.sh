@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR="`~/bin/video/mediaPath`"
+BASE_DIR="`~/bin/video/mediaPath`/TV"
 
 SERIES="${1}"
 SEASON="${2}"
