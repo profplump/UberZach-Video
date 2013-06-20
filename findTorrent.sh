@@ -50,12 +50,19 @@ if [ ! -d "${SEASON_DIR}" ]; then
 	usage
 fi
 
+# Enable DEBUG by default
+DEBUG=1
+if [ -n "${SILENT}" ]; then
+	DEBUG=0
+fi
+export DEBUG
+
 # Special handling for search-by-date folders
 if [ -r "${SERIES_DIR}/search_by_date" ]; then
 	SEARCH_STR=`cat "${SERIES_DIR}/search_by_date"`
-	DEBUG=1 ~/bin/video/findDate.sh "${SERIES}" "${SEARCH_STR}" 0 3 | download
+	~/bin/video/findDate.sh "${SERIES}" "${SEARCH_STR}" 0 3 | download
 	exit $?
 fi
 
 # Run the standard command, in debug mode
-DEBUG=1 ~/bin/video/findTorrent.pl "${SEASON_DIR}" | download
+~/bin/video/findTorrent.pl "${SEASON_DIR}" | download
