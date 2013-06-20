@@ -10,7 +10,7 @@ MAX_DAYS_BACK="${4}"
 
 # Usage
 if [ -z "${SERIES}" ] || [ -z "${SEARCH}" ] || [ -z "${DAYS_BACK}" ] || \
-	! echo "${DAYS_BACK}" | grep -qE '^[0-9]*$' || [ $DAYS_BACK -lt 1 ] || [ $DAYS_BACK -gt 90 ]; then
+	! echo "${DAYS_BACK}" | grep -qE '^[0-9]*$' || [ $DAYS_BACK -lt 0 ] || [ $DAYS_BACK -gt 90 ]; then
 		echo "Usage: `basename "${0}" series search days_back [max_days_back]`" 1>&2
 		exit 1
 fi
