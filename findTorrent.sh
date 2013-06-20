@@ -23,6 +23,7 @@ if [ ! -d "${SERIES_DIR}" ]; then
 	echo "No such series directory: ${SERIES_DIR}" 1>&2
 	usage
 fi
+SERIES="`basename "${SERIES_DIR}"`"
 
 # Find the season directory -- if no season is provided, use the last season in the series directory
 if [ -z "${SEASON}" ]; then
@@ -33,6 +34,13 @@ SEASON_DIR="${SERIES_DIR}/Season ${SEASON}"
 if [ ! -d "${SEASON_DIR}" ]; then
 	echo "No such season directory: ${SEASON_DIR}" 1>&2
 	usage
+fi
+
+# Special handling for search-by-date folders
+if [ -r "${SERIES_DIR}/search_by_date" ]; then
+	SEARCH_STR=`cat "${SERIES_DIR}/search_by_date"`
+	DEBUG=1 ~/bin/video/findDate.sh "${SERIES}" "${SEARCH_STR}" 0 3 | download
+	exit $?
 fi
 
 # Run the standard command, in debug mode
