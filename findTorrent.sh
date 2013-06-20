@@ -10,20 +10,32 @@ usage() {
 	exit 1
 }
 
-# Find the series directory
+# Resolve relative paths
 if echo "${SERIES}" | grep -qE "\.\.?/"; then
 	SERIES="`cd "${SERIES}" && pwd`"
 fi
+
+# Split the season directory, if provided
+if echo "${SERIES}" | grep -qE '\/Season [0-9]*\/?$'; then
+		SEASON="`basename "${SERIES}" | sed 's%^Season %%'`"
+		SERIES="`dirname "${SERIES}"`"
+fi
+
+# Construct the series directory path
 if echo "${SERIES}" | grep -q "/"; then
 	SERIES_DIR="${SERIES}"
 else
 	SERIES_DIR="${BASE_DIR}/${SERIES}"
 fi
+
+# Standardize the series name
+SERIES="`basename "${SERIES_DIR}"`"
+
+# Sanity check
 if [ ! -d "${SERIES_DIR}" ]; then
 	echo "No such series directory: ${SERIES_DIR}" 1>&2
 	usage
 fi
-SERIES="`basename "${SERIES_DIR}"`"
 
 # Find the season directory -- if no season is provided, use the last season in the series directory
 if [ -z "${SEASON}" ]; then
@@ -31,6 +43,8 @@ if [ -z "${SEASON}" ]; then
 	SEASON=$(( $SEASON + 0 ))
 fi
 SEASON_DIR="${SERIES_DIR}/Season ${SEASON}"
+
+# Sanity check
 if [ ! -d "${SEASON_DIR}" ]; then
 	echo "No such season directory: ${SEASON_DIR}" 1>&2
 	usage
