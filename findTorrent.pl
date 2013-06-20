@@ -2,13 +2,37 @@
 use strict;
 use warnings;
 
+# Defaults
 my $DEBUG               = 0;
 my $NO_QUALITY_CHECKS   = 0;
 my $MORE_NUMBER_FORMATS = 0;
+my $MIN_DAYS_BACK       = 0;
+my $MAX_DAYS_BACK       = 3;
+
+# Local config
+my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
+
+# Search parameters
+my $PROTOCOL = 'https';
+my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 0);
+
+# Selection parameters
+my $MIN_COUNT        = 10;
+my $MIN_SIZE         = 100;
+my $SIZE_BONUS       = 7;
+my $SIZE_PENALTY     = $SIZE_BONUS;
+my $MAX_SEED_RATIO   = .25;
+my $SEED_RATIO_COUNT = 10;
+
+# App config
+my $DELAY   = 4;
+my $TIMEOUT = 15;
+my $UA      = 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X 10_5_5; en-us) AppleWebKit/525.18 (KHTML, like Gecko) Version/3.1.2 Safari/525.20.1';
 
 # Includes
 use JSON;
 use File::Temp;
+use File::Spec;
 use File::Basename;
 use FindBin qw($Bin);
 use lib $Bin;
@@ -19,7 +43,7 @@ sub findSE($);
 
 # Command line
 my ($dir, $search) = @ARGV;
-if (!defined($dir) || (!defined($search) && !-d $dir)) {
+if (!defined($dir)) {
 	die('Usage: ' . basename($0) . " input_directory [search_string]\n");
 }
 if ($ENV{'DEBUG'}) {
@@ -31,19 +55,12 @@ if ($ENV{'NO_QUALITY_CHECKS'}) {
 if ($ENV{'MORE_NUMBER_FORMATS'}) {
 	$MORE_NUMBER_FORMATS = 1;
 }
-
-# Parameters
-my $DELAY            = 4;
-my $MIN_COUNT        = 10;
-my $MIN_SIZE         = 100;
-my $SIZE_BONUS       = 7;
-my $SIZE_PENALTY     = $SIZE_BONUS;
-my $MAX_SEED_RATIO   = .25;
-my $SEED_RATIO_COUNT = 10;
-my $PROTOCOL         = 'https';
-my $UA               = 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X 10_5_5; en-us) AppleWebKit/525.18 (KHTML, like Gecko) Version/3.1.2 Safari/525.20.1';
-my $TIMEOUT          = 15;
-my %ENABLE_SOURCE    = ('TPB' => 1, 'ISO' => 0);
+if ($ENV{'MIN_DAYS_BACK'}) {
+	$MIN_DAYS_BACK = 1;
+}
+if ($ENV{'MAX_DAYS_BACK'}) {
+	$MAX_DAYS_BACK = 1;
+}
 
 # New fetch object
 my $cookies = mktemp('/tmp/findTorrent.cookies.XXXXXXXX');
@@ -130,7 +147,62 @@ my $CUSTOM_SEARCH = 0;
 my $season        = 0;
 my @need          = ();
 my %need          = ();
-if (defined($search) && length($search) > 0) {
+
+# Clean up the input "directory" path
+{
+	# Allow use of the raw series name
+	if (!($dir =~ /\//)) {
+		$show = $dir;
+		$dir  = $TV_DIR . '/' . $dir;
+	}
+
+	# Allow use of relative paths
+	$dir = File::Spec->rel2abs($dir);
+
+	# Sanity check
+	if (!-d $dir) {
+		die('Invalid input directory: ' . $dir . "\n");
+	}
+
+	# Isolate the season from the path, if provided
+	$dir =~ /\/Season\s+(\d+)\/?$/i;
+	if ($1) {
+		$season = $1;
+		$dir    = dirname($dir);
+	}
+
+	# If no season is provided find the latest
+	if (!$season) {
+		opendir(SERIES, $dir)
+		  or die("Unable to open series directory: ${!}\n");
+		while (my $file = readdir(SERIES)) {
+			if ($file =~ /^Season\s+(\d+)$/i) {
+				if (!$season || $season < $1) {
+					$season = $1;
+				}
+			}
+		}
+		closedir(SERIES);
+	}
+
+	# Isolate and clean the series name
+	if (!$show) {
+		$show = basename($dir);
+	}
+	$show =~ s/[\'\"\.]//g;
+
+	if ($DEBUG) {
+		print STDERR 'Checking directory: ' . $dir . "\n";
+	}
+}
+
+# Allow quality checks to be disabled
+if (-e dirname($dir) . '/no_quality_checks') {
+	$NO_QUALITY_CHECKS = 1;
+}
+
+# Handle custom searches
+if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 
 	# Note the custom search string
 	$CUSTOM_SEARCH = 1;
@@ -143,30 +215,80 @@ if (defined($search) && length($search) > 0) {
 		my $source = $SOURCES{$key};
 		push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search . $source->{'search_suffix'});
 	}
+}
 
-	# Get and clean the show name (for post-search matching)
-	$show = $dir;
-	$show =~ s/[\'\"]//g;
-} else {
+# Handle search-by-date series
+if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 
-	# Read the input directory
+	# Note the search-by-date status
+	# Set the CUSTOM_SERACH flag to skip season/epsiode matching
+	$CUSTOM_SEARCH = 1;
 	if ($DEBUG) {
-		print STDERR 'Checking directory: ' . $dir . "\n";
+		print STDERR "Find by date\n";
 	}
 
-	# Allow quality checks to be disabled
-	if (-e dirname($dir) . '/no_quality_checks') {
-		$NO_QUALITY_CHECKS = 1;
+	# Read the find-by-date string
+	my $search_by_date = '';
+	local ($/, *FH);
+	open(FH, $dir . '/search_by_date')
+	  or die('Unable to read search_by_date for show: ' . $show . ': ' . $! . "\n");
+	my $text = <FH>;
+	close(FH);
+	if ($text =~ /^\s*(\S.*\S)\s*$/) {
+		$search_by_date = $1;
+	} else {
+		die('Skipping invalid search_by_date for show: ' . $show . ': ' . $text . "\n");
 	}
+
+	# Create search strings for each date in the range, unless the related file already exists
+	for (my $days_back = $MIN_DAYS_BACK ; $days_back <= $MAX_DAYS_BACK ; $days_back++) {
+
+		# Calculate the date
+		my (undef(), undef(), undef(), $day, $month, $year) = localtime(time() - (86400 * $days_back));
+
+		# Format as strings
+		$year  = sprintf('%04d', $year + 1900);
+		$month = sprintf('%02d', $month + 1);
+		$day   = sprintf('%02d', $day);
+
+		# Check for an existing file
+		my $exists = 0;
+		{
+			my $season_dir = $dir . '/Season ' . $year;
+			my $prefix     = qr/${year}\-${month}\-${day}\s*\-\s*/;
+			opendir(SEASON, $season_dir)
+			  or die("Unable to open season directory: ${!}\n");
+			while (my $file = readdir(SEASON)) {
+				if ($file =~ $prefix) {
+					$exists = 1;
+					last;
+				}
+			}
+			closedir(SEASON);
+		}
+		if ($exists) {
+			next;
+		}
+
+		# Create the relevent search strings
+		my $search_str = $search_by_date;
+		$search_str =~ s/%Y/${year}/g;
+		$search_str =~ s/%m/${month}/g;
+		$search_str =~ s/%d/${day}/g;
+		foreach my $key (keys(%SOURCES)) {
+			my $source = $SOURCES{$key};
+			push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search_str . $source->{'search_suffix'});
+		}
+	}
+}
+
+# Handle standard series
+if (scalar(@urls) < 1) {
 
 	# Allow use of more number formats
 	if (-e dirname($dir) . '/more_number_formats') {
 		$MORE_NUMBER_FORMATS = 1;
 	}
-
-	# Get and clean the show name
-	$show = basename(dirname($dir));
-	$show =~ s/[\'\"\.]//g;
 
 	# Allow the show name to be overriden
 	{
@@ -188,26 +310,16 @@ if (defined($search) && length($search) > 0) {
 		print STDERR 'Searching with series title: ' . $show . "\n";
 	}
 
-	# Get the season number
-	my $name = basename($dir);
-	if ($name =~ /^\s*Season\s+(\d+)\s*$/i) {
-		$season = $1;
-	}
+	# Validate the season number
 	if (!defined($season) || $season < 1 || $season > 2000) {
-		if (defined($season)) {
-			if ($DEBUG) {
-				print STDERR 'Skipping season ' . $season . "\n";
-			}
-			exit 0;
-		}
-		die('Invalid season number: ' . $show . ' => ' . $name . "\n");
+		die('Invalid season number: ' . $show . ' => ' . $season . "\n");
 	}
 
 	# Get the last episode number
 	my $no_next  = 0;
 	my %episodes = ();
 	my $highest  = 0;
-	opendir(SEASON, $dir)
+	opendir(SEASON, $dir . '/Season ' . $season)
 	  or die("Unable to open season directory: ${!}\n");
 	while (my $file = readdir(SEASON)) {
 
