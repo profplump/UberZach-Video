@@ -1,11 +1,25 @@
 #!/bin/bash
 
+HOST="vera.uberzach.com"
+
 if ! ~/bin/video/isMediaMounted; then
-	osascript -e 'tell application "Finder" to mount volume "smb://atv@vera.uberzach.com/media"' >/dev/null
-	open /Applications/Zach/Utilities/FixSMBLinks.app
+
+	# Check for connectivity (and server live-ness)
+	if ! ~/bin/video/timeout -t 2 nc -z "${HOST}" 139 >/dev/null 2>&1; then
+		echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
+		exit 1
+	fi
+
+	# Connect and fix links
+	osascript -e 'tell application "Finder" to mount volume "smb://atv@'${HOST}'/media"' >/dev/null
+	if [ -e '/Applications/Zach/Utilities/FixSMBLinks.app' ]; then
+		open '/Applications/Zach/Utilities/FixSMBLinks.app'
+	fi
 	sleep 1
+
+	# Re-check to see if it worked
 	if ! ~/bin/video/isMediaMounted; then
-		echo "`basename "${0}"`: Unable to mount media volume"
+		echo "`basename "${0}"`: Unable to mount media volume" 1>&2
 		exit 1
 	fi
 fi
