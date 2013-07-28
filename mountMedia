@@ -1,6 +1,7 @@
 #!/bin/bash
 
 HOST="vera.uberzach.com"
+LOCK="${TMPDIR}/mountMedia.mounting"
 
 function findMedia {
 	MEDIA=""
@@ -25,8 +26,20 @@ fi
 # Connect as needed
 findMedia
 if [ -z "${MEDIA}" ]; then
-	osascript -e 'tell application "Finder" to mount volume "smb://atv@'"${HOST}"'/media"'
-	sleep 5
+	LOCKED=0
+	touch "${LOCK}"
+	read MOUNT_PID < "${LOCK}"
+	if [ -n "${MOUNT_PID}" ]; then
+		if ps -A -o pid | grep -q "${MOUNT_PID}"; then
+			LOCKED=1
+		fi
+	fi
+	if [ $LOCKED -eq 0 ]; then
+		echo $$ > "${LOCK}"
+		osascript -e 'tell application "Finder" to mount volume "smb://atv@'"${HOST}"'/media"'
+		sleep 5
+		rm -f "${LOCK}"
+	fi
 fi
 
 # Fix links
