@@ -11,7 +11,12 @@ if ! ~/bin/video/isMediaMounted; then
 	fi
 
 	# Connect and fix links
-	osascript -e 'tell application "Finder" to mount volume "smb://atv@'${HOST}'/media"' >/dev/null
+	osascript -e \
+		'tell application "Finder"
+			if ((count of (every disk whose (displayed name contains "media" and local volume is false))) < 1) then
+				mount volume "smb://atv@'"${HOST}"'/media"
+			end if
+		end tell'
 	if [ -e '/Applications/Zach/Utilities/FixSMBLinks.app' ]; then
 		open '/Applications/Zach/Utilities/FixSMBLinks.app'
 	fi
