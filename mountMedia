@@ -2,29 +2,47 @@
 
 HOST="vera.uberzach.com"
 
-if ! ~/bin/video/isMediaMounted; then
+function findMedia {
+	MEDIA=""
+	for i in /Volumes/media*; do
+		if [ -d "${i}" ] && [ -d "${i}/TV" ]; then
+			MEDIA="${i}"
+		fi
+	done
+}
 
-	# Check for connectivity (and server live-ness)
-	if ! ~/bin/video/timeout -t 2 nc -z "${HOST}" 139 >/dev/null 2>&1; then
-		echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
-		exit 1
-	fi
+# Skip this whole shebang if we've got valid links
+if ~/bin/video/isMediaMounted; then
+	exit 0
+fi
 
-	# Connect and fix links
-	osascript -e \
-		'tell application "Finder"
-			if ((count of (every disk whose (displayed name contains "media" and local volume is false))) < 1) then
-				mount volume "smb://atv@'"${HOST}"'/media"
-			end if
-		end tell'
-	if [ -e '/Applications/Zach/Utilities/FixSMBLinks.app' ]; then
-		open '/Applications/Zach/Utilities/FixSMBLinks.app'
-	fi
-	sleep 1
+# Check for connectivity (and server live-ness)
+if ! ~/bin/video/timeout -t 2 nc -z "${HOST}" 139 >/dev/null 2>&1; then
+	echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
+	exit 1
+fi
 
-	# Re-check to see if it worked
-	if ! ~/bin/video/isMediaMounted; then
-		echo "`basename "${0}"`: Unable to mount media volume" 1>&2
-		exit 1
+# Connect as needed
+findMedia
+if [ -z "${MEDIA}" ]; then
+	osascript -e 'tell application "Finder" to mount volume "smb://atv@'"${HOST}"'/media"'
+	sleep 5
+fi
+
+# Fix links
+findMedia
+if [ -n "${MEDIA}" ]; then
+	if [ -d /mnt ]; then
+		if [ -h /mnt/media ]; then
+			rm -f /mnt/media
+		fi
+		ln -s "${MEDIA}" /mnt/media
 	fi
+	if [ -e "${HOME}/media" ]; then
+		rm -f "${HOME}/media"
+		ln -s "${MEDIA}" "${HOME}/media"
+	fi
+else
+	echo "`basename "${0}"`: Unable to mount media volume" 1>&2
+	exit 1
 fi
