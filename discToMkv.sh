@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Config
-DRIVE_NUM="1"
+DRIVE_NUM=1
+DR_DRIVE_NUM=$(( $DRIVE_NUM + 1 ))
 OUT_DIR="${HOME}/Desktop/Docs/Downloads"
 APP_PATH="/Applications/Zach/Media/MakeMKV.app"
 
@@ -12,6 +13,13 @@ TMP="`mktemp -t discToMkv`"
 # Sanity check
 if [ ! -d "${OUT_DIR}" ]; then
 	echo "Invalid output directory: ${OUT_DIR}"
+	exit 1
+fi
+
+# Ensure a disk is inserted
+if drutil -drive "${DR_DRIVE_NUM}" status | grep -q 'Type: No Media Inserted'; then
+	echo "No disk available" 1>&2
+	drutil -drive "${DR_DRIVE_NUM}" tray open
 	exit 1
 fi
 
@@ -45,4 +53,12 @@ fi
 # Tracks are selected with the default profile (as set in the GUI)
 # Recommended selection string: -sel:all,+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
 # This preserves all audio and subtitles in your prefered language, all audio and subtitles with no language, and all special tracks, but excludes the core audio from DTS-HD tracks
-exec "${BIN_PATH}" --noscan --robot mkv "disc:${DRIVE_NUM}" all "${OUT_DIR}/${NAME}"
+"${BIN_PATH}" --noscan --robot mkv "disc:${DRIVE_NUM}" all "${OUT_DIR}/${NAME}"
+
+# Bail on error
+if [ $? -ne 0 ]; then
+	exit $?
+fi
+
+# Eject when complete
+drutil -drive "${DR_DRIVE_NUM}" tray open
