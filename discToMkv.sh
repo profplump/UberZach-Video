@@ -61,4 +61,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Eject when complete
-drutil -drive "${DR_DRIVE_NUM}" tray open
+DISK="`drutil -drive "${DR_DRIVE_NUM}" status | awk '$3 == "Name:" {print $4}'`"
+if [ -n "${DISK}" ]; then
+	diskutil eject "${DISK}"
+fi
