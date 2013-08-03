@@ -28,9 +28,9 @@ fi
 
 # Grab directory tree lists
 TMP_LOCAL="`mktemp -t sync.local.XXXXXXXX`"
-(cd "${BASE_LOCAL}" && find "${SUB_DIR}" > "${TMP_LOCAL}")
+(cd "${BASE_LOCAL}" && find "${SUB_DIR}" | sort > "${TMP_LOCAL}")
 TMP_REMOTE="`mktemp -t sync.remote.XXXXXXXX`"
-(cd "${BASE_REMOTE}" && find "${SUB_DIR}" > "${TMP_REMOTE}")
+(cd "${BASE_REMOTE}" && find "${SUB_DIR}" | sort > "${TMP_REMOTE}")
 
 # Diff to find the first mis-matched file
 DIFF="`diff -u "${TMP_LOCAL}" "${TMP_REMOTE}" | grep "^[\+\-]${SUB_DIR}"`"
