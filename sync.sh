@@ -85,8 +85,16 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 
 	# Determine the action (i.e. copy to or delete from remote)
 	if [ "${ACTION}" == '+' ]; then
-		echo "Will not delete from remote: ${FILE}" 1>&2
-		exit 2
+		if [ -d "${PATH_REMOTE}" ]; then
+			echo "Removing directory: ${FILE}"
+			rmdir "${PATH_REMOTE}"
+		elif [ -f "${PATH_REMOTE}" ]; then
+			echo "Deleting file: ${FILE}"
+			rm "${PATH_REMOTE}"
+		else
+			echo "Unable to delete file: ${FILE}" 1>&2
+			exit 2
+		fi
 	elif [ "${ACTION}" == '-' ]; then
 
 		# Handle files by type
