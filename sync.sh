@@ -91,8 +91,8 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 		fi
 	else
 		echo "Invalid action: ${ACTION}" 1>&2
-		echo -n "\tDiff: "
-		echo "${DIFF}" | head -n 1
+		echo -n "\tDiff: " 1>&2
+		echo "${DIFF}" | head -n 1 1>&2
 		exit 2
 	fi
 done
