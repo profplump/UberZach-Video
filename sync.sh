@@ -41,7 +41,7 @@ DIFF="`echo "${DIFF}" | grep -v '\/\._' | grep -v '\/\.DS_Store$'`"
 # Choose the file/directory to sync
 FILE="`echo "${DIFF}" | head -n 1`"
 ACTION="`echo "${FILE}" | head -c 1`"
-FILE="`echo "${FILE}" | cut -d "${ACTION}" -f 2`"
+FILE="`echo "${FILE}" | cut -d "${ACTION}" -f 2-`"
 
 # Determine the action (i.e. copy to or delete from remote)
 if [ "${ACTION}" == '+' ]; then
