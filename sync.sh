@@ -46,7 +46,7 @@ fi
 # Grab and sort the local file list
 # Limit files by mtime, but include all directories
 TMP_LOCAL="`mktemp -t sync.local.XXXXXXXX`"
-TMP_LOCAL2="`mktemp -t sync.local.XXXXXXXX`"
+TMP_LOCAL2="`mktemp -t sync.local2.XXXXXXXX`"
 (cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type f -mtime "+${DELAY_DAYS}d" > "${TMP_LOCAL2}")
 (cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type d >> "${TMP_LOCAL2}")
 cat "${TMP_LOCAL2}" | sort > "${TMP_LOCAL}"
@@ -56,14 +56,17 @@ TMP_REMOTE="`mktemp -t sync.remote.XXXXXXXX`"
 (cd "${BASE_REMOTE}" && find "${SUB_DIR}" | sort > "${TMP_REMOTE}")
 
 # Diff to find the first mis-matched file, then drop out temp files
-DIFF="`diff -u "${TMP_LOCAL}" "${TMP_REMOTE}" | grep "^[\+\-]${SUB_DIR}"`"
+TMP_DIFF="`mktemp -t sync.diff.XXXXXXXX`"
+TMP_DIFF2="`mktemp -t sync.diff2.XXXXXXXX`"
+diff -u "${TMP_LOCAL}" "${TMP_REMOTE}" | grep "^[\+\-]${SUB_DIR}" > "${TMP_DIFF2}"
 rm -f "${TMP_LOCAL}" "${TMP_LOCAL2}" "${TMP_REMOTE}"
 
 # Filter junk
-DIFF="`echo "${DIFF}" | grep -v '\/\._' | grep -v '\/\.DS_Store$'`"
+grep -v '\/\._' "${TMP_DIFF2}" | grep -v '\/\.DS_Store$' > "${TMP_DIFF}"
+rm -f "${TMP_DIFF2}"
 
 # Limit NUM_FILES to the number of files available
-COUNT="`echo "${DIFF}" | wc -l`"
+COUNT="`cat "${TMP_DIFF}" | wc -l`"
 if [ $NUM_FILES -gt $COUNT ]; then
 	NUM_FILES=$COUNT
 fi
@@ -72,7 +75,7 @@ fi
 for (( i=1; i<=${NUM_FILES}; i++ )); do
 
 	# Choose the file/directory to sync
-	FILE="`echo "${DIFF}" | head -n $i | tail -n 1`"
+	FILE="`head -n $i "${TMP_DIFF}" | tail -n 1`"
 	ACTION="`echo "${FILE}" | head -c 1`"
 	FILE="`echo "${FILE}" | cut -d "${ACTION}" -f 2-`"
 
@@ -102,11 +105,10 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 		fi
 	else
 		echo "Invalid action: ${ACTION}" 1>&2
-		echo -n "\tDiff: " 1>&2
-		echo "${DIFF}" | head -n 1 1>&2
 		exit 2
 	fi
 done
 
 # Cleanup
+rm -f "${TMP_DIFF}"
 exit 0
