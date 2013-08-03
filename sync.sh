@@ -11,10 +11,15 @@ NUM_FILES=1
 if [ -n "${2}" ]; then
 	NUM_FILES="${2}"
 fi
+declare -i DELAY_DAYS
+DELAY_DAYS=30
+if [ -n "${3}" ]; then
+	DELAY_DAYS="${3}"
+fi
 
 # Usage checks
-if [ -z "${SUB_DIR}" ] || [ $NUM_FILES -lt 1 ]; then
-	echo "Usage: `basename "${0}"` sub_directory [num_files]" 1>&2
+if [ -z "${SUB_DIR}" ] || [ $NUM_FILES -lt 1 ] || [ $DELAY_DAYS -lt 1 ]; then
+	echo "Usage: `basename "${0}"` sub_directory [num_files] [delay_days]" 1>&2
 	exit 1
 fi
 
@@ -38,15 +43,21 @@ if [ ! -d "${BASE_REMOTE}/${SUB_DIR}" ]; then
 	mkdir -p "${BASE_REMOTE}/${SUB_DIR}"
 fi
 
-# Grab directory tree lists
+# Grab and sort the local file list
+# Limit files by mtime, but include all directories
 TMP_LOCAL="`mktemp -t sync.local.XXXXXXXX`"
-(cd "${BASE_LOCAL}" && find "${SUB_DIR}" | sort > "${TMP_LOCAL}")
+TMP_LOCAL2="`mktemp -t sync.local.XXXXXXXX`"
+(cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type f -mtime "+${DELAY_DAYS}d" > "${TMP_LOCAL2}")
+(cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type d >> "${TMP_LOCAL2}")
+cat "${TMP_LOCAL2}" | sort > "${TMP_LOCAL}"
+
+# Grab and sort the remote file list
 TMP_REMOTE="`mktemp -t sync.remote.XXXXXXXX`"
 (cd "${BASE_REMOTE}" && find "${SUB_DIR}" | sort > "${TMP_REMOTE}")
 
 # Diff to find the first mis-matched file, then drop out temp files
 DIFF="`diff -u "${TMP_LOCAL}" "${TMP_REMOTE}" | grep "^[\+\-]${SUB_DIR}"`"
-rm -f "${TMP_LOCAL}" "${TMP_REMOTE}"
+rm -f "${TMP_LOCAL}" "${TMP_LOCAL2}" "${TMP_REMOTE}"
 
 # Filter junk
 DIFF="`echo "${DIFF}" | grep -v '\/\._' | grep -v '\/\.DS_Store$'`"
