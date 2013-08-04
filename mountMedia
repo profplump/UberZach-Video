@@ -59,3 +59,8 @@ else
 	echo "`basename "${0}"`: Unable to mount media volume" 1>&2
 	exit 1
 fi
+
+# Add a "Baldwin RAID" link as needed
+if [ ! -h '/Volumes/Baldwin RAID' ]; then
+	ln -s / '/Volumes/Baldwin RAID'
+fi
