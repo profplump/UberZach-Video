@@ -62,7 +62,7 @@ diff -u "${TMP_LOCAL}" "${TMP_REMOTE}" | grep "^[\+\-]${SUB_DIR}" > "${TMP_DIFF2
 rm -f "${TMP_LOCAL}" "${TMP_LOCAL2}" "${TMP_REMOTE}"
 
 # Filter junk
-grep -v '\/\._' "${TMP_DIFF2}" | grep -v '\/\.DS_Store$' > "${TMP_DIFF}"
+grep -v '\/\._' "${TMP_DIFF2}" | grep -v '\/\.DS_Store$' | grep -v '\/\.git\/' > "${TMP_DIFF}"
 rm -f "${TMP_DIFF2}"
 
 # Limit NUM_FILES to the number of files available
