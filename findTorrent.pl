@@ -135,6 +135,11 @@ if ($ENABLE_SOURCE{'ISO'}) {
 	}
 }
 
+# Sanity check
+if (scalar(keys(%SOURCES)) < 1) {
+	die("No sources available\n");
+}
+
 # Environment
 #if ($DEBUG) {
 #	print STDERR `printenv` . "\n";
