@@ -197,7 +197,7 @@ my %need          = ();
 }
 
 # Allow quality checks to be disabled
-if (-e dirname($dir) . '/no_quality_checks') {
+if (-e $dir . '/no_quality_checks') {
 	$NO_QUALITY_CHECKS = 1;
 }
 
@@ -286,7 +286,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 if (scalar(@urls) < 1) {
 
 	# Allow use of more number formats
-	if (-e dirname($dir) . '/more_number_formats') {
+	if (-e $dir . '/more_number_formats') {
 		$MORE_NUMBER_FORMATS = 1;
 	}
 
