@@ -292,7 +292,7 @@ if (scalar(@urls) < 1) {
 
 	# Allow the show name to be overriden
 	{
-		my $search_name = dirname($dir) . '/search_name';
+		my $search_name = $dir . '/search_name';
 		if (-e $search_name) {
 			local ($/, *FH);
 			open(FH, $search_name)
