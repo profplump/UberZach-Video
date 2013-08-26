@@ -34,11 +34,24 @@ if [ ! -d "${BASE_LOCAL}/${SUB_DIR}" ]; then
 	exit 1
 fi
 if [ ! -d "${BASE_REMOTE}" ]; then
-	echo "Bitcasa drive not mounted" 1>&2
+	echo "Remote drive not mounted" 1>&2
 	exit 1
 fi
 
-# Ensure the subdirectory exists on the remote drive
+# Ensure we can actually write to the remote drive
+WC="${BASE_REMOTE}/.write_check"
+touch "${WC}" >/dev/null 2>&1
+if [ ! -e "${WC}" ]; then
+	echo "Remote drive not writable" 1>&2
+	exit 1
+fi
+rm -f "${WC}" >/dev/null 2>&1
+if [ -e "${WC}" ]; then
+	echo "Remote drive not writable" 1>&2
+	exit 1
+fi
+
+# Create the named subdirectory if it does not exist on the remote drive
 if [ ! -d "${BASE_REMOTE}/${SUB_DIR}" ]; then
 	mkdir -p "${BASE_REMOTE}/${SUB_DIR}"
 fi
