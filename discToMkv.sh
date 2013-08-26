@@ -77,8 +77,11 @@ fi
 
 # Extract all tracks to MKVs
 # Tracks are selected with the default profile (as set in the GUI)
-# Recommended selection string: -sel:all,+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
+# Recommended selection string:
+#	-sel:all,+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
 # This preserves all audio and subtitles in your prefered language, all audio and subtitles with no language, and all special tracks, but excludes the core audio from DTS-HD tracks
+# Or if you capture films with no soundtrack in your favorite language:
+#	-sel:all,+sel:(audio),-sel:(havemulti),+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
 "${BIN_PATH}" --noscan --robot mkv "disc:${DRIVE_NUM_MKV}" all "${OUT_DIR}/${NAME}"
 
 # Bail on error
