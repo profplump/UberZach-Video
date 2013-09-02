@@ -13,18 +13,6 @@ if [ `ps auwx | grep -v grep | grep "${me}" | wc -l` -gt 10 ]; then
 	exit 0
 fi
 
-# Bail if the load average is high
-LOAD="`uptime | awk -F ': ' '{print $2}' | cut -d '.' -f 1`"
-CPU_COUNT="`sysctl -n hw.ncpu`"
-if [ $LOAD -gt $(( 2 * $CPU_COUNT )) ]; then
-	exit 0
-fi
-
-# Bail if WoW is running
-if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft-64.app/Contents/MacOS/World of Warcraft-64"; then
-	exit 0
-fi
-
 # Prefer recoding to rewrapping if the file is overrate
 ~/bin/video/findRecode0 "${inFolder}" | xargs -0 -n1 ~/bin/video/recode
 
@@ -44,7 +32,12 @@ inFolder="`cd "${inFolder}" && pwd`"
 cd "${inFolder}"
 
 # Cycle through the folder looking for certain video files that should be converted to better containers
-for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV]; do
+for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV] *.[mM][pP]4; do
+	# Bail if the load is high
+	if ! ~/bin/video/checkLoad.sh; then
+		continue
+	fi
+
 	# Construct the full path
 	file="${inFolder}/${i}"
 

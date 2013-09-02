@@ -4,8 +4,8 @@
 TORRENT_APP="/Applications/Zach/Internet/Transmission.app"
 TORRENT_BIN="${TORRENT_APP}/Contents/MacOS/Transmission"
 
-# Bail if WoW is running
-if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft-64.app/Contents/MacOS/World of Warcraft-64"; then
+# Bail if the load is high
+if ! ~/bin/video/checkLoad.sh; then
 	exit 0
 fi
 

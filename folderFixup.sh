@@ -18,15 +18,8 @@ if [ `ps auwx | grep -v grep | grep "${me}" | wc -l` -gt 2 ]; then
 	exit 0
 fi
 
-# Bail if the load average is high
-LOAD="`uptime | awk -F ': ' '{print $2}' | cut -d '.' -f 1`"
-CPU_COUNT="`sysctl -n hw.ncpu`"
-if [ $LOAD -gt $(( 2 * $CPU_COUNT )) ]; then
-	exit 0
-fi
-
-# Bail if WoW is running
-if ps auwx | grep -v grep | grep -q "World of Warcraft/World of Warcraft-64.app/Contents/MacOS/World of Warcraft-64"; then
+# Bail if the load is high
+if ! ~/bin/video/checkLoad.sh; then
 	exit 0
 fi
 
