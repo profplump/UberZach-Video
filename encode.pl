@@ -32,7 +32,7 @@ my $DEBUG            = 0;
 
 # General parameters for HandBrake
 my @video_params = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50');
-my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3', '--mixdown', 'dpl2');
+my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3');
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
@@ -416,7 +416,7 @@ sub audioOptions($) {
 			} elsif ($code eq 'OTHER') {
 				if ($codec =~ /MP3/i || $codec =~ /MPEG/i) {
 					$codec = $code;
-				} elsif ($codec eq 'truehd' || $codec eq 'dca') {
+				} elsif ($codec eq 'dca') {
 					print STDERR 'Found incompatible audio (' . $track->{'description'} . ')  in track ' . $track->{'index'} . "\n";
 					$codec = undef();
 				} else {
