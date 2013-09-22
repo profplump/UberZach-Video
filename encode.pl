@@ -19,13 +19,15 @@ my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugu
 my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4           = 0;
 my $OUT_DIR             = undef();
+my $MIXDOWN_CODEC       = 'AAC';
+my $MIXDOWN_CHANNELS    = 2.0;
 
 # Applicaton configuration
 my $HD_WIDTH         = 1350;
 my $MIN_VIDEO_WIDTH  = 100;
 my $MAX_CROP_DIFF    = .1;
 my $MAX_DURA_DIFF    = 5;
-my @CODEC_ORDER      = ('DTS-HD', 'DTS', 'PCM', 'AC3', 'AAC', 'OTHER');
+my @CODEC_ORDER      = ('DTS-HD', 'DTS', 'PCM', 'AC3', $MIXDOWN_CODEC, 'OTHER');
 my %LANG_INCLUDE_ISO = ('639-1' => 1);
 my $HB_EXEC          = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG            = 0;
@@ -504,7 +506,7 @@ sub audioOptions($) {
 		# Passthru DTS-MA, DTS, AC3, and AAC
 		# Keep other audio tracks, but recode to AAC (using Handbrake's audio-copy-mask/audio-fallback feature)
 		foreach my $index (keys(%tracks)) {
-			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'codec'} eq 'OTHER' && $tracks{$index}->{'channels'} <= 2) {
+			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'channels'} <= $MIXDOWN_CHANNELS) {
 				if ($DEBUG) {
 					print STDERR 'Skipping recode of track ' . $index . ' since it is already used as the default track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
 				}
@@ -537,8 +539,8 @@ sub audioOptions($) {
 		# The mixdown track needs special handling -- it appears twice, and with different settings
 		if ($track->{'encoder'} ne 'copy' && defined($mixdown) && $mixdown > 0 && $track->{'index'} == $mixdown) {
 			$index .= '_mixdown';
-			$tmp{'codec'}    = 'AAC';
-			$tmp{'channels'} = '2.0';
+			$tmp{'codec'}    = $MIXDOWN_CODEC;
+			$tmp{'channels'} = $MIXDOWN_CHANNELS;
 		}
 
 		# Collect our (possibly modified) hash
