@@ -1,7 +1,11 @@
 <?
 # Config
 $MEDIA_PATH    = '/mnt/media';
+$TV_PATH       = $MEDIA_PATH . '/TV';
 $MONITORED_CMD = '/home/profplump/bin/video/torrentMonitored.pl NULL ';
+$EXISTS_FILES  = array('no_quality_checks', 'more_number_formats', 'skip');
+$CONTENT_FILES = array('must_match', 'search_name');
+$TVDB_URL      = 'http://thetvdb.com/?tab=series';
 
 # True if the input path is junk -- self-links, OS X noise, etc.
 function isJunk($path) {
@@ -102,12 +106,123 @@ function allShows($base)	{
 	return $retval;
 }
 
-# Find all shows and all monitored shows
-$shows = allShows($MEDIA_PATH . '/TV');
-$monitored = monitoredShows($MONITORED_CMD . $MEDIA_PATH);
+# Print a DL of all shows and note the available and monitored seasons
+function printAllShows() {
+	global $TV_PATH;
+	global $MEDIA_PATH;
+	global $MONITORED_CMD;
+
+	$shows = allShows($TV_PATH);
+	$monitored = monitoredShows($MONITORED_CMD . $MEDIA_PATH);
+
+	echo "<dl>\n";
+	foreach ($shows as $show => $seasons) {
+		echo '<dt><a href="?show=' . urlencode($show) . '">' . htmlspecialchars($show) . "</a></dt>\n";
+		foreach ($seasons as $season => $val) {
+			if ($val) {
+				echo '<dd>Season ' . htmlspecialchars($season);
+				if ($monitored[ $show ][ $season ]) {
+					echo ' (monitored)';
+				}
+				echo "</dd>\n";
+			}
+		}
+	}
+	echo "</dl>\n";
+}
+
+function printShow($show) {
+	global $TV_PATH;
+	global $EXISTS_FILES;
+	global $CONTENT_FILES;
+	global $TVDB_URL;
+
+	# Construct our show path and make sure it's reasonable
+	$path = $TV_PATH . '/' . $show;
+	if (!is_dir($path)) {
+		die('Unknown show: ' . $show);
+	}
+
+	# Look for all the exists and content files
+	$flags = array();
+	foreach ($EXISTS_FILES as $name) {
+		$flags[ $name ] = false;
+		if (file_exists($path . '/' . $name)) {
+			$flags[ $name ] = true;
+		}
+	}
+	foreach ($CONTENT_FILES as $name) {
+		$flags[ $name ] = false;
+		$file = $path . '/' . $name;
+		if (is_readable($file)) {
+			$flags[ $name ] = trim(file_get_contents($file));
+		}
+	}
+
+	# Read the TVDB IDs from the *.webloc file
+	$show_dir = opendir($path);
+	if ($show_dir === FALSE) {
+		die('Unable to opendir(): ' . $path . "\n");
+	}
+	while (false !== ($name = readdir($show_dir))) {
+
+		# Skip junk
+		if (isJunk($name)) {
+			continue;
+		}
+
+		# We only care about readable *.webloc files
+		if (!preg_match('/\.webloc$/', $name)) {
+			continue;
+		}
+
+		# The file must be readable to be useful
+		$file = $path . '/' . $name;
+		if (!is_readable($file)) {
+			continue;
+		}
+
+		# Read and parse the file
+		$str = trim(file_get_contents($file));
+		if (preg_match('/[\?\&]id=(\d+)/', $str, $matches)) {
+			$flags['tvdb-id'] = $matches[1];
+		}
+		if (preg_match('/[\?\&]lid=(\d+)/', $str, $matches)) {
+			$flags['tvdb-lid'] = $matches[1];
+		}
+
+		# Construct a URL
+		if (array_key_exists('tvdb-id', $flags)) {
+			$flags['url'] = $TVDB_URL . '&id=' . $flags['tvdb-id'];
+			if (array_key_exists('tvdb-lid', $flags)) {
+				$flags['url'] .= '&lid=' . $flags['tvdb-lid'];
+			}
+		}
+	}
+	closedir($show_dir);
+
+	echo '<pre>';
+	echo $show . "\n";
+	print_r($flags);
+	echo '</pre>';
+}
+
+#=========================================================================================
+
+# Send our headers early
+header('Content-type: text/html; charset=utf-8');
+
+# Did the user request a specific show?
+$show = false;
+if (isset($_REQUEST['show'])) {
+	# This is not a great filter, but it should make the string safe for use as a quoted path
+	$show = preg_replace('/[\0\n\r]/', '', $_REQUEST['show']);
+	$show = basename($show);
+}
+
+#=========================================================================================
 
 # Generic XHTML 1.1 header
-header('Content-type: text/html; charset=utf-8');
 print <<<ENDOLA
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" 
    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -120,21 +235,11 @@ print <<<ENDOLA
 
 ENDOLA;
 
-# Print a DL of all shows and note the available and monitored seasons
-echo "<dl>\n";
-foreach ($shows as $show => $seasons) {
-	echo '<dt><a href="?show=' . urlencode($show) . '">' . htmlspecialchars($show) . "</a></dt>\n";
-	foreach ($seasons as $season => $val) {
-		if ($val) {
-			echo '<dd>Season ' . htmlspecialchars($season);
-			if ($monitored[ $show ][ $season ]) {
-				echo ' (monitored)';
-			}
-			echo "</dd>\n";
-		}
-	}
+if ($show === false) {
+	printAllShows();
+} else {
+	printShow($show);
 }
-echo "</dl>\n";
 
 # Generic XHTML 1.1 footer
 print <<<ENDOLA
