@@ -57,7 +57,7 @@ function findSeasons($path) {
 
 	$dir = opendir($path);
 	if ($dir === FALSE) {
-		die('Unable to opendir(): ' . $path . "\n");
+		die('Unable to opendir(): ' . htmlspecialchars($path) . "\n");
 	}
 	while (false !== ($season = readdir($dir))) {
 
@@ -79,6 +79,9 @@ function findSeasons($path) {
 	}
 	closedir($dir);
 
+	# Sort numerically; the directory listing typically returns a lexicographic order
+	ksort($retval, SORT_NUMERIC);
+
 	return $retval;
 }
 
@@ -89,7 +92,7 @@ function allShows($base)	{
 	# Look for series folders
 	$tv_dir = opendir($base);
 	if ($tv_dir === FALSE) {
-		die('Unable to opendir(): ' . $path . "\n");
+		die('Unable to opendir(): ' . htmlspecialchars($path) . "\n");
 	}
 	while (false !== ($show = readdir($tv_dir))) {
 
@@ -138,7 +141,7 @@ function findWebloc($path) {
 
 	$dir = opendir($path);
 	if ($dir === FALSE) {
-		die('Unable to opendir(): ' . $path . "\n");
+		die('Unable to opendir(): ' . htmlspecialchars($path) . "\n");
 	}
 	while (false !== ($name = readdir($dir))) {
 
@@ -225,11 +228,13 @@ function readFlags($path) {
 
 function printShow($show) {
 	global $TV_PATH;
+	global $EXISTS_FILES;
+	global $CONTENT_FILES;
 
 	# Construct our show path and make sure it's reasonable
 	$path = $TV_PATH . '/' . $show;
 	if (!is_dir($path)) {
-		die('Unknown show: ' . $show);
+		die('Unknown show: ' . htmlspecialchars($show));
 	}
 
 	# Check the flags
@@ -238,13 +243,48 @@ function printShow($show) {
 	# Check the seasons
 	$seasons = findSeasons($path);
 
-	# Print
-	echo '<pre>';
-	echo $show . "\n";
-	print_r($flags);
-	echo "\nSeasons\n";
-	print_r($seasons);
-	echo '</pre>';
+	# Header
+	echo '<h1>' . htmlspecialchars($show) . '</h1>';
+	echo '<form action="' . $SERVER['PHP_SELF'] . '" method="post">';
+
+	# Exists and content flags
+	echo '<h2>Search Parameters</h2>';
+	echo '<p>';
+	foreach ($EXISTS_FILES as $file) {
+		echo '<label><input value="1" type="checkbox" name="' . htmlspecialchars($file) . '"';
+		if ($flags[ $file ]) {
+			echo 'checked="checked"';
+		}
+		echo ' /> ' . htmlspecialchars($file) . '</label><br/>';
+	}
+	foreach ($CONTENT_FILES as $file) {
+		echo '<label><input type="text" name="' . htmlspecialchars($file) . '"';
+		if ($flags[ $file ]) {
+			echo ' value="' . htmlspecialchars($flags[ $file ]) . '"';
+		}
+		echo ' /> ' . htmlspecialchars($file) . '</label><br/>';
+	}
+	echo '</p>';
+
+	# TVDB URL
+	echo '<h2>The TVDB</h2>';
+	echo '<p><a href="' . htmlspecialchars($flags['url']) . '">' . htmlspecialchars($flags['url']) . '</a></p>';
+
+	# Seasons
+	echo '<h2>Seasons</h2>';
+	echo '<p>';
+	foreach ($seasons as $season => $monitored) {
+		echo '<label>Season ' . htmlspecialchars($season);
+		echo ' <input type="checkbox" value="1" name="season_' . htmlspecialchars($season) . '"';
+		if ($monitored) {
+			echo ' checked="checked"';
+		}
+		echo ' /></label><br/>';
+	}
+	echo '</p>';
+
+	# Footer
+	echo '</form>';
 }
 
 #=========================================================================================
@@ -287,4 +327,3 @@ print <<<ENDOLA
 </html>
 ENDOLA;
 ?>
-
