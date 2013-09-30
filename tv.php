@@ -47,6 +47,20 @@ function isMonitored($season_path) {
 	return true;
 }
 
+# Get the season search status, including the URL (if any) for the provided path
+function seasonSearch($season_path) {
+	$retval = isMonitored($season_path);
+
+	if ($retval) {
+		$file = $season_path . '/url';
+		if (is_readable($file)) {
+			$retval = trim(file_get_contents($file));
+		}
+	}
+
+	return $retval;
+}
+
 # Find all the season in a provided series folder and determine which are being monitored
 function findSeasons($path) {
 	$retval = array();
@@ -74,9 +88,9 @@ function findSeasons($path) {
 			continue;
 		}
 
-		# Record season numbers and monitored status
+		# Record the season number and search status
 		if (preg_match('/Season\s+(\d+)/i', $season, $matches)) {
-			$retval[ $matches[1] ] = isMonitored($season_path);
+			$retval[ $matches[1] ] = seasonSearch($season_path);
 		}
 	}
 	closedir($dir);
@@ -232,42 +246,51 @@ function printShow($show) {
 	echo '<form action="' . $SERVER['PHP_SELF'] . '" method="post">';
 
 	# Exists and content flags
-	echo '<h2>Search Parameters</h2>';
+	echo '<h2>Series Parameters</h2>';
 	echo '<p>';
 	foreach ($EXISTS_FILES as $file) {
-		echo '<label><input value="1" type="checkbox" name="' . htmlspecialchars($file) . '" ';
+		$file_html = htmlspecialchars($file);
+		echo '<label><input value="1" type="checkbox" name="' . $file_html . '" ';
 		if ($flags[ $file ]) {
 			echo 'checked="checked"';
 		}
-		echo '/> ' . htmlspecialchars($file) . '</label><br/>';
+		echo '/> ' . $file_html . '</label><br/>';
 	}
 	foreach ($CONTENT_FILES as $file) {
-		echo '<label><input type="text" name="' . htmlspecialchars($file) . '" ';
+		$file_html = htmlspecialchars($file);
+		echo '<label><input type="text" size="40" name="' . $file_html . '" ';
 		if ($flags[ $file ]) {
 			echo 'value="' . htmlspecialchars($flags[ $file ]) . '"';
 		}
-		echo '/> ' . htmlspecialchars($file) . '</label><br/>';
+		echo '/> ' . $file_html . '</label><br/>';
 	}
 	echo '</p>';
 
 	# TVDB URL
-	echo '<h2>The TVDB</h2>';
+	echo '<h2>The TVDB URL</h2>';
 	echo '<p><a href="' . htmlspecialchars($flags['url']) . '">' . htmlspecialchars($flags['url']) . '</a></p>';
 
 	# Seasons
-	echo '<h2>Seasons</h2>';
+	echo '<h2>Season Parameters</h2>';
 	echo '<p>';
 	foreach ($seasons as $season => $monitored) {
-		echo '<label>Season ' . htmlspecialchars($season) . ' ';
-		echo '<input type="checkbox" value="1" name="season_' . htmlspecialchars($season) . '" ';
-		if ($monitored) {
+		$season_html = htmlspecialchars($season);
+		echo '<label>Season ' . $season_html . ' ';
+		echo '<input type="checkbox" value="1" name="season_' . $season_html . '" ';
+		if ($monitored !== false) {
 			echo 'checked="checked"';
 		}
-		echo '/></label><br/>';
+		echo '/></label>';
+		echo '<input type="text" size="150" name="url_' . $season_html . '" value="';
+		if ($monitored !== false && $monitored !== true) {
+			echo htmlspecialchars($monitored);
+		}
+		echo '"/><br/>';
 	}
 	echo '</p>';
 
 	# Footer
+	echo '<p><input type="submit" name="submit" value="Save"/></p>';
 	echo '</form>';
 }
 
