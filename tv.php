@@ -26,6 +26,7 @@ function isJunk($path) {
 	return false;
 }
 
+# True if the provided season folder is being monitored
 function isMonitored($season_path) {
 	if (file_exists(dirname($season_path) . '/skip')) {
 		return false;
@@ -46,6 +47,7 @@ function isMonitored($season_path) {
 	return true;
 }
 
+# Find all the season in a provided series folder and determine which are being monitored
 function findSeasons($path) {
 	$retval = array();
 
@@ -115,27 +117,7 @@ function allShows($base)	{
 	return $retval;
 }
 
-# Print a DL of all shows and note the available and monitored seasons
-function printAllShows() {
-	global $TV_PATH;
-	global $MEDIA_PATH;
-
-	$shows = allShows($TV_PATH);
-
-	echo "<dl>\n";
-	foreach ($shows as $show => $seasons) {
-		echo '<dt><a href="?show=' . urlencode($show) . '">' . htmlspecialchars($show) . "</a></dt>\n";
-		foreach ($seasons as $season => $monitored) {
-			echo '<dd>Season ' . htmlspecialchars($season);
-			if ($monitored) {
-				echo ' (monitored)';
-			}
-			echo "</dd>\n";
-		}
-	}
-	echo "</dl>\n";
-}
-
+# Find the *.webloc file, if in, in the provided folder
 function findWebloc($path) {
 	$retval = false;
 
@@ -167,6 +149,7 @@ function findWebloc($path) {
 	return $retval;
 }
 
+# Read and parse the provided *.webloc file
 function readWebloc($file) {
 	global $TVDB_URL;
 	$retval = array(
@@ -195,6 +178,7 @@ function readWebloc($file) {
 	return $retval;
 }
 
+# Read and parse all of the series-level exists, content, and *.webloc files
 function readFlags($path) {
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
@@ -285,6 +269,27 @@ function printShow($show) {
 
 	# Footer
 	echo '</form>';
+}
+
+# Print a DL of all shows and note the available and monitored seasons
+function printAllShows() {
+	global $TV_PATH;
+	global $MEDIA_PATH;
+
+	$shows = allShows($TV_PATH);
+
+	echo "<dl>\n";
+	foreach ($shows as $show => $seasons) {
+		echo '<dt><a href="?show=' . urlencode($show) . '">' . htmlspecialchars($show) . "</a></dt>\n";
+		foreach ($seasons as $season => $monitored) {
+			echo '<dd>Season ' . htmlspecialchars($season);
+			if ($monitored) {
+				echo ' (monitored)';
+			}
+			echo "</dd>\n";
+		}
+	}
+	echo "</dl>\n";
 }
 
 #=========================================================================================
