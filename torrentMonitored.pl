@@ -11,20 +11,32 @@ my @skipped   = ();
 my @monitored = ();
 my @done      = ();
 
-# Media path(s)
+# Command-line parameters
+my ($prg, $base_dir) = @ARGV;
+
+# TV path(s)
 {
-	my $path = `~/bin/video/mediaPath` . '/TV';
-	if (-d $path) {
-		push(@BASE_DIRS, $path);
+	my $base = undef();
+	if (defined($base_dir) && -d $base_dir) {
+		$base = $base_dir;
+	} else {
+		my $cmd = $ENV{'HOME'} . '/bin/video/mediaPath';
+		if (-x $cmd) {
+			$base = `${cmd}`;
+		}
 	}
-	$path .= '/Downloads';
-	if (-d $path) {
-		push(@BASE_DIRS, $path);
+
+	if (!defined($base)) {
+		die("No base directory available\n");
+	}
+
+	foreach my $dir ('TV', 'Downloads') {
+		my $path = $base . '/' . $dir;
+		if (-d $path) {
+			push(@BASE_DIRS, $path);
+		}
 	}
 }
-
-# Command-line parameters
-my ($prg) = @ARGV;
 
 # For each directory
 for my $BASE_DIR (@BASE_DIRS) {
