@@ -64,7 +64,7 @@ function allShows($base)	{
 		}
 
 		# We only care about directories
-		$show_path = $path . '/' . $show;
+		$show_path = $base . '/' . $show;
 		if (!is_dir($show_path)) {
 			continue;
 		}
