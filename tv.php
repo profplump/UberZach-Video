@@ -2,7 +2,6 @@
 # Config
 $MEDIA_PATH    = '/mnt/media';
 $TV_PATH       = $MEDIA_PATH . '/TV';
-$MONITORED_CMD = '/home/profplump/bin/video/torrentMonitored.pl NULL ';
 $EXISTS_FILES  = array('no_quality_checks', 'more_number_formats', 'skip');
 $CONTENT_FILES = array('must_match', 'search_name');
 $TVDB_URL      = 'http://thetvdb.com/?tab=series';
@@ -27,27 +26,59 @@ function isJunk($path) {
 	return false;
 }
 
-# Find all the monitored series/seasons from the given command
-function monitoredShows($cmd) {
-	$retval = array();
-	$proc = popen($cmd . ' 2>&1', 'r');
-	$paths = array();
-	while (!feof($proc)) {
-		$str = fread($proc, 4096);
-		$arr = explode("\0", $str);
-		$paths = array_merge($paths, $arr);
+function isMonitored($season_path) {
+	if (file_exists(dirname($season_path) . '/skip')) {
+		return false;
 	}
-	pclose($proc);
 
-	# Translates paths to a series/seasons structure
-	foreach ($paths as $path) {
-		preg_match('@/([^\/]+)/Season\s+(\d+)@', $path, $matches);
-		if (!array_key_exists($matches[1], $retval)) {
-			$retval[ $matches[1] ] = array();
-		}
-		$retval[ $matches[1] ][ $matches[2] ] = true;
+	if (file_exists($season_path . '/season_done')) {
+		return false;
 	}
-	
+
+	$season = 0;
+	if (preg_match('/^Season\s+(\d+)$/i', basename($season_path), $matches)) {
+		$season = $matches[1];
+	}
+	if (!$season) {
+		return false;
+	}
+
+	return true;
+}
+
+function findSeasons($path) {
+	$retval = array();
+
+	# Check for the skip file
+	$skip = false;
+	if (file_exists($path . '/skip')) {
+		$skip = true;
+	}
+
+	$dir = opendir($path);
+	if ($dir === FALSE) {
+		die('Unable to opendir(): ' . $path . "\n");
+	}
+	while (false !== ($season = readdir($dir))) {
+
+		# Skip junk
+		if (isJunk($show)) {
+			continue;
+		}
+
+		# We only care about directories
+		$season_path = $path . '/' . $season;
+		if (!is_dir($season_path)) {
+			continue;
+		}
+
+		# Record season numbers and monitored status
+		if (preg_match('/Season\s+(\d+)/i', $season, $matches)) {
+			$retval[ $matches[1] ] = isMonitored($season_path);
+		}
+	}
+	closedir($dir);
+
 	return $retval;
 }
 
@@ -73,33 +104,8 @@ function allShows($base)	{
 			continue;
 		}
 
-		# Record the show title
-		$retval[ $show ] = array();
-
-		# Look for season folders
-		$show_dir = opendir($show_path);
-		if ($show_dir === FALSE) {
-			die('Unable to opendir(): ' . $show_path . "\n");
-		}
-		while (false !== ($season = readdir($show_dir))) {
-
-			# Skip junk
-			if (isJunk($show)) {
-				continue;
-			}
-
-			# We only care about directories
-			$season_path = $show_path . '/' . $season;
-			if (!is_dir($season_path)) {
-				continue;
-			}
-
-			# Record season numbers
-			if (preg_match('/Season\s+(\d+)/i', $season, $matches)) {
-				$retval[ $show ][ $matches[1] ] = true;
-			}
-		}
-		closedir($show_dir);
+		# Record the show title and look for season folders
+		$retval[ $show ] = findSeasons($show_path);
 	}
 	closedir($tv_dir);
 	
@@ -110,47 +116,96 @@ function allShows($base)	{
 function printAllShows() {
 	global $TV_PATH;
 	global $MEDIA_PATH;
-	global $MONITORED_CMD;
 
 	$shows = allShows($TV_PATH);
-	$monitored = monitoredShows($MONITORED_CMD . $MEDIA_PATH);
 
 	echo "<dl>\n";
 	foreach ($shows as $show => $seasons) {
 		echo '<dt><a href="?show=' . urlencode($show) . '">' . htmlspecialchars($show) . "</a></dt>\n";
-		foreach ($seasons as $season => $val) {
-			if ($val) {
-				echo '<dd>Season ' . htmlspecialchars($season);
-				if ($monitored[ $show ][ $season ]) {
-					echo ' (monitored)';
-				}
-				echo "</dd>\n";
+		foreach ($seasons as $season => $monitored) {
+			echo '<dd>Season ' . htmlspecialchars($season);
+			if ($monitored) {
+				echo ' (monitored)';
 			}
+			echo "</dd>\n";
 		}
 	}
 	echo "</dl>\n";
 }
 
-function printShow($show) {
-	global $TV_PATH;
-	global $EXISTS_FILES;
-	global $CONTENT_FILES;
-	global $TVDB_URL;
+function findWebloc($path) {
+	$retval = false;
 
-	# Construct our show path and make sure it's reasonable
-	$path = $TV_PATH . '/' . $show;
-	if (!is_dir($path)) {
-		die('Unknown show: ' . $show);
+	$dir = opendir($path);
+	if ($dir === FALSE) {
+		die('Unable to opendir(): ' . $path . "\n");
+	}
+	while (false !== ($name = readdir($dir))) {
+
+		# Skip junk
+		if (isJunk($name)) {
+			continue;
+		}
+
+		# We only care about *.webloc files
+		if (!preg_match('/\.webloc$/', $name)) {
+			continue;
+		}
+
+		# The file must be readable to be useful
+		$file = $path . '/' . $name;
+		if (is_readable($file)) {
+			$retval = $file;
+			last;
+		}
+	}
+	closedir($dir);
+
+	return $retval;
+}
+
+function readWebloc($file) {
+	global $TVDB_URL;
+	$retval = array(
+		'tvdb-id'  => false,
+		'tvdb-lid' => false,
+		'url'      => false,
+	);
+
+	# Read and parse the file
+	$str = trim(file_get_contents($file));
+	if (preg_match('/[\?\&]id=(\d+)/', $str, $matches)) {
+		$retval['tvdb-id'] = $matches[1];
+	}
+	if (preg_match('/[\?\&]lid=(\d+)/', $str, $matches)) {
+		$retval['tvdb-lid'] = $matches[1];
 	}
 
-	# Look for all the exists and content files
+	# Construct a URL
+	if ($retval['tvdb-id'] !== false) {
+		$retval['url'] = $TVDB_URL . '&id=' . $retval['tvdb-id'];
+		if ($retval['tvdb-lid'] !== false) {
+			$retval['url'] .= '&lid=' . $retval['tvdb-lid'];
+		}
+	}
+
+	return $retval;
+}
+
+function readFlags($path) {
+	global $EXISTS_FILES;
+	global $CONTENT_FILES;
 	$flags = array();
+
+	# Look for all the exists files
 	foreach ($EXISTS_FILES as $name) {
 		$flags[ $name ] = false;
 		if (file_exists($path . '/' . $name)) {
 			$flags[ $name ] = true;
 		}
 	}
+
+	# Read all the content files
 	foreach ($CONTENT_FILES as $name) {
 		$flags[ $name ] = false;
 		$file = $path . '/' . $name;
@@ -160,50 +215,35 @@ function printShow($show) {
 	}
 
 	# Read the TVDB IDs from the *.webloc file
-	$show_dir = opendir($path);
-	if ($show_dir === FALSE) {
-		die('Unable to opendir(): ' . $path . "\n");
+	$webloc = findWebloc($path);
+	if ($webloc !== false) {
+		$flags = array_merge($flags, readWebloc($webloc));
 	}
-	while (false !== ($name = readdir($show_dir))) {
 
-		# Skip junk
-		if (isJunk($name)) {
-			continue;
-		}
+	return $flags;
+}
 
-		# We only care about readable *.webloc files
-		if (!preg_match('/\.webloc$/', $name)) {
-			continue;
-		}
+function printShow($show) {
+	global $TV_PATH;
 
-		# The file must be readable to be useful
-		$file = $path . '/' . $name;
-		if (!is_readable($file)) {
-			continue;
-		}
-
-		# Read and parse the file
-		$str = trim(file_get_contents($file));
-		if (preg_match('/[\?\&]id=(\d+)/', $str, $matches)) {
-			$flags['tvdb-id'] = $matches[1];
-		}
-		if (preg_match('/[\?\&]lid=(\d+)/', $str, $matches)) {
-			$flags['tvdb-lid'] = $matches[1];
-		}
-
-		# Construct a URL
-		if (array_key_exists('tvdb-id', $flags)) {
-			$flags['url'] = $TVDB_URL . '&id=' . $flags['tvdb-id'];
-			if (array_key_exists('tvdb-lid', $flags)) {
-				$flags['url'] .= '&lid=' . $flags['tvdb-lid'];
-			}
-		}
+	# Construct our show path and make sure it's reasonable
+	$path = $TV_PATH . '/' . $show;
+	if (!is_dir($path)) {
+		die('Unknown show: ' . $show);
 	}
-	closedir($show_dir);
 
+	# Check the flags
+	$flags = readFlags($path);
+
+	# Check the seasons
+	$seasons = findSeasons($path);
+
+	# Print
 	echo '<pre>';
 	echo $show . "\n";
 	print_r($flags);
+	echo "\nSeasons\n";
+	print_r($seasons);
 	echo '</pre>';
 }
 
