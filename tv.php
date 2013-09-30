@@ -251,18 +251,18 @@ function printShow($show) {
 	echo '<h2>Search Parameters</h2>';
 	echo '<p>';
 	foreach ($EXISTS_FILES as $file) {
-		echo '<label><input value="1" type="checkbox" name="' . htmlspecialchars($file) . '"';
+		echo '<label><input value="1" type="checkbox" name="' . htmlspecialchars($file) . '" ';
 		if ($flags[ $file ]) {
 			echo 'checked="checked"';
 		}
-		echo ' /> ' . htmlspecialchars($file) . '</label><br/>';
+		echo '/> ' . htmlspecialchars($file) . '</label><br/>';
 	}
 	foreach ($CONTENT_FILES as $file) {
-		echo '<label><input type="text" name="' . htmlspecialchars($file) . '"';
+		echo '<label><input type="text" name="' . htmlspecialchars($file) . '" ';
 		if ($flags[ $file ]) {
-			echo ' value="' . htmlspecialchars($flags[ $file ]) . '"';
+			echo 'value="' . htmlspecialchars($flags[ $file ]) . '"';
 		}
-		echo ' /> ' . htmlspecialchars($file) . '</label><br/>';
+		echo '/> ' . htmlspecialchars($file) . '</label><br/>';
 	}
 	echo '</p>';
 
@@ -274,12 +274,12 @@ function printShow($show) {
 	echo '<h2>Seasons</h2>';
 	echo '<p>';
 	foreach ($seasons as $season => $monitored) {
-		echo '<label>Season ' . htmlspecialchars($season);
-		echo ' <input type="checkbox" value="1" name="season_' . htmlspecialchars($season) . '"';
+		echo '<label>Season ' . htmlspecialchars($season) . ' ';
+		echo '<input type="checkbox" value="1" name="season_' . htmlspecialchars($season) . '" ';
 		if ($monitored) {
-			echo ' checked="checked"';
+			echo 'checked="checked"';
 		}
-		echo ' /></label><br/>';
+		echo '/></label><br/>';
 	}
 	echo '</p>';
 
