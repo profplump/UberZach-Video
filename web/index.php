@@ -24,6 +24,7 @@ if ($show !== false && isset($_POST['Save'])) {
 	$series_last = readFlags($series_path);
 	$seasons_last = findSeasons($series_path);
 
+	# Save series and season data
 	saveFlags($series_path, $_POST, $series_last, $seasons_last);
 	saveSeasons($series_path, $_POST, $series_last, $seasons_last);
 }

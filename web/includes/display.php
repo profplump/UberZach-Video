@@ -9,8 +9,9 @@ function printShow($show) {
 
 	# Construct our show path and make sure it's reasonable
 	$path = $TV_PATH . '/' . $show;
+	$show_html = htmlspecialchars($show);
 	if (!is_dir($path)) {
-		die('Unknown show: ' . htmlspecialchars($show));
+		die('Unknown show: ' . $show_html);
 	}
 
 	# Check the flags
@@ -20,9 +21,9 @@ function printShow($show) {
 	$seasons = findSeasons($path);
 
 	# Header
-	echo '<h1>' . htmlspecialchars($show) . '</h1>';
-	echo '<form action="' . $SERVER['PHP_SELF'] . '" method="post">';
-	echo '<input type="hidden" name="show" value="' . htmlspecialchars($show) . '"/>';
+	echo '<h1>' . $show_html . '</h1>';
+	echo '<form action="' . $_SERVER['PHP_SELF'] . '?show=' . urlencode($show) . '" method="post">';
+	echo '<input type="hidden" name="show" value="' . $show_html . '"/>';
 
 	# Exists and content flags
 	echo '<h2>Series Parameters</h2>';
