@@ -77,4 +77,28 @@ function findSeasons($path) {
 	return $retval;
 }
 
+# Save the search status for all seasons in a series
+function saveSeasons($data) {
+}
+
+# Add a folder for the provided show and season
+function addSeason($show, $season) {
+	global $TV_DIR;
+
+	# Ensure the show exists
+	$show_path = $TV_DIR . '/' . $show;
+	if (!is_dir($show_path)) {
+		die('Invalid show: ' . htmlspecialchars($show) . "\n");
+	}
+
+	# Ensure the season does not exist
+	$season_path = $show_path . '/Season ' . intval($season);
+	if (file_exists($season_path)) {
+		die('Invalid season: ' . htmlspecialchars($season) . "\n");
+	}
+
+	# Create the directory
+	mkdir($season_path);
+}
+
 ?>

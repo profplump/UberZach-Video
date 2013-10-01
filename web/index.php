@@ -14,6 +14,14 @@ if (isset($_REQUEST['show'])) {
 	$show = basename($show);
 }
 
+# Did the user request an update?
+if ($show !== false && isset($_POST['Save'])) {
+	echo '<h4 style="color: red;">Saving not yet implemented</h4>';
+
+	#saveFlags($show, $_POST);
+	saveSeasons($show, $_POST);
+}
+
 #=========================================================================================
 
 # Generic XHTML 1.1 header

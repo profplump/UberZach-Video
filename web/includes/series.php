@@ -64,4 +64,43 @@ function readFlags($path) {
 	return $flags;
 }
 
+# Parse and save all of the serires-level exists and content files
+function saveFlags($show, $data) {
+	global $TV_PATH;
+	global $EXISTS_FILES;
+	global $CONTENT_FILES;
+
+	$series_path = $TV_PATH . '/' . $show;
+
+	# Exists files
+	foreach ($EXISTS_FILES as $file) {
+		$path = $series_path . '/' . $file;
+		if ($data[ $file ]) {
+			if (!file_exists($path)) {
+				touch($path);
+			}
+		} else {
+			if (file_exists($path)) {
+				unlink($path);
+			}
+		}
+	}
+
+	# Content files
+	foreach ($CONTENT_FILES as $file) {
+		$path = $series_path . '/' . $file;
+		if ($data[ $file ]) {
+			file_put_contents($path, $data[ $file ]);
+		} else {
+			if (file_exists($path)) {
+				unlink($path);
+			}
+		}
+	}
+}
+
+# Add a series as identified by TVDB ID
+function addSeries($id) {
+}
+
 ?>

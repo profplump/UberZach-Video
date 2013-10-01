@@ -22,6 +22,7 @@ function printShow($show) {
 	# Header
 	echo '<h1>' . htmlspecialchars($show) . '</h1>';
 	echo '<form action="' . $SERVER['PHP_SELF'] . '" method="post">';
+	echo '<input type="hidden" name="show" value="' . htmlspecialchars($show) . '"/>';
 
 	# Exists and content flags
 	echo '<h2>Series Parameters</h2>';
@@ -68,7 +69,7 @@ function printShow($show) {
 	echo '</p>';
 
 	# Footer
-	echo '<p><input type="submit" name="submit" value="Save"/></p>';
+	echo '<p><input type="submit" name="Save" value="Save"/></p>';
 	echo '</form>';
 }
 
