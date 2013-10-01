@@ -6,6 +6,21 @@ $EXISTS_FILES  = array('no_quality_checks', 'more_number_formats', 'skip');
 $CONTENT_FILES = array('must_match', 'search_name');
 $TVDB_URL      = 'http://thetvdb.com/?tab=series';
 
+function writeWebloc($url, $path) {
+	$encoded_url = htmlspecialchars($url, ENT_XML1, 'UTF-8');
+
+	$str = '<?xml version="1.0" encoding="UTF-8"?>';
+	$str .= '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">';
+	$str .= '<plist version="1.0">';
+	$str .= '<dict>';
+	$str .= '<key>URL</key>';
+	$str .= '<string>' . $encoded_url . '</string>';
+	$str .= '</dict>';
+	$str .= '</plist>';
+
+	file_put_contents($path, $str);
+}
+
 # True if the input path is junk -- self-links, OS X noise, etc.
 function isJunk($path) {
 	$path = basename($path);
@@ -173,11 +188,12 @@ function readWebloc($file) {
 	);
 
 	# Read and parse the file
+	# Accept both the resource-fork and data-fork (i.e. plist) verisons of the file
 	$str = trim(file_get_contents($file));
-	if (preg_match('/[\?\&]id=(\d+)/', $str, $matches)) {
+	if (preg_match('/(?:\?|\&(?:amp;)?)id=(\d+)/', $str, $matches)) {
 		$retval['tvdb-id'] = $matches[1];
 	}
-	if (preg_match('/[\?\&]lid=(\d+)/', $str, $matches)) {
+	if (preg_match('/(?:\?|\&(?:amp;)?)lid=(\d+)/', $str, $matches)) {
 		$retval['tvdb-lid'] = $matches[1];
 	}
 
