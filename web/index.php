@@ -6,27 +6,39 @@ require_once 'includes/main.php';
 # Send our headers early
 header('Content-type: text/html; charset=utf-8');
 
-# Did the user request a specific show?
-$show = false;
-if (isset($_REQUEST['show'])) {
+# Did the user request a specific series?
+$series = false;
+if (isset($_REQUEST['series'])) {
 	# This is not a great filter, but it should make the string safe for use as a quoted path
-	$show = preg_replace('/[\0\n\r]/', '', $_REQUEST['show']);
-	$show = basename($show);
+	$series = preg_replace('/[\0\n\r]/', '', $_REQUEST['series']);
+	$series = basename($series);
 }
 
 # Did the user request an update?
-if ($show !== false && isset($_POST['Save'])) {
+if ($series !== false && isset($_POST['Save'])) {
 	# Require auth (or for the time being, specific IP addresses)
 	if (preg_match('/^(?:172\.19\.[17]\.|2602:3f:e50d:76|74\.93\.97\.65)/', $_SERVER['REMOTE_ADDR'])) {
+
 		# Grab the current settings for comparison
-		global $TV_PATH;
-		$series_path = $TV_PATH . '/'. $show;
-		$series_last = readFlags($series_path);
-		$seasons_last = findSeasons($series_path);
+		$series_last = readFlags($series);
+		$seasons_last = findSeasons($series);
 
 		# Save series and season data
-		saveFlags($series_path, $_POST, $series_last, $seasons_last);
-		saveSeasons($series_path, $_POST, $series_last, $seasons_last);
+		saveFlags($series, $_POST, $series_last, $seasons_last);
+		saveSeasons($series, $_POST, $series_last, $seasons_last);
+	} else {
+		echo '<h4 style="color: red;">Cannot save: User not authenticated</h4>';
+	}
+}
+
+# Did the user add a season?
+if ($series !== false && isset($_POST['AddSeason'])) {
+	# Require auth (or for the time being, specific IP addresses)
+	if (preg_match('/^(?:172\.19\.[17]\.|2602:3f:e50d:76|74\.93\.97\.65)/', $_SERVER['REMOTE_ADDR'])) {
+
+		# Add a season folder
+		$new_season = intval($_POST['season_new']);
+		addSeason($series, $new_season);
 	} else {
 		echo '<h4 style="color: red;">Cannot save: User not authenticated</h4>';
 	}
@@ -47,10 +59,10 @@ print <<<ENDOLA
 
 ENDOLA;
 
-if ($show === false) {
-	printAllShows();
+if ($series === false) {
+	printAllSeries();
 } else {
-	printShow($show);
+	printSeries($series);
 }
 
 # Generic XHTML 1.1 footer

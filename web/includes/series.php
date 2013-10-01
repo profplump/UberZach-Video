@@ -2,8 +2,17 @@
 
 require 'config.php';
 
-# Find all shows under the given path
-function allShows($base)	{
+function seriesExists($series) {
+	return is_dir(seriesPath($series));
+}
+
+function seriesPath($series) {
+	global $TV_PATH;
+	return $TV_PATH . '/' . $series;
+}
+
+# Find all seriess under the given path
+function allSeries($base) {
 	$retval = array();
 
 	# Look for series folders
@@ -11,21 +20,20 @@ function allShows($base)	{
 	if ($tv_dir === FALSE) {
 		die('Unable to opendir(): ' . htmlspecialchars($path) . "\n");
 	}
-	while (false !== ($show = readdir($tv_dir))) {
+	while (false !== ($series = readdir($tv_dir))) {
 
 		# Skip junk
-		if (isJunk($show)) {
+		if (isJunk($series)) {
 			continue;
 		}
 
-		# We only care about directories
-		$show_path = $base . '/' . $show;
-		if (!is_dir($show_path)) {
+		# Ensure the series is reasonable
+		if (!seriesExists($series)) {
 			continue;
 		}
 
-		# Record the show title and look for season folders
-		$retval[ $show ] = findSeasons($show_path);
+		# Record the series title and look for season folders
+		$retval[ $series ] = findSeasons($series);
 	}
 	closedir($tv_dir);
 	
@@ -33,10 +41,16 @@ function allShows($base)	{
 }
 
 # Read and parse all of the series-level exists, content, and *.webloc files
-function readFlags($path) {
+function readFlags($series) {
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
 	$flags = array();
+
+	# Ensure the series exists
+	if (!seriesExists($series)) {
+		die('Invalid series: ' . htmlspecialchars($series) . "\n");
+	}
+	$path = seriesPath($series);
 
 	# Look for all the exists files
 	foreach ($EXISTS_FILES as $name) {
@@ -65,10 +79,35 @@ function readFlags($path) {
 }
 
 # Parse and save all of the serires-level exists and content files
-function saveFlags($series_path, $data, $series_last, $seasons_last) {
+function saveFlags($series, $data, $series_last, $seasons_last) {
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
 
+	# Ensure the series exists
+	if (!seriesExists($series)) {
+		die('Invalid series: ' . htmlspecialchars($series) . "\n");
+	}
+	$series_path = seriesPath($series);
+
+	# Special handling for "skip"
+	{
+		$path = $series_path . '/skip';
+		if ($data['skip']) {
+			if (!file_exists($path)) {
+				touch($path);
+			}
+		} else {
+			if (file_exists($path)) {
+				unlink($path);
+			}
+		}
+	}
+
+	# Ignore everything else if we are now or were just in "skip" mode
+	if ($series_last['skip'] || $data['skip']) {
+		return;
+	}
+	
 	# Exists files
 	foreach ($EXISTS_FILES as $file) {
 		$path = $series_path . '/' . $file;

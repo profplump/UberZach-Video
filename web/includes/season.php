@@ -38,7 +38,7 @@ function seasonSearch($season_path) {
 }
 
 # Find all the season in a provided series folder and determine which are being monitored
-function findSeasons($path) {
+function findSeasons($series) {
 	$retval = array();
 
 	# Check for the skip file
@@ -47,6 +47,7 @@ function findSeasons($path) {
 		$skip = true;
 	}
 
+	$path = seriesPath($series);
 	$dir = opendir($path);
 	if ($dir === FALSE) {
 		die('Unable to opendir(): ' . htmlspecialchars($path) . "\n");
@@ -54,7 +55,7 @@ function findSeasons($path) {
 	while (false !== ($season = readdir($dir))) {
 
 		# Skip junk
-		if (isJunk($show)) {
+		if (isJunk($season)) {
 			continue;
 		}
 
@@ -78,19 +79,16 @@ function findSeasons($path) {
 }
 
 # Save the search status for all seasons in a series
-function saveSeasons($series_path, $data, $series_last, $seasons_last) {
+function saveSeasons($series, $data, $series_last, $seasons_last) {
 	# Do nothing if we are or just were in "skip" mode
-	if ($series['skip'] || $series_last['skip']) {
+	if ($data['skip'] || $series_last['skip']) {
 		return;
 	}
 
-	# Fresh data from disk
-	$series = readFlags($series_path);
-	$seasons = findSeasons($series_path);
-
 	# For each season
+	$seasons = findSeasons($series);
 	foreach ($seasons as $season => $status) {
-		$season_path = $series_path . '/Season ' . $season;
+		$season_path = seriesPath($series) . '/Season ' . $season;
 
 		$monitored = $data[ 'season_' . $season ];
 		$monitored_path = $season_path . '/season_done';
@@ -120,18 +118,16 @@ function saveSeasons($series_path, $data, $series_last, $seasons_last) {
 	}
 }
 
-# Add a folder for the provided show and season
-function addSeason($show, $season) {
-	global $TV_DIR;
+# Add a folder for the provided series and season
+function addSeason($series, $season) {
 
-	# Ensure the show exists
-	$show_path = $TV_DIR . '/' . $show;
-	if (!is_dir($show_path)) {
-		die('Invalid show: ' . htmlspecialchars($show) . "\n");
+	# Ensure the series exists
+	if (!seriesExists($series)) {
+		die('Invalid series: ' . htmlspecialchars($series) . "\n");
 	}
 
 	# Ensure the season does not exist
-	$season_path = $show_path . '/Season ' . intval($season);
+	$season_path = seriesPath($series) . '/Season ' . intval($season);
 	if (file_exists($season_path)) {
 		die('Invalid season: ' . htmlspecialchars($season) . "\n");
 	}

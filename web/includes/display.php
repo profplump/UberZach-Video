@@ -2,30 +2,34 @@
 
 require 'config.php';
 
-function printShow($show) {
-	global $TV_PATH;
+function printSeries($series) {
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
 
-	# Construct our show path and make sure it's reasonable
-	$path = $TV_PATH . '/' . $show;
-	$show_html = htmlspecialchars($show);
-	if (!is_dir($path)) {
-		die('Unknown show: ' . $show_html);
+	# Ensure our series name is reasonable
+	$series_html = htmlspecialchars($series);
+	if (!seriesExists($series)) {
+		die('Unknown series: ' . $series_html);
 	}
 
 	# Check the flags
-	$flags = readFlags($path);
+	$flags = readFlags($series);
 
 	# Check the seasons
-	$seasons = findSeasons($path);
+	$seasons = findSeasons($series);
 
 	# Header
-	echo '<h1>' . $show_html . '</h1>';
-	echo '<form action="' . $_SERVER['PHP_SELF'] . '?show=' . urlencode($show) . '" method="post">';
-	echo '<input type="hidden" name="show" value="' . $show_html . '"/>';
+	echo '<h1>' . $series_html . '</h1>';
+	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post">';
+	echo '<input type="hidden" name="series" value="' . $series_html . '"/>';
 
-	# Exists and content flags
+	# TVDB URL
+	echo '<h2>TVDB</h2>';
+	echo '<p><a target="_blank" href="' . 
+		htmlspecialchars($flags['url']) .
+		'">' . htmlspecialchars($flags['url']) . '</a></p>';
+
+	# Series flags
 	echo '<h2>Series Parameters</h2>';
 	echo '<p>';
 	foreach ($EXISTS_FILES as $file) {
@@ -50,13 +54,11 @@ function printShow($show) {
 		echo '</p>';
 	}
 
-	# TVDB URL
-	echo '<h2>The TVDB URL</h2>';
-	echo '<p><a href="' . htmlspecialchars($flags['url']) . '">' . htmlspecialchars($flags['url']) . '</a></p>';
-
 	# Seasons
 	if (!$flags['skip']) {
 		echo '<h2>Season Parameters</h2>';
+
+		# Existing seasons
 		echo '<p>';
 		foreach ($seasons as $season => $monitored) {
 			$season_html = htmlspecialchars($season);
@@ -73,23 +75,31 @@ function printShow($show) {
 			echo '"/><br/>';
 		}
 		echo '</p>';
+
+		# Add a season
+		$next_season = max(array_keys($seasons)) + 1;
+		echo '<p>Add season: ';
+		echo '<input type="text" size="2" name="season_new" value="' . htmlspecialchars($next_season) . '"/>';
+		echo '<input type="submit" name="AddSeason" value="Add Season">';
+		echo '</p>';
+
 	}
 
-	# Footer
+	# Save button
 	echo '<p><input type="submit" name="Save" value="Save"/></p>';
+
+	# Footer
 	echo '</form>';
 }
 
-# Print a DL of all shows and note the available and monitored seasons
-function printAllShows() {
+# Print a DL of all series and note the available and monitored seasons
+function printAllSeries() {
 	global $TV_PATH;
-	global $MEDIA_PATH;
-
-	$shows = allShows($TV_PATH);
+	$all_series = allSeries($TV_PATH);
 
 	echo "<dl>\n";
-	foreach ($shows as $show => $seasons) {
-		echo '<dt><a href="?show=' . urlencode($show) . '">' . htmlspecialchars($show) . "</a></dt>\n";
+	foreach ($all_series as $series => $seasons) {
+		echo '<dt><a href="?series=' . urlencode($series) . '">' . htmlspecialchars($series) . "</a></dt>\n";
 		foreach ($seasons as $season => $monitored) {
 			echo '<dd>Season ' . htmlspecialchars($season);
 			if ($monitored) {

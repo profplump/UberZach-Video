@@ -14,8 +14,8 @@ function getTVDBSeasons($id) {
 	return $retval;
 }
 
-# Search TVDB for the named show and return all likely results
-function findTVDBShow($show) {
+# Search TVDB for the named series and return all likely results
+function findTVDBSeries($series) {
 	$retval = false;
 	return $retval;
 }
