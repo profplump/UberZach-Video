@@ -78,7 +78,46 @@ function findSeasons($path) {
 }
 
 # Save the search status for all seasons in a series
-function saveSeasons($data) {
+function saveSeasons($series_path, $data, $series_last, $seasons_last) {
+	# Do nothing if we are or just were in "skip" mode
+	if ($series['skip'] || $series_last['skip']) {
+		return;
+	}
+
+	# Fresh data from disk
+	$series = readFlags($series_path);
+	$seasons = findSeasons($series_path);
+
+	# For each season
+	foreach ($seasons as $season => $status) {
+		$season_path = $series_path . '/Season ' . $season;
+
+		$monitored = $data[ 'season_' . $season ];
+		$monitored_path = $season_path . '/season_done';
+		if ($monitored) {
+			if (file_exists($monitored_path)) {
+				unlink($monitored_path);
+			}
+		} else {
+			if (!file_exists($monitored_path)) {
+				touch($monitored_path);
+			}
+		}
+
+		$url = $data[ 'url_' . $season ];
+		$url_path = $season_path . '/url';
+		if ($url) {
+			if (isMonitored($season_path)) {
+				file_put_contents($url_path, $url . "\n");
+			}
+		} else {
+			if ($seasons_last[ $season ] && isMonitored($season_path)) {
+				if (file_exists($url_path)) {
+					unlink($url_path);
+				}
+			}
+		}
+	}
 }
 
 # Add a folder for the provided show and season

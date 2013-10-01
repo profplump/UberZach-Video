@@ -65,12 +65,9 @@ function readFlags($path) {
 }
 
 # Parse and save all of the serires-level exists and content files
-function saveFlags($show, $data) {
-	global $TV_PATH;
+function saveFlags($series_path, $data, $series_last, $seasons_last) {
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
-
-	$series_path = $TV_PATH . '/' . $show;
 
 	# Exists files
 	foreach ($EXISTS_FILES as $file) {

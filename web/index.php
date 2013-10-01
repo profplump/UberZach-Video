@@ -18,8 +18,14 @@ if (isset($_REQUEST['show'])) {
 if ($show !== false && isset($_POST['Save'])) {
 	echo '<h4 style="color: red;">Saving not yet implemented</h4>';
 
-	#saveFlags($show, $_POST);
-	saveSeasons($show, $_POST);
+	# Grab the current settings for comparison
+	global $TV_PATH;
+	$series_path = $TV_PATH . '/'. $show;
+	$series_last = readFlags($series_path);
+	$seasons_last = findSeasons($series_path);
+
+	saveFlags($series_path, $_POST, $series_last, $seasons_last);
+	saveSeasons($series_path, $_POST, $series_last, $seasons_last);
 }
 
 #=========================================================================================
