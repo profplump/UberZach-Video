@@ -118,7 +118,7 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 	}
 }
 
-# Add a folder for the provided series and season
+# Add the specified season folder
 function addSeason($series, $season) {
 
 	# Ensure the series exists
@@ -134,6 +134,24 @@ function addSeason($series, $season) {
 
 	# Create the directory
 	mkdir($season_path);
+}
+
+# Remove the specified season folder, if possible (i.e. if empty)
+function delSeason($series, $season) {
+
+	# Ensure the series exists
+	if (!seriesExists($series)) {
+		die('Invalid series: ' . htmlspecialchars($series) . "\n");
+	}
+
+	# Ensure the season exists
+	$season_path = seriesPath($series) . '/Season ' . intval($season);
+	if (!file_exists($season_path)) {
+		die('Invalid season: ' . htmlspecialchars($season) . "\n");
+	}
+
+	# Remove the directory (or fail silently)
+	@rmdir($season_path);
 }
 
 ?>

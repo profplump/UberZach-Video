@@ -37,10 +37,32 @@ if ($series !== false && isset($_POST['AddSeason'])) {
 	if (preg_match('/^(?:172\.19\.[17]\.|2602:3f:e50d:76|74\.93\.97\.65)/', $_SERVER['REMOTE_ADDR'])) {
 
 		# Add a season folder
-		$new_season = intval($_POST['season_new']);
-		addSeason($series, $new_season);
+		$season = intval($_POST['season_add']);
+		addSeason($series, $season);
 	} else {
 		echo '<h4 style="color: red;">Cannot save: User not authenticated</h4>';
+	}
+}
+
+# Did the user delete a season?
+if ($series !== false) {
+	$season = false;
+	foreach (array_keys($_POST) as $key) {
+		if (preg_match('/season_del_(\d+)/', $key, $matches)) {
+			$season = intval($matches[1]);
+			last;
+		}
+	}
+	if ($season !== false) {
+
+		# Require auth (or for the time being, specific IP addresses)
+		if (preg_match('/^(?:172\.19\.[17]\.|2602:3f:e50d:76|74\.93\.97\.65)/', $_SERVER['REMOTE_ADDR'])) {
+
+			# Remove a season folder (if empty)
+			delSeason($series, $season);
+		} else {
+			echo '<h4 style="color: red;">Cannot save: User not authenticated</h4>';
+		}
 	}
 }
 

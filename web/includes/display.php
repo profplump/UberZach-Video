@@ -72,14 +72,16 @@ function printSeries($series) {
 			if ($monitored !== false && $monitored !== true) {
 				echo htmlspecialchars($monitored);
 			}
-			echo '"/><br/>';
+			echo '"/>';
+			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete">';
+			echo '<br/>';
 		}
 		echo '</p>';
 
 		# Add a season
 		$next_season = max(array_keys($seasons)) + 1;
 		echo '<p>Add season: ';
-		echo '<input type="text" size="2" name="season_new" value="' . htmlspecialchars($next_season) . '"/>';
+		echo '<input type="text" size="2" name="season_add" value="' . htmlspecialchars($next_season) . '"/>';
 		echo '<input type="submit" name="AddSeason" value="Add Season">';
 		echo '</p>';
 
