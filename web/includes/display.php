@@ -94,8 +94,7 @@ function printSeries($series) {
 	$url_html = htmlspecialchars(TVDBURL($flags['tvdb-id'], $flags['tvdb-lid']));
 	echo '<h2>The TVDB</h2>';
 	echo '<p><a target="_blank" href="' . $url_html . '">' . $url_html . '</a></p>';
-	echo '<iframe style="width: 85%; display: block; margin: 0 auto;" src="' . $url_html . '" '.
-		'onLoad="this.height = window.innerHeight;">';
+	echo '<iframe height="5000" style="width: 90%; display: block; margin: 0 auto;" src="' . $url_html . '">';
 	echo '</iframe>';
 }
 
