@@ -16,17 +16,20 @@ if (isset($_REQUEST['show'])) {
 
 # Did the user request an update?
 if ($show !== false && isset($_POST['Save'])) {
-	echo '<h4 style="color: red;">Saving not yet implemented</h4>';
+	# Require auth (or for the time being, specific IP addresses)
+	if (preg_match('/^(?:172\.19\.[17]\.|2602:3f:e50d:76|74\.93\.97\.65)/', $_SERVER['REMOTE_ADDR'])) {
+		# Grab the current settings for comparison
+		global $TV_PATH;
+		$series_path = $TV_PATH . '/'. $show;
+		$series_last = readFlags($series_path);
+		$seasons_last = findSeasons($series_path);
 
-	# Grab the current settings for comparison
-	global $TV_PATH;
-	$series_path = $TV_PATH . '/'. $show;
-	$series_last = readFlags($series_path);
-	$seasons_last = findSeasons($series_path);
-
-	# Save series and season data
-	saveFlags($series_path, $_POST, $series_last, $seasons_last);
-	saveSeasons($series_path, $_POST, $series_last, $seasons_last);
+		# Save series and season data
+		saveFlags($series_path, $_POST, $series_last, $seasons_last);
+		saveSeasons($series_path, $_POST, $series_last, $seasons_last);
+	} else {
+		echo '<h4 style="color: red;">Cannot save: User not authenticated</h4>';
+	}
 }
 
 #=========================================================================================
