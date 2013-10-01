@@ -21,11 +21,6 @@ function printSeries($series) {
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post">';
 	echo '<input type="hidden" name="series" value="' . $series_html . '"/>';
 
-	# TVDB URL
-	$url_html = htmlspecialchars(TVDBURL($flags['tvdb-id'], $flags['tvdb-lid']));
-	echo '<h2>TVDB</h2>';
-	echo '<p><a target="_blank" href="' . $url_html . '">' . $url_html . '</a></p>';
-
 	# Series flags
 	echo '<h2>Series Parameters</h2>';
 	echo '<p>';
@@ -60,7 +55,7 @@ function printSeries($series) {
 		foreach ($seasons as $season => $monitored) {
 			$season_html = htmlspecialchars($season);
 
-			$episodes = findEpisodes(seasonPath($series, $season));
+			$episodes = findEpisodes($series, $season);
 
 			echo '<dt>Season ' . $season_html . '</dt>';
 			echo '<dd><label>Monitored: <input type="checkbox" value="1" name="season_' . $season_html . '" ';
@@ -74,15 +69,14 @@ function printSeries($series) {
 			}
 			echo '"/></label><br/>';
 			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete"><br/>';
-			echo 'Episode count: <br/>';
-			echo 'Last episode: <br/>';
-			echo 'TheTVDB episode count: <br/>';
+			echo 'Episode count: ' . count($episodes) . '<br/>';
+			echo 'Highest episode number: ' . @max(array_keys($episodes)) . '<br/>';
 			echo '</dd>';
 		}
 		echo '</dl>';
 
 		# Add a season
-		$next_season = max(array_keys($seasons)) + 1;
+		$next_season = @max(array_keys($seasons)) + 1;
 		echo '<p>Add season: ';
 		echo '<input type="text" size="2" name="season_add" value="' . htmlspecialchars($next_season) . '"/>';
 		echo '<input type="submit" name="AddSeason" value="Add Season">';
@@ -95,6 +89,14 @@ function printSeries($series) {
 
 	# Footer
 	echo '</form>';
+
+	# TheTVDB Frame
+	$url_html = htmlspecialchars(TVDBURL($flags['tvdb-id'], $flags['tvdb-lid']));
+	echo '<h2>The TVDB</h2>';
+	echo '<p><a target="_blank" href="' . $url_html . '">' . $url_html . '</a></p>';
+	echo '<iframe style="width: 85%; display: block; margin: 0 auto;" src="' . $url_html . '" '.
+		'onLoad="this.height = window.innerHeight;">';
+	echo '</iframe>';
 }
 
 # Print a DL of all series and note the available and monitored seasons

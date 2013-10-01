@@ -3,9 +3,10 @@
 require 'config.php';
 
 # Find all the episodes in a provided season folder
-function findEpisodes($season_path) {
+function findEpisodes($series, $season) {
 	$retval = array();
 
+	$season_path = seasonPath($series, $season);
 	$dir = opendir($season_path);
 	if ($dir === FALSE) {
 		die('Unable to opendir(): ' . htmlspecialchars($season_path) . "\n");
@@ -17,16 +18,10 @@ function findEpisodes($season_path) {
 			continue;
 		}
 
-		# We only care about files
-		$episode_path = $path . '/' . $episode;
-		if (!is_file($episode_path)) {
-			continue;
-		}
-
 		# Record the episode number
-		if (preg_match('/^(?:S\d+E)?(\d+)\s*\-\s*\.\w\w\w$/i', $season, $matches)) {
+		if (preg_match('/^(?:S\d+E)?(\d+)\s*\-\s*(\S.*\.\w{2,4})$/i', $episode, $matches)) {
 			$episode_num = intval($matches[1]);
-			$retval[ $episode_num ] = true;
+			$retval[ $episode_num ] = $matches[2];
 		}
 	}
 	closedir($dir);
