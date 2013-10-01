@@ -2,33 +2,52 @@
 
 require 'config.php';
 
+function seasonExists($series, $season) {
+        return is_dir(seasonPath($series, $season));
+}
+
+function seasonPath($series, $season) {
+	return seriesPath($series) . '/Season ' . intval($season);
+}
+
 # True if the provided season folder is being monitored
-function isMonitored($season_path) {
-	if (file_exists(dirname($season_path) . '/skip')) {
-		return false;
-	}
+function isMonitored($series, $season) {
 
-	if (file_exists($season_path . '/season_done')) {
-		return false;
-	}
-
-	$season = 0;
-	if (preg_match('/^Season\s+(\d+)$/i', basename($season_path), $matches)) {
-		$season = $matches[1];
-	}
+	# Season 0 is never monitored
 	if (!$season) {
 		return false;
 	}
 
+	# Imaginary series are not monitored
+	if (!seriesExists($series)) {
+		return false;
+	}
+
+	# Imaginary seasons are not monitored
+	if (!seasonExists($series, $season)) {
+		return false;
+	}
+
+	# Series marked "skip" are not monitored
+	if (file_exists(seriesPath($series) . '/skip')) {
+		return false;
+	}
+
+	# Seasons marked done are not monitored
+	if (file_exists(seasonPath($series, $season) . '/season_done')) {
+		return false;
+	}
+
+	# The default behavior is to search
 	return true;
 }
 
 # Get the season search status, including the URL (if any) for the provided path
-function seasonSearch($season_path) {
-	$retval = isMonitored($season_path);
+function seasonSearch($series, $season) {
+	$retval = isMonitored($series, $season);
 
 	if ($retval) {
-		$file = $season_path . '/url';
+		$file = seasonPath($series, $season) . '/url';
 		if (is_readable($file)) {
 			$retval = trim(file_get_contents($file));
 		}
@@ -40,12 +59,6 @@ function seasonSearch($season_path) {
 # Find all the season in a provided series folder and determine which are being monitored
 function findSeasons($series) {
 	$retval = array();
-
-	# Check for the skip file
-	$skip = false;
-	if (file_exists($path . '/skip')) {
-		$skip = true;
-	}
 
 	$path = seriesPath($series);
 	$dir = opendir($path);
@@ -67,7 +80,8 @@ function findSeasons($series) {
 
 		# Record the season number and search status
 		if (preg_match('/Season\s+(\d+)/i', $season, $matches)) {
-			$retval[ $matches[1] ] = seasonSearch($season_path);
+			$season_num = $matches[1];
+			$retval[ $season_num ] = seasonSearch($series, $season_num);
 		}
 	}
 	closedir($dir);
@@ -88,7 +102,7 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 	# For each season
 	$seasons = findSeasons($series);
 	foreach ($seasons as $season => $status) {
-		$season_path = seriesPath($series) . '/Season ' . $season;
+		$season_path = seasonPath($series, $season);
 
 		$monitored = $data[ 'season_' . $season ];
 		$monitored_path = $season_path . '/season_done';
@@ -105,11 +119,11 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 		$url = $data[ 'url_' . $season ];
 		$url_path = $season_path . '/url';
 		if ($url) {
-			if (isMonitored($season_path)) {
+			if (isMonitored($series, $season)) {
 				file_put_contents($url_path, $url . "\n");
 			}
 		} else {
-			if ($seasons_last[ $season ] && isMonitored($season_path)) {
+			if ($seasons_last[ $season ] && isMonitored($series, $season)) {
 				if (file_exists($url_path)) {
 					unlink($url_path);
 				}
@@ -130,7 +144,7 @@ function addSeason($series, $season) {
 	}
 
 	# Ensure the season does not exist
-	$season_path = seriesPath($series) . '/Season ' . $season;
+	$season_path = seasonPath($series, $season);
 	if (file_exists($season_path)) {
 		die('Invalid season: ' . htmlspecialchars($season) . "\n");
 	}
@@ -158,13 +172,12 @@ function delSeason($series, $season) {
 	}
 
 	# Ensure the season exists
-	$season_path = seriesPath($series) . '/Season ' . intval($season);
-	if (!file_exists($season_path)) {
+	if (!seasonExists($series, $season)) {
 		die('Invalid season: ' . htmlspecialchars($season) . "\n");
 	}
 
 	# Remove the directory (or fail silently)
-	@rmdir($season_path);
+	@rmdir(seasonPath($series, $season));
 }
 
 ?>

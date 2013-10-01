@@ -56,24 +56,30 @@ function printSeries($series) {
 		echo '<h2>Season Parameters</h2>';
 
 		# Existing seasons
-		echo '<p>';
+		echo '<dl>';
 		foreach ($seasons as $season => $monitored) {
 			$season_html = htmlspecialchars($season);
-			echo '<label>Season ' . $season_html . ' ';
-			echo '<input type="checkbox" value="1" name="season_' . $season_html . '" ';
+
+			$episodes = findEpisodes(seasonPath($series, $season));
+
+			echo '<dt>Season ' . $season_html . '</dt>';
+			echo '<dd><label>Monitored: <input type="checkbox" value="1" name="season_' . $season_html . '" ';
 			if ($monitored !== false) {
 				echo 'checked="checked"';
 			}
-			echo '/></label>';
-			echo '<input type="text" size="150" name="url_' . $season_html . '" value="';
+			echo '/></label><br/>';
+			echo '<label>Search URL: <input type="text" size="150" name="url_' . $season_html . '" value="';
 			if ($monitored !== false && $monitored !== true) {
 				echo htmlspecialchars($monitored);
 			}
-			echo '"/>';
-			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete">';
-			echo '<br/>';
+			echo '"/></label><br/>';
+			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete"><br/>';
+			echo 'Episode count: <br/>';
+			echo 'Last episode: <br/>';
+			echo 'TheTVDB episode count: <br/>';
+			echo '</dd>';
 		}
-		echo '</p>';
+		echo '</dl>';
 
 		# Add a season
 		$next_season = max(array_keys($seasons)) + 1;
