@@ -68,13 +68,8 @@ function readWebloc($file) {
 		$retval['tvdb-lid'] = $matches[1];
 	}
 
-	# Construct a URL
-	if ($retval['tvdb-id'] !== false) {
-		$retval['url'] = $TVDB_URL . '&id=' . $retval['tvdb-id'];
-		if ($retval['tvdb-lid'] !== false) {
-			$retval['url'] .= '&lid=' . $retval['tvdb-lid'];
-		}
-	}
+	# Grab the URL, if available
+	$retval['url'] = TVDBURL($retval['tvdb-id'], $retval['tvdb-lid']);
 
 	return $retval;
 }
