@@ -55,7 +55,6 @@ function readWebloc($file) {
 	$retval = array(
 		'tvdb-id'  => false,
 		'tvdb-lid' => false,
-		'url'      => false,
 	);
 
 	# Read and parse the file
@@ -67,9 +66,6 @@ function readWebloc($file) {
 	if (preg_match('/(?:\?|\&(?:amp;)?)lid=(\d+)/', $str, $matches)) {
 		$retval['tvdb-lid'] = $matches[1];
 	}
-
-	# Grab the URL, if available
-	$retval['url'] = TVDBURL($retval['tvdb-id'], $retval['tvdb-lid']);
 
 	return $retval;
 }

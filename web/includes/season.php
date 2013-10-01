@@ -121,15 +121,28 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 # Add the specified season folder
 function addSeason($series, $season) {
 
+	# Cheap validation
+	$season = intval($season);
+
 	# Ensure the series exists
 	if (!seriesExists($series)) {
 		die('Invalid series: ' . htmlspecialchars($series) . "\n");
 	}
 
 	# Ensure the season does not exist
-	$season_path = seriesPath($series) . '/Season ' . intval($season);
+	$season_path = seriesPath($series) . '/Season ' . $season;
 	if (file_exists($season_path)) {
 		die('Invalid season: ' . htmlspecialchars($season) . "\n");
+	}
+
+	# Ensure the season number is listed on TVDB
+	$flags = readFlags($series);
+	if (!$flags['tvdb-id']) {
+		die('No TVDB ID for series: ' . htmlspecialchars($series) . "\n");
+	}
+	$seasons = getTVDBSeasons($flags['tvdb-id'], $flags['tvdb-lid']);
+	if (!$seasons[ $season ]) {
+		die('Season not listed in TheTVDB: ' . htmlspecialchars($season) . "\n");
 	}
 
 	# Create the directory

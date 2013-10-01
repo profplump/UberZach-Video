@@ -12,10 +12,8 @@ function printSeries($series) {
 		die('Unknown series: ' . $series_html);
 	}
 
-	# Check the flags
+	# Grab the flag and season data
 	$flags = readFlags($series);
-
-	# Check the seasons
 	$seasons = findSeasons($series);
 
 	# Header
@@ -24,10 +22,9 @@ function printSeries($series) {
 	echo '<input type="hidden" name="series" value="' . $series_html . '"/>';
 
 	# TVDB URL
+	$url_html = htmlspecialchars(TVDBURL($flags['tvdb-id'], $flags['tvdb-lid']));
 	echo '<h2>TVDB</h2>';
-	echo '<p><a target="_blank" href="' . 
-		htmlspecialchars($flags['url']) .
-		'">' . htmlspecialchars($flags['url']) . '</a></p>';
+	echo '<p><a target="_blank" href="' . $url_html . '">' . $url_html . '</a></p>';
 
 	# Series flags
 	echo '<h2>Series Parameters</h2>';
