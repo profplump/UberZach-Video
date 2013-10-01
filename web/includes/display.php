@@ -29,45 +29,51 @@ function printShow($show) {
 	echo '<h2>Series Parameters</h2>';
 	echo '<p>';
 	foreach ($EXISTS_FILES as $file) {
-		$file_html = htmlspecialchars($file);
-		echo '<label><input value="1" type="checkbox" name="' . $file_html . '" ';
-		if ($flags[ $file ]) {
-			echo 'checked="checked"';
+		if ($file == 'skip' || !$flags['skip']) {
+			$file_html = htmlspecialchars($file);
+			echo '<label><input value="1" type="checkbox" name="' . $file_html . '" ';
+			if ($flags[ $file ]) {
+				echo 'checked="checked"';
+			}
+			echo '/> ' . $file_html . '</label><br/>';
 		}
-		echo '/> ' . $file_html . '</label><br/>';
 	}
-	foreach ($CONTENT_FILES as $file) {
-		$file_html = htmlspecialchars($file);
-		echo '<label><input type="text" size="40" name="' . $file_html . '" ';
-		if ($flags[ $file ]) {
-			echo 'value="' . htmlspecialchars($flags[ $file ]) . '"';
+	if (!$flags['skip']) {
+		foreach ($CONTENT_FILES as $file) {
+			$file_html = htmlspecialchars($file);
+			echo '<label><input type="text" size="40" name="' . $file_html . '" ';
+			if ($flags[ $file ]) {
+				echo 'value="' . htmlspecialchars($flags[ $file ]) . '"';
+			}
+			echo '/> ' . $file_html . '</label><br/>';
 		}
-		echo '/> ' . $file_html . '</label><br/>';
+		echo '</p>';
 	}
-	echo '</p>';
 
 	# TVDB URL
 	echo '<h2>The TVDB URL</h2>';
 	echo '<p><a href="' . htmlspecialchars($flags['url']) . '">' . htmlspecialchars($flags['url']) . '</a></p>';
 
 	# Seasons
-	echo '<h2>Season Parameters</h2>';
-	echo '<p>';
-	foreach ($seasons as $season => $monitored) {
-		$season_html = htmlspecialchars($season);
-		echo '<label>Season ' . $season_html . ' ';
-		echo '<input type="checkbox" value="1" name="season_' . $season_html . '" ';
-		if ($monitored !== false) {
-			echo 'checked="checked"';
+	if (!$flags['skip']) {
+		echo '<h2>Season Parameters</h2>';
+		echo '<p>';
+		foreach ($seasons as $season => $monitored) {
+			$season_html = htmlspecialchars($season);
+			echo '<label>Season ' . $season_html . ' ';
+			echo '<input type="checkbox" value="1" name="season_' . $season_html . '" ';
+			if ($monitored !== false) {
+				echo 'checked="checked"';
+			}
+			echo '/></label>';
+			echo '<input type="text" size="150" name="url_' . $season_html . '" value="';
+			if ($monitored !== false && $monitored !== true) {
+				echo htmlspecialchars($monitored);
+			}
+			echo '"/><br/>';
 		}
-		echo '/></label>';
-		echo '<input type="text" size="150" name="url_' . $season_html . '" value="';
-		if ($monitored !== false && $monitored !== true) {
-			echo htmlspecialchars($monitored);
-		}
-		echo '"/><br/>';
+		echo '</p>';
 	}
-	echo '</p>';
 
 	# Footer
 	echo '<p><input type="submit" name="Save" value="Save"/></p>';
