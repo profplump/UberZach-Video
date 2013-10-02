@@ -11,7 +11,19 @@ function seriesPath($series) {
 	return $TV_PATH . '/' . $series;
 }
 
-# Find all seriess under the given path
+# Find all series and seasons under a given path
+function allSeriesSeasons($base) {
+	$retval = array();
+	$all_series = allSeries($base);
+
+	foreach ($all_series as $series) {
+		$retval[ $series ] = findSeasons($series);
+	}
+
+	return $retval;
+}
+
+# Find all series under the given path
 function allSeries($base) {
 	$retval = array();
 
@@ -32,8 +44,7 @@ function allSeries($base) {
 			continue;
 		}
 
-		# Record the series title and look for season folders
-		$retval[ $series ] = findSeasons($series);
+		$retval[] = $series;
 	}
 	closedir($tv_dir);
 	

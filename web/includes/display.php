@@ -101,7 +101,7 @@ function printSeries($series) {
 # Print a DL of all series and note the available and monitored seasons
 function printAllSeries() {
 	global $TV_PATH;
-	$all_series = allSeries($TV_PATH);
+	$all_series = allSeriesSeasons($TV_PATH);
 
 	# Display all series
 	echo '<dl>';
