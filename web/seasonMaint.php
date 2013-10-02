@@ -1,10 +1,6 @@
 #!/usr/local/bin/php
 <?
 
-function verbose($str) {
-	echo $str;
-}
-
 set_time_limit(0);
 require_once 'includes/main.php';
 
@@ -34,13 +30,31 @@ foreach ($all_series as $series => $seasons) {
 
 	# If we detect one or more missing seasons
 	if ($tvdb_max > $local_max) {
-		verbose($series . "\n");
+
+		# Sanity check
+		if ($tvdb_max - $local_max > 5) {
+			echo 'TheTVDB lists ' . $tvdb_max . ' season for ' . $series. ". Skipping...\n";
+			next;
+		}
+
+		# Add the seasons
+		echo $series . "\n";
 		for ($season = $local_max + 1; $season <= $tvdb_max; $season++) {
-			verbose("\tAdding season: " . $season);
+			echo "\tAdding season: " . $season . "\n";
 			#addSeason($series, $season);
 		}
-	} else {
-		verbose('No new seasons: ' . $series . "\n");
+	}
+
+	# Check for multiple monitored seasons in a series
+	$seasons = findSeasons($series);
+	$monitored_count = 0;
+	foreach ($seasons as $season => $status) {
+		if ($status) {
+			$monitored_count++;
+		}
+	}
+	if ($monitored_count > 1) {
+		echo 'Multiple seasons monitored for: ' . $series . "\n";
 	}
 }
 
