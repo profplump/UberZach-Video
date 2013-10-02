@@ -135,8 +135,49 @@ function saveFlags($series, $data, $series_last, $seasons_last) {
 	}
 }
 
-# Add a series as identified by TVDB ID
-function addSeries($id) {
+# Add a series as identified by TVDB URL or ID
+function addSeries($str) {
+	global $TVDB_LANG_ID;
+	$id     = false;
+	$lid    = false;
+	$series = false;
+
+	# Accept URLs or raw IDs
+	if (preg_match('/^\d+$/', $str)) {
+		$id = intval($str);
+	} else {
+		list($id, $lid) = parseTVDBURL($str);
+	}
+
+	# Ensure we got something useful
+	if (!$id) {
+		die('Invalid ID or URL: ' . htmlspecialchars($str) . "\n");
+	}
+	if (!$lid) {
+		$lid = $TVDB_LANG_ID;
+	}
+
+	# Find the show name
+	$series = getTVDBTitle($id, $lid);
+
+	# Ensure the title is reasonable
+	if (!$series) {
+		die('No such TVDB series: ' . htmlspecialchars($id) . "\n");
+	}
+
+	# Clean the title for filesystem use
+	$series = cleanSeries($series);
+
+	if (seriesExists($series)) {
+		die('Series already exists: ' . htmlspecialchars($series) . "\n");
+	}
+
+	# If all is well, create the folder and webloc file
+	$series_path = seriesPath($series);
+	if(@mkdir($series_path)) {
+		writeWebloc(TVDBURL($id, $lid), $series_path . '/' . $series . '.webloc');
+		addSeason($series, 1);
+	}
 }
 
 ?>

@@ -51,23 +51,8 @@ function findWebloc($path) {
 
 # Read and parse the provided *.webloc file
 function readWebloc($file) {
-	global $TVDB_URL;
-	$retval = array(
-		'tvdb-id'  => false,
-		'tvdb-lid' => false,
-	);
-
-	# Read and parse the file
-	# Accept both the resource-fork and data-fork (i.e. plist) verisons of the file
 	$str = trim(file_get_contents($file));
-	if (preg_match('/(?:\?|\&(?:amp;)?)id=(\d+)/', $str, $matches)) {
-		$retval['tvdb-id'] = $matches[1];
-	}
-	if (preg_match('/(?:\?|\&(?:amp;)?)lid=(\d+)/', $str, $matches)) {
-		$retval['tvdb-lid'] = $matches[1];
-	}
-
-	return $retval;
+	return parseTVDBURL($str);	
 }
 
 ?>

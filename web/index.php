@@ -9,9 +9,7 @@ header('Content-type: text/html; charset=utf-8');
 # Did the user request a specific series?
 $series = false;
 if (isset($_REQUEST['series'])) {
-	# This is not a great filter, but it should make the string safe for use as a quoted path
-	$series = preg_replace('/[\0\n\r]/', '', $_REQUEST['series']);
-	$series = basename($series);
+	$series = cleanSeries($_REQUEST['series']);
 }
 
 # Did the user request an update?

@@ -2,6 +2,24 @@
 
 require 'config.php';
 
+# Parse and input URL for TVDB ID and LID
+function parseTVDBURL($url) {
+	$retval = array(
+		'tvdb-id'  => false,
+		'tvdb-lid' => false,
+	);
+
+        # Accept both the raw and encoded verisons of the URL
+	if (preg_match('/(?:\?|\&(?:amp;)?)id=(\d+)/', $url, $matches)) {
+		$retval['tvdb-id'] = $matches[1];
+	}
+	if (preg_match('/(?:\?|\&(?:amp;)?)lid=(\d+)/', $url, $matches)) {
+		$retval['tvdb-lid'] = $matches[1];
+	}
+
+	return $retval;
+}
+
 # Build a series URL from the ID and optional LID
 function TVDBURL($id, $lid) {
 	global $TVDB_URL;

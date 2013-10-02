@@ -2,6 +2,25 @@
 
 require 'config.php';
 
+# Cleanup the provided series name
+# This does NOT provide comprehensively safe output,
+# it merely attempts to make names compatible with the filesystem and local convetions
+function cleanSeries($series) {
+	# Clearly unreasonable characters
+	$series = preg_replace('/[\0\n\r]/', ' ', $series);
+
+	# Not allowed on our filesystem
+	$series = preg_replace('/\s+[\/\:]\s+/', ' - ', $series);
+
+	# General string cleanup
+	$series = preg_replace('/\s+/', ' ', $series);
+
+	# Ensure we don't go out-of-scope
+	$series = basename($series);
+
+	return $series;
+}
+
 # True if the input path is junk -- self-links, OS X noise, etc.
 function isJunk($path) {
 	$path = basename($path);
