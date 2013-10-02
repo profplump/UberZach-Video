@@ -25,7 +25,8 @@ fi
 
 # Allow usage with absolute local paths
 if [ "`echo "${SUB_DIR}" | head -c 1`" == '/' ]; then
-	SUB_DIR="`echo "${SUB_DIR}" | sed 's%^'"${BASE_LOCAL}"'/%%'`"
+	BASE_LOCAL="`dirname "${SUB_DIR}"`"
+	SUB_DIR="`basename "${SUB_DIR}"`"
 fi
 
 # Sanity checks
