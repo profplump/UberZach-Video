@@ -35,8 +35,6 @@ foreach ($all_series as $series => $seasons) {
 	} else {
 		verbose('No new seasons: ' . $series . "\n");
 	}
-
-	exit(0);
 }
 
 ?>
