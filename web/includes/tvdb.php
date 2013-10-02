@@ -10,7 +10,7 @@ function parseTVDBURL($url) {
 	);
 
         # Accept both the raw and encoded verisons of the URL
-	if (preg_match('/(?:\?|\&(?:amp;)?)id=(\d+)/', $url, $matches)) {
+	if (preg_match('/(?:\?|\&(?:amp;)?)(?:series)?id=(\d+)/', $url, $matches)) {
 		$retval['tvdb-id'] = $matches[1];
 	}
 	if (preg_match('/(?:\?|\&(?:amp;)?)lid=(\d+)/', $url, $matches)) {
