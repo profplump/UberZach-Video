@@ -17,8 +17,15 @@ foreach ($all_series as $series => $seasons) {
 	# Long wait between series, to avoid TVDB bans
 	sleep(rand(20, 40));
 
-	# Grab the TVDB season list
+	# Grab the season parameters
 	$flags = readFlags($series);
+
+	# Respect the "skip" flag
+	if ($flags['skip']) {
+		next;
+	}
+
+	# Grab the TVDB season list
 	$tvdb_seasons = getTVDBSeasons($flags['tvdb-id'], $flags['tvdb-lid']);
 
 	# We only care about "new" seasons -- don't force old seasons into the local tree
