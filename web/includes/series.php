@@ -146,7 +146,9 @@ function addSeries($str) {
 	if (preg_match('/^\d+$/', $str)) {
 		$id = intval($str);
 	} else {
-		list($id, $lid) = parseTVDBURL($str);
+		$result = parseTVDBURL($str);
+		$id = $result['tvdb-id'];
+		$lid = $result['tvdb-lid'];
 	}
 
 	# Ensure we got something useful

@@ -103,18 +103,27 @@ function printAllSeries() {
 	global $TV_PATH;
 	$all_series = allSeries($TV_PATH);
 
-	echo "<dl>\n";
+	# Display all series
+	echo '<dl>';
 	foreach ($all_series as $series => $seasons) {
-		echo '<dt><a href="?series=' . urlencode($series) . '">' . htmlspecialchars($series) . "</a></dt>\n";
+		echo '<dt><a href="?series=' . urlencode($series) . '">' . htmlspecialchars($series) . '</a></dt>';
 		foreach ($seasons as $season => $monitored) {
 			echo '<dd>Season ' . htmlspecialchars($season);
 			if ($monitored) {
 				echo ' (monitored)';
 			}
-			echo "</dd>\n";
+			echo '</dd>';
 		}
 	}
-	echo "</dl>\n";
+	echo '</dl>';
+
+	# Add a series
+	echo '<form action="' . $_SERVER['PHP_SELF'] . '" method="post">';
+	echo '<p>';
+	echo '<label>TheTVDB ID or URL: <input type="text" name="series_add"/></label>';
+	echo '<input type="submit" name="AddSeries" value="Add Series"/>';
+	echo '</p>';
+	echo '</form>';
 }
 
 ?>
