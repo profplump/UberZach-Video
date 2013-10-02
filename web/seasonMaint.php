@@ -18,7 +18,7 @@ foreach ($all_series as $series => $seasons) {
 
 	# Respect the "skip" flag
 	if ($flags['skip']) {
-		next;
+		continue;
 	}
 
 	# Grab the TVDB season list
@@ -34,7 +34,7 @@ foreach ($all_series as $series => $seasons) {
 		# Sanity check
 		if ($tvdb_max - $local_max > 5) {
 			echo 'TheTVDB lists ' . $tvdb_max . ' season for ' . $series. ". Skipping...\n";
-			next;
+			continue;
 		}
 
 		# Add the seasons
