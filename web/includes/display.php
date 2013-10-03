@@ -150,14 +150,12 @@ function printAllSeries() {
 	echo '</div>';
 
 	# Add a series
-	echo '<div data-role="footer">';
-	echo '<form action="' . $_SERVER['PHP_SELF'] . '" method="post">';
-	echo '<p>';
+	echo '<div data-role="footer"><p>';
+	echo '<form action="' . $_SERVER['PHP_SELF'] . '" method="post" data-ajax="false">';
 	echo '<label>TheTVDB ID or URL: <input type="text" name="series_add"/></label>';
-	echo '<input type="submit" name="AddSeries" value="Add Series"/>';
-	echo '</p>';
+	echo '<input type="submit" value="Add Series"/>';
 	echo '</form>';
-	echo '</div>';
+	echo '</p></div>';
 
 	# End the jquery section
 	echo '</div>';

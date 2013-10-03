@@ -65,12 +65,12 @@ if ($series !== false) {
 }
 
 # Did the user add a series?
-if ($series === false && isset($_POST['AddSeries'])) {
+if ($series === false && isset($_POST['series_add'])) {
 	# Require auth (or for the time being, specific IP addresses)
 	if (preg_match('/^(?:172\.19\.[17]\.|2602:3f:e50d:76|74\.93\.97\.65)/', $_SERVER['REMOTE_ADDR'])) {
 
 		# Add a series folder
-		addSeries($_POST['series_add']);
+		$series = addSeries($_POST['series_add']);
 	} else {
 		echo '<h4 style="color: red;">Cannot save: User not authenticated</h4>';
 	}

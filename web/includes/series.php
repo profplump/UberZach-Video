@@ -185,12 +185,18 @@ function addSeries($str) {
 		die('Series already exists: ' . htmlspecialchars($series) . "\n");
 	}
 
+	# Return the series name or FALSE on failure
+	$retval = false;
+
 	# If all is well, create the folder and webloc file
 	$series_path = seriesPath($series);
-	if(@mkdir($series_path)) {
+	if (@mkdir($series_path)) {
 		writeWebloc(TVDBURL($id, $lid), $series_path . '/' . $series . '.webloc');
 		addSeason($series, 1);
+		$retval = $series;
 	}
+
+	return $retval;
 }
 
 ?>
