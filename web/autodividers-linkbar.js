@@ -1,7 +1,8 @@
 $.mobile.document.on( "pageshow", "#linkbar-page", function() {
 	var head = $( ".ui-page-active [data-role='header']" ),
 		foot = $( ".ui-page-active [data-role='footer']" ),
-		headerheight = head.outerHeight();
+		filter = $( ".ui-page-active [role='search']" ),
+		headerheight = head.outerHeight() + filter.outerHeight();
 		
 	$.mobile.window.on( "throttledresize", function() {
 		$( "#sorter" ).height( $.mobile.window.height() - headerheight - 20 ).css( "top", headerheight + 18 );
@@ -22,7 +23,7 @@ $.mobile.document.on( "pageshow", "#linkbar-page", function() {
 				"top": "15px",
 				"height": $.mobile.window.height()
 			});
-			$("#sorter li").height( "3.7%" );
+			$("#sorter li").height( "3.60%" );
 		} else if ( parseInt( headTop + $.mobile.window.height() ) >= parseInt( foot.offset().top ) && parseInt( headTop + $.mobile.window.height() ) <= parseInt( foot.offset().top ) + foot.height() ) {
 			$( "#sorter" ).css({
 				"top": "15px",
