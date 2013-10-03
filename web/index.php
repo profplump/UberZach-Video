@@ -86,6 +86,17 @@ print <<<ENDOLA
 <head>
 	<meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
 	<title>UberZach TV</title>
+
+	<!-- Default JQuery/JQuery-mobile docs -->
+	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css" />
+	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+
+	<!-- Provide # support in JQuery-mobile -->
+	<script src="jquery.mobile-1.3.2.js"></script>
+
+	<!-- Custom JQuery docs -->
+	<script src="autodividers-linkbar.js"></script>
+	<link rel="stylesheet" href="autodividers-linkbar.css">
 </head>
 <body>
 

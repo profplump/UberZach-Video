@@ -17,7 +17,12 @@ function printSeries($series) {
 	$seasons = findSeasons($series);
 
 	# Header
+	echo '<div data-role="header">';
 	echo '<h1>' . $series_html . '</h1>';
+	echo '<a href="' . $_SERVER['PHP_SELF'] . '" data-icon="arrow-l" data-iconpos="notext" data-ajax="false">Back</a>';
+	echo '</div>';
+
+	# Form
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post">';
 	echo '<input type="hidden" name="series" value="' . $series_html . '"/>';
 
@@ -87,7 +92,7 @@ function printSeries($series) {
 	# Save button
 	echo '<p><input type="submit" name="Save" value="Save"/></p>';
 
-	# Footer
+	# End Form
 	echo '</form>';
 
 	# TheTVDB Frame
@@ -103,27 +108,59 @@ function printAllSeries() {
 	global $TV_PATH;
 	$all_series = allSeriesSeasons($TV_PATH);
 
-	# Display all series
-	echo '<dl>';
-	foreach ($all_series as $series => $seasons) {
-		echo '<dt><a href="?series=' . urlencode($series) . '">' . htmlspecialchars($series) . '</a></dt>';
-		foreach ($seasons as $season => $monitored) {
-			echo '<dd>Season ' . htmlspecialchars($season);
-			if ($monitored) {
-				echo ' (monitored)';
-			}
-			echo '</dd>';
-		}
+	# Wrap the entire jquery section
+	echo '<div data-role="page" id="linkbar-page">';
+
+	# Wrap all the sorted/filtered content
+	echo '<div data-role="content">';
+
+	# Display the sorter
+	echo '<div id="sorter">';
+	echo '<ul data-role="listview">';
+	echo '<li><span>#</span></li>';
+	foreach (range('A', 'Z') as $char) {
+		echo '<li><span>' . $char . '</span></li>';
 	}
-	echo '</dl>';
+	echo '</ul>';
+	echo '</div>';
+
+	# Display all series
+	echo '<ul data-role="listview" data-filter="true" data-autodividers="true" id="sortedList">';
+	foreach ($all_series as $series => $seasons) {
+
+		# Determine if the series has any monitored seasons
+		$monitored = false;
+		foreach ($seasons as $season => $status) {
+			if ($status) {
+				$monitored = true;
+			}
+		}
+
+		echo '<li><a href="?series=' . urlencode($series) . '">';
+		if ($monitored) {
+			echo '<img src="tv.png" class="ui-li-icon ui-corner-none">';
+		}
+		echo htmlspecialchars($series);
+		echo '<span class="ui-li-count">' . count($seasons) . '</span>';
+		echo '</a></li>';
+	}
+	echo '</ul>';
+
+	# End the sorted/filtered content
+	echo '</div>';
 
 	# Add a series
+	echo '<div data-role="footer">';
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '" method="post">';
 	echo '<p>';
 	echo '<label>TheTVDB ID or URL: <input type="text" name="series_add"/></label>';
 	echo '<input type="submit" name="AddSeries" value="Add Series"/>';
 	echo '</p>';
 	echo '</form>';
+	echo '</div>';
+
+	# End the jquery section
+	echo '</div>';
 }
 
 ?>
