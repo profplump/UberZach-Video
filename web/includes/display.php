@@ -111,6 +111,11 @@ function printAllSeries() {
 	# Wrap the entire jquery section
 	echo '<div data-role="page" id="linkbar-page">';
 
+	# Header
+	echo '<div data-role="header">';
+	echo '<h1>UberZach TV</h1>';
+	echo '</div>';
+
 	# Wrap all the sorted/filtered content
 	echo '<div data-role="content">';
 
