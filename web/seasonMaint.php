@@ -41,7 +41,7 @@ foreach ($all_series as $series => $seasons) {
 		echo $series . "\n";
 		for ($season = $local_max + 1; $season <= $tvdb_max; $season++) {
 			echo "\tAdding season: " . $season . "\n";
-			#addSeason($series, $season);
+			addSeason($series, $season);
 		}
 	}
 
