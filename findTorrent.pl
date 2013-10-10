@@ -247,6 +247,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 	}
 
 	# Create search strings for each date in the range, unless the related file already exists
+	my (%years, %months, %days) = ();
 	for (my $days_back = $MIN_DAYS_BACK ; $days_back <= $MAX_DAYS_BACK ; $days_back++) {
 
 		# Calculate the date
@@ -276,6 +277,11 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 			next;
 		}
 
+		# Save all the date string components
+		$years{$year}   = 1;
+		$months{$month} = 1;
+		$days{$day}     = 1;
+
 		# Create the relevent search strings
 		my $search_str = $search_by_date;
 		$search_str =~ s/%Y/${year}/g;
@@ -286,6 +292,14 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 			push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search_str . $source->{'search_suffix'});
 		}
 	}
+
+	# Build a date string matching regex
+	my $str = '\b(?:' . join('|', keys(%years)) . ')\b';
+	$str .= '.*';
+	$str .= '\b(?:' . join('|', keys(%months)) . ')\b';
+	$str .= '.*';
+	$str .= '\b(?:' . join('|', keys(%days)) . ')\b';
+	$CUSTOM_SEARCH = qr/${str}/;
 }
 
 # Handle standard series
@@ -646,13 +660,17 @@ foreach my $json (@json_content) {
 
 # Filter for size/count/etc.
 my %tors      = ();
-my $showRegex = $show;
-$showRegex =~ s/[\"\']//g;
-$showRegex =~ s/[\W_]+/\[\\W_\].*/g;
+my $showRegex = undef();
+{
+	my $showClean = $show;
+	$showClean =~ s/[\"\']//g;
+	$showClean =~ s/[\W_]+/\[\\W_\].*/g;
+	$showRegex = qr/^${showClean}[\W_]/i;
+}
 foreach my $tor (@tors) {
 
 	# Skip files that don't start with our show title
-	if (!($tor->{'title'} =~ /^${showRegex}[\W_]/i)) {
+	if (!($tor->{'title'} =~ $showRegex)) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'title'} . "\n";
 		}
@@ -687,7 +705,7 @@ foreach my $tor (@tors) {
 		next;
 	}
 
-	# Only apply season and episode number matches if CUSTOM_SEARCH is not in effect
+	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
 	if (!$CUSTOM_SEARCH) {
 
 		# Skip files that don't contain the right season number
@@ -701,6 +719,15 @@ foreach my $tor (@tors) {
 		} elsif ((!defined($tor->{'episode'}) || !$need{ $tor->{'episode'} })) {
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
+			}
+			next;
+		}
+	} elsif (ref($CUSTOM_SEARCH) eq 'Regexp') {
+
+		# Skip files that don't match the regex
+		if (!($tor->{'title'} =~ $CUSTOM_SEARCH)) {
+			if ($DEBUG) {
+				print STDERR 'Skipping file: No match for CUSTOM_SEARCH regex (' . $CUSTOM_SEARCH . '): ' . $tor->{'title'} . "\n";
 			}
 			next;
 		}
