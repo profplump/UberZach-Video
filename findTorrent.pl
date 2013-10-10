@@ -155,6 +155,7 @@ my %need          = ();
 
 # Clean up the input "directory" path
 {
+
 	# Allow use of the raw series name
 	if (!($dir =~ /\//)) {
 		$show = $dir;
