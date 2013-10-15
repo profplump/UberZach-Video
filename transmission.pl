@@ -315,8 +315,7 @@ sub getDest($$$$) {
 				close(FH);
 			}
 			if ($search_name) {
-				$search_name =~ s/^\s+//;
-				$search_name =~ s/\s+$//;
+				$search_name = seriesCleanup($search_name);
 				if ($search_name =~ /${sMatch}/i) {
 					$coarse_match = 1;
 				}
