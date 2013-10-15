@@ -134,7 +134,7 @@ function printAllSeries() {
 	foreach ($all_series as $series => $seasons) {
 		$sorted_series[ $series ] = sortTitle($series);
 	}
-	asort($sorted_series);
+	asort($sorted_series, SORT_FLAG_CASE | SORT_NATURAL);
 
 	# Display all series
 	echo '<ul data-role="listview" data-filter="true" data-autodividers="true" id="sortedList">';
@@ -153,7 +153,7 @@ function printAllSeries() {
 			echo '<img src="tv.png" class="ui-li-icon ui-corner-none">';
 		}
 		echo htmlspecialchars($sort);
-		echo '<span class="ui-li-count">' . count($seasons) . '</span>';
+		echo '<span class="ui-li-count">' . count($all_series[ $series ]) . '</span>';
 		echo '</a></li>';
 	}
 	echo '</ul>';
