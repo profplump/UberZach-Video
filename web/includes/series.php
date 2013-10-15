@@ -63,6 +63,23 @@ function readFlags($series) {
 	}
 	$path = seriesPath($series);
 
+	# Find the most recent mtime in the series directory
+	$flags['mtime'] = filemtime($path);
+	$objects = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path), RecursiveIteratorIterator::SELF_FIRST);
+	foreach($objects as $name => $object) {
+
+		# Skip junk
+		if (isJunk($name)) {
+			continue;
+		}
+
+		# Track the most recent mtime
+		$mtime = filemtime($name);
+		if ($mtime > $flags['mtime']) {
+			$flags['mtime'] = $mtime;
+		}
+	}
+
 	# Look for all the exists files
 	foreach ($EXISTS_FILES as $name) {
 		$flags[ $name ] = false;
