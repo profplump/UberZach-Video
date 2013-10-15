@@ -21,6 +21,7 @@ my $MIN_COUNT        = 10;
 my $MIN_SIZE         = 100;
 my $SIZE_BONUS       = 7;
 my $SIZE_PENALTY     = $SIZE_BONUS;
+my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 
@@ -786,15 +787,32 @@ foreach my $episode (keys(%tors)) {
 	}
 }
 
-# Calculate an adjusted count based on the original count and the relative file size
+# Calculate an adjusted count based on the peer count, relative file size, and title contents
 foreach my $episode (keys(%tors)) {
 	foreach my $tor (@{ $tors{$episode} }) {
 		my $count = $tor->{'seeds'} + $tor->{'leaches'};
-		if ($tor->{'size'} >= $avg{$episode}) {
-			$tor->{'adj_count'} = int($count * ($SIZE_BONUS * ($tor->{'size'} / $avg{$episode})));
-		} else {
-			$tor->{'adj_count'} = int($count * ((1 / $SIZE_PENALTY) * ($tor->{'size'} / $avg{$episode})));
+
+		# Start with the peer count
+		$tor->{'adj_count'} = $count;
+
+		# Adjust based on file size
+		{
+			my $size_ratio = $tor->{'size'} / $avg{$episode};
+			if ($tor->{'size'} >= $avg{$episode}) {
+				$tor->{'adj_count'} *= $SIZE_BONUS * $size_ratio;
+			} else {
+				$tor->{'adj_count'} *= (1 / $SIZE_PENALTY) * $size_ratio;
+			}
 		}
+
+		# Adjust based on title contents
+		if ($tor->{'title'} =~ /Subtitulado/i) {
+			$tor->{'adj_count'} *= 1 / $TITLE_PENALTY;
+		}
+
+		# Truncate to an integer
+		$tor->{'adj_count'} = int($tor->{'adj_count'});
+
 		if ($DEBUG) {
 			print STDERR 'Possible URL (' . $tor->{'adj_count'} . ' size-adjusted sources): ' . $tor->{'url'} . "\n";
 		}
