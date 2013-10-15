@@ -87,14 +87,33 @@ print <<<ENDOLA
 	<meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
 	<title>UberZach TV</title>
 
-	<!-- Default JQuery/JQuery-mobile docs -->
-	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css" />
+	<!-- Default JQuery -->
 	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
 
-	<!-- Provide # support in JQuery-mobile -->
-	<script src="jquery.mobile-1.3.2.js"></script>
+	<!-- Provide # support in JQuery-mobile autodividers -->
+	<!-- Must be loaded before JQuery-mobile  -->
+	<script>
+	$( document ).on( "mobileinit", function() {
+	    $.mobile.listview.prototype.options.autodividersSelector = function( elt ) {
+	        var text = $.trim( elt.text() ) || null;
+	        if ( !text ) {
+	            return null;
+	        }
+	        if ( !isNaN(parseFloat(text)) ) {
+	            return "#";
+	        } else {
+	            text = text.slice( 0, 1 ).toUpperCase();
+	            return text;
+	        }
+	    };
+	});
+	</script>
 
-	<!-- Custom JQuery docs -->
+	<!-- Default JQuery-mobile -->
+	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css" />
+	<script src="http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.js"></script>
+
+	<!-- Custom code for the linkbar -->
 	<script src="autodividers-linkbar.js"></script>
 	<link rel="stylesheet" href="autodividers-linkbar.css">
 </head>
