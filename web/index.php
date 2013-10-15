@@ -94,18 +94,18 @@ print <<<ENDOLA
 	<!-- Must be loaded before JQuery-mobile  -->
 	<script>
 	$( document ).on( "mobileinit", function() {
-	    $.mobile.listview.prototype.options.autodividersSelector = function( elt ) {
-	        var text = $.trim( elt.text() ) || null;
-	        if ( !text ) {
-	            return null;
-	        }
-	        if ( !isNaN(parseFloat(text)) ) {
-	            return "#";
-	        } else {
-	            text = text.slice( 0, 1 ).toUpperCase();
-	            return text;
-	        }
-	    };
+		$.mobile.listview.prototype.options.autodividersSelector = function( elt ) {
+			var text = $.trim( elt.text() ) || null;
+			if ( !text ) {
+				return null;
+			}
+			if ( !isNaN(parseFloat(text)) ) {
+				return "#";
+			} else {
+				text = text.slice( 0, 1 ).toUpperCase();
+				return text;
+			}
+		};
 	});
 	</script>
 
