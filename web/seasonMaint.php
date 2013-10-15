@@ -32,7 +32,11 @@ foreach ($all_series as $series => $seasons) {
 	$tvdb_max = @max(array_keys($tvdb_seasons));
 	$local_max = @max(array_keys($seasons));
 
-	# Sanity check
+	# Sanity checks
+	if (!is_array($tvdb_seasons) || $tvdb_max < 1) {
+		echo 'Unable to retrive reasonable season data from TheTVDB for ' . $series. ". Skipping...\n";
+		continue;
+	}
 	if ($tvdb_max - $local_max > 5) {
 		echo 'TheTVDB lists ' . $tvdb_max . ' season for ' . $series. ". Skipping...\n";
 		continue;
