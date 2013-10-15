@@ -41,4 +41,10 @@ function isJunk($path) {
 	return false;
 }
 
+function sortTitle($name) {
+	$name = preg_replace('/^The\s+/i', '', $name);
+	$name = preg_replace('/^A\s+/i', '', $name);
+	return $name;
+}
+
 ?>

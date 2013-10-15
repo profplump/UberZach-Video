@@ -129,13 +129,20 @@ function printAllSeries() {
 	echo '</ul>';
 	echo '</div>';
 
+	# Sort by "sortTitle" -- an approximation of the Plex sort title
+	$sorted_series = array();
+	foreach ($all_series as $series => $seasons) {
+		$sorted_series[ $series ] = sortTitle($series);
+	}
+	asort($sorted_series);
+
 	# Display all series
 	echo '<ul data-role="listview" data-filter="true" data-autodividers="true" id="sortedList">';
-	foreach ($all_series as $series => $seasons) {
+	foreach ($sorted_series as $series => $sort) {
 
 		# Determine if the series has any monitored seasons
 		$monitored = false;
-		foreach ($seasons as $season => $status) {
+		foreach ($all_series[ $series ] as $season => $status) {
 			if ($status) {
 				$monitored = true;
 			}
@@ -145,7 +152,7 @@ function printAllSeries() {
 		if ($monitored) {
 			echo '<img src="tv.png" class="ui-li-icon ui-corner-none">';
 		}
-		echo htmlspecialchars($series);
+		echo htmlspecialchars($sort);
 		echo '<span class="ui-li-count">' . count($seasons) . '</span>';
 		echo '</a></li>';
 	}
