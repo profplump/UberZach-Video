@@ -1,7 +1,6 @@
 #!/usr/local/bin/php
 <?
 
-$DEBUG = false;
 set_time_limit(0);
 require_once 'includes/main.php';
 
@@ -12,13 +11,11 @@ $added_seasons = array();
 $multi_seasons = array();
 $empty_seasons = array();
 
+# Set this to "false" for offline testing
+#$ENABLE_TVDB = false;
+
 # Check each series for new seasons listed on TVDB but not locally
 foreach ($all_series as $series => $seasons) {
-
-	# Long wait between series, to avoid TVDB bans
-	if (!$DEBUG) {
-		sleep(rand(20, 40));
-	}
 
 	# Grab the season parameters
 	$flags = readFlags($series);
@@ -29,12 +26,7 @@ foreach ($all_series as $series => $seasons) {
 	}
 
 	# Grab the TVDB season list
-	$tvdb_seasons = array();
-	if (!$DEBUG) {
-		$tvdb_seasons = getTVDBSeasons($flags['tvdb-id'], $flags['tvdb-lid']);
-	} else {
-		$tvdb_seasons[1] = true;
-	}
+	$tvdb_seasons = getTVDBSeasons($flags['tvdb-id'], $flags['tvdb-lid']);
 
 	# We only care about "new" seasons -- don't force old seasons into the local tree
 	$tvdb_max = @max(array_keys($tvdb_seasons));

@@ -1,6 +1,7 @@
 <?
 
 require 'config.php';
+$LAST_TVDB_DOWNLOAD = 0;
 
 # Parse and input URL for TVDB ID and LID
 function parseTVDBURL($url) {
@@ -36,9 +37,26 @@ function TVDBURL($id, $lid) {
 }
 
 function getTVDBPage($id, $lid) {
+
+	# If TVDB is not enabled return FALSE
+	global $ENABLE_TVDB;
+	if (!$ENABLE_TVDB) {
+		return false;
+	}
+
+	# Sleep between downloads to avoid TVDB bans
+	global $TVDB_DELAY;
+	global $LAST_TVDB_DOWNLOAD;
+	if (time() - $LAST_TVDB_DOWNLOAD < $TVDB_DELAY) {
+		sleep(rand($TVDB_DELAY, 2 * $TVDB_DELAY));
+	}
+	$LAST_TVDB_DOWNLOAD = time();
+
+	# Download with a timeout
+	global $TVDB_TIMEOUT;
 	$url = TVDBURL($id, $lid);
 	$ctx = stream_context_create(array(
-		'http' => array( 'timeout' => 15 )
+		'http' => array( 'timeout' => $TVDB_TIMEOUT )
 	)); 
 	return @file_get_contents($url, 0, $ctx);
 }
@@ -46,6 +64,12 @@ function getTVDBPage($id, $lid) {
 # Plain-text title of a TVDB entity (or FALSE on failure)
 function getTVDBTitle($id, $lid) {
 	$retval = false;
+
+	# If TVDB is not enabled return FALSE
+	global $ENABLE_TVDB;
+	if (!$ENABLE_TVDB) {
+		return false;
+	}
 
 	$page = getTVDBPage($id, $lid);
 	if ($page) {
@@ -61,6 +85,13 @@ function getTVDBTitle($id, $lid) {
 function getTVDBSeasons($id, $lid) {
 	$retval = false;
 
+	# If TVDB is not enabled return a fake season list
+	global $ENABLE_TVDB;
+	if (!$ENABLE_TVDB) {
+		return array(1 => true);
+	}
+
+	# Download and parse the series page for a list of seasons
 	$page = getTVDBPage($id, $lid);
 	if ($page) {
 		if (preg_match_all('/class=\"seasonlink\"[^\>]*\>([^\<]+)\<\/a\>/i', $page, $matches)) {
