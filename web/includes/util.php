@@ -41,12 +41,17 @@ function isJunk($path) {
 	return false;
 }
 
-function sortTitle($name) {
-	$name = preg_replace('/^The\s+/i', '', $name);
-	$name = preg_replace('/^A\s+/i', '', $name);
-	$name = preg_replace('/\xEF\x80\xA9$/', '.', $name);
-	$name = preg_replace('/\xEF\x80\xA5/', '?', $name);
-	return $name;
+function sortTitle($title) {
+	$title = displayTitle($title);
+	$title = preg_replace('/^The\s+/i', '', $title);
+	$title = preg_replace('/^A\s+/i', '', $title);
+	return $title;
+}
+
+function displayTitle($title) {
+	$title = preg_replace('/\xEF\x80\xA9$/', '.', $title);
+	$title = preg_replace('/\xEF\x80\xA5/', '?', $title);
+	return $title;
 }
 
 ?>
