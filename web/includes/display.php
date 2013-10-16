@@ -7,7 +7,7 @@ function printSeries($series) {
 	global $CONTENT_FILES;
 
 	# Ensure our series name is reasonable
-	$series_html = htmlspecialchars($series);
+	$series_html = htmlspecialchars(displayTitle($series));
 	if (!seriesExists($series)) {
 		die('Unknown series: ' . $series_html);
 	}
