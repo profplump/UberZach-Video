@@ -44,6 +44,8 @@ function isJunk($path) {
 function sortTitle($name) {
 	$name = preg_replace('/^The\s+/i', '', $name);
 	$name = preg_replace('/^A\s+/i', '', $name);
+	$name = preg_replace('/\xEF\x80\xA9$/', '.', $name);
+	$name = preg_replace('/\xEF\x80\xA5/', '?', $name);
 	return $name;
 }
 
