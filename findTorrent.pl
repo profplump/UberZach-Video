@@ -8,6 +8,7 @@ my $NO_QUALITY_CHECKS   = 0;
 my $MORE_NUMBER_FORMATS = 0;
 my $MIN_DAYS_BACK       = 0;
 my $MAX_DAYS_BACK       = 3;
+my $NEXT_EPISODES       = 3;
 
 # Local config
 my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
@@ -61,6 +62,9 @@ if ($ENV{'MIN_DAYS_BACK'}) {
 }
 if ($ENV{'MAX_DAYS_BACK'}) {
 	$MAX_DAYS_BACK = $ENV{'MAX_DAYS_BACK'};
+}
+if ($ENV{'NEXT_EPISODES'}) {
+	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
 }
 
 # New fetch object
@@ -376,7 +380,9 @@ if (scalar(@urls) < 1) {
 
 	# Assume we need the next 2 episodes, unless no_next is set (i.e. season_done)
 	if (!$no_next) {
-		@need = ($highest + 1, $highest + 2);
+		for (my $i = 1; $i <= $NEXT_EPISODES; $i++) {
+			push(@need, $highest + $i);
+		}
 	}
 
 	# Find any missing episodes
