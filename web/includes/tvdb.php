@@ -1,7 +1,8 @@
 <?
 
 require 'config.php';
-$LAST_TVDB_DOWNLOAD = 0;
+$TVDB_DOWNLOAD_TIME  = 0;
+$TVDB_DOWNLOAD_COUNT = 0;
 
 # Parse and input URL for TVDB ID and LID
 function parseTVDBURL($url) {
@@ -46,11 +47,13 @@ function getTVDBPage($id, $lid) {
 
 	# Sleep between downloads to avoid TVDB bans
 	global $TVDB_DELAY;
-	global $LAST_TVDB_DOWNLOAD;
-	if (time() - $LAST_TVDB_DOWNLOAD < $TVDB_DELAY) {
+	global $TVDB_DOWNLOAD_TIME;
+	global $TVDB_DOWNLOAD_COUNT;
+	if ($TVDB_DOWNLOAD_COUNT >= $TVDB_DELAY_COUNT && time() - $TVDB_DOWNLOAD_TIME < $TVDB_DELAY) {
 		sleep(rand($TVDB_DELAY, 2 * $TVDB_DELAY));
 	}
-	$LAST_TVDB_DOWNLOAD = time();
+	$TVDB_DOWNLOAD_COUNT++;
+	$TVDB_DOWNLOAD_TIME = time();
 
 	# Download with a timeout
 	global $TVDB_TIMEOUT;
