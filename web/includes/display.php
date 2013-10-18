@@ -23,7 +23,7 @@ function printSeries($series) {
 	echo '</div>';
 
 	# Form
-	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post">';
+	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post" data-ajax="false">';
 	echo '<input type="hidden" name="series" value="' . $series_html . '"/>';
 
 	# Series flags
