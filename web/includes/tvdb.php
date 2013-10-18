@@ -47,6 +47,7 @@ function getTVDBPage($id, $lid) {
 
 	# Sleep between downloads to avoid TVDB bans
 	global $TVDB_DELAY;
+	global $TVDB_DELAY_COUNT;
 	global $TVDB_DOWNLOAD_TIME;
 	global $TVDB_DOWNLOAD_COUNT;
 	if ($TVDB_DOWNLOAD_COUNT >= $TVDB_DELAY_COUNT && time() - $TVDB_DOWNLOAD_TIME < $TVDB_DELAY) {
