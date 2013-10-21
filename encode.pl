@@ -13,6 +13,7 @@ my $QUALITY             = 20;
 my $HD_QUALITY          = 22;
 my $AUDIO_COPY          = 0;
 my $STEREO_ONLY         = 0;
+my $VIDEO_ONLY          = 0;
 my $HEIGHT              = undef();
 my $WIDTH               = undef();
 my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
@@ -70,6 +71,11 @@ if ($ENV{'STEREO_ONLY'}) {
 	$STEREO_ONLY = 1;
 }
 
+# Allow video-only transfers
+if ($ENV{'VIDEO_ONLY'}) {
+	$VIDEO_ONLY = 1;
+}
+
 # Allow MP4-only output format (for use in mobile encoding)
 if ($ENV{'FORCE_MP4'}) {
 	$FORCE_MP4 = 1;
@@ -116,6 +122,9 @@ if (!defined($in_file) || length($in_file) < 1 || !-r $in_file) {
 # Sanity checks
 if ($AUDIO_COPY && $STEREO_ONLY) {
 	die(basename($0) . ": AUDIO_COPY and STEREO_ONLY are mutually exclusive\n");
+}
+if ($VIDEO_ONLY && ($AUDIO_COPY || $STEREO_ONLY)) {
+	die(basename($0) . ": VIDEO_ONLY and AUDIO_COPY or STEREO_ONLY are mutually exclusive\n");
 }
 
 # Scan for title/track info
@@ -202,10 +211,8 @@ foreach my $title (keys(%titles)) {
 	# Reset
 	$FORMAT = $format_default;
 
-	# Parse the title's audio and subtitle tracks
-	my $scan  = $titles{$title};
-	my @audio = &audioOptions($scan);
-	my @subs  = &subOptions($scan);
+	# Select a title
+	my $scan = $titles{$title};
 
 	# Skip tracks that have no video
 	if (scalar(@{ $scan->{'size'} }) < 2 || $scan->{'size'}[0] < $MIN_VIDEO_WIDTH) {
@@ -213,14 +220,23 @@ foreach my $title (keys(%titles)) {
 		next;
 	}
 
-	# Skip tracks that have no audio
-	if (scalar(@{ $scan->{'audio'} }) < 1 || scalar(@audio) < 1) {
-		print STDERR basename($0) . ': No audio detected in: ' . $in_file . ':' . $title . ". Skipping title...\n";
-		next;
-	}
+	# Parse subtitle tracks
+	my @subs = &subOptions($scan);
 
-	# Set the audio quality for re-encoded tracks
-	push(@audio, '--ab', $AUDIO_BITRATE);
+	# Parse audio tracks, unless we're in VIDEO_ONLY mode
+	my @audio = ();
+	if (!$VIDEO_ONLY) {
+		@audio = &audioOptions($scan);
+
+		# Skip tracks that have no audio
+		if (scalar(@{ $scan->{'audio'} }) < 1 || scalar(@audio) < 1) {
+			print STDERR basename($0) . ': No audio detected in: ' . $in_file . ':' . $title . ". Skipping title...\n";
+			next;
+		}
+
+		# Set the bitrate for transcoded audio tracks
+		push(@audio, '--ab', $AUDIO_BITRATE);
+	}
 
 	# Set the video quality, using $HD_QUALITY for images larger than $HD_WIDTH (to allow lower quality on HD streams)
 	my $title_quality = $QUALITY;
@@ -282,9 +298,13 @@ foreach my $title (keys(%titles)) {
 	push(@args, '--quality', $title_quality);
 	push(@args, '--crop',    join(':', @{ $scan->{'crop'} }));
 	push(@args, @video_params);
-	push(@args, @audio_params);
-	push(@args, @audio);
 	push(@args, @subs);
+
+	# Include audio unless specifically excluded
+	if (!$VIDEO_ONLY) {
+		push(@args, @audio_params);
+		push(@args, @audio);
+	}
 
 	if ($DEBUG) {
 		print STDERR "\n" . join(' ', @args) . "\n\n";
