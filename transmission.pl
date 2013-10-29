@@ -231,9 +231,9 @@ sub getSSE($) {
 	my $season      = 0;
 	my $episode     = 0;
 	my $seasonBlock = '';
-	if ($name =~ /(?:\b|_)(S\d{1,2}[_\s\.]?E\d{1,2})(?:\b|_)/i) {
+	if ($name =~ /(?:\b|_)(S(?:eason)?[_\s\.\-]*\d{1,2}[_\s\.\-]*E(?:pisode)?[_\s\.]*\d{1,2})(?:\b|_)/i) {
 		$seasonBlock = $1;
-		($season, $episode) = $seasonBlock =~ /S(\d{1,2})[_\s\.]?E(\d{1,2})/i;
+		($season, $episode) = $seasonBlock =~ /S(?:eason)?[_\s\.\-]*(\d{1,2})[_\s\.\-]*E(?:pisode)?[_\s\.\-]*(\d{1,2})/i;
 		$season = int($season);
 		$episode = sprintf('%02d', int($episode));
 	} elsif ($name =~ /[\[\_\.](\d{1,2}x\d{2,3})[\]\_\.]/i) {
