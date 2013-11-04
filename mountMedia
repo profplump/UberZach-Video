@@ -46,12 +46,12 @@ fi
 findMedia
 if [ -n "${MEDIA}" ]; then
 	if [ -d /mnt ]; then
-		if [ -h /mnt/media ]; then
+		if [ -e /mnt/media ] || [ -h /mnt/media ]; then
 			rm -f /mnt/media
 		fi
 		ln -s "${MEDIA}" /mnt/media
 	fi
-	if [ -e "${HOME}/media" ]; then
+	if [ -e "${HOME}/media" ] || [ -h "${HOME}/media" ]; then
 		rm -f "${HOME}/media"
 		ln -s "${MEDIA}" "${HOME}/media"
 	fi
