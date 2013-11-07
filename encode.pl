@@ -416,7 +416,7 @@ sub audioOptions($) {
 	# Type the audio tracks
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'audio'} }) {
-		my ($language, $codec, $note, $channels, $iso) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso(\d+\-\d+)\:\s+\w\w\w\))?/;
+		my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso(\d+\-\d+)\:\s+\w\w\w\))?(?:,\s+(.*))?/;
 		if (!defined($channels)) {
 			print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
 			next;
@@ -448,8 +448,31 @@ sub audioOptions($) {
 			}
 		}
 
+		# Standardize the specs
+		my $bitrate    = 0;
+		my $samplerate = 0;
+		if (!$specs) {
+			$specs = '';
+		}
+		if ($specs =~ /(\d+)bps/) {
+			$bitrate = $1 / 1000;
+		} elsif ($specs =~ /(\d+)\s*kb\/s/) {
+			$bitrate = $1;
+		}
+		if ($specs =~ /(\d+)Hz/) {
+			$samplerate = $1;
+		}
+
 		# Push all parsed data into the array
-		my %data = ('language' => $language, 'codec' => $codec, 'channels' => $channels, 'iso' => $iso, 'note' => $note);
+		my %data = (
+			'language'   => $language,
+			'codec'      => $codec,
+			'channels'   => $channels,
+			'iso'        => $iso,
+			'note'       => $note,
+			'bitrate'    => $bitrate,
+			'samplerate' => $samplerate,
+		);
 		$tracks{ $track->{'index'} } = \%data;
 
 		# Print what we found
@@ -528,7 +551,7 @@ sub audioOptions($) {
 		foreach my $index (keys(%tracks)) {
 			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'channels'} <= $MIXDOWN_CHANNELS) {
 				if ($DEBUG) {
-					print STDERR 'Skipping recode of track ' . $index . ' since it is already used as the default track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
+					print STDERR 'Skipping passthru of track ' . $index . ' since it is already used as the mixdown track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
 				}
 				next;
 			} elsif (!$tracks{$index}->{'codec'}) {
@@ -693,9 +716,10 @@ sub scan($) {
 
 sub findBestAudioTrack($$) {
 	my ($tracks, $codec) = @_;
-	my $best     = undef();
-	my $channels = 0;
+	my $best = undef();
+	my @available = ();
 
+	# Find available tracks
 	for my $index (keys(%{$tracks})) {
 		my $track = $tracks->{$index};
 
@@ -709,13 +733,56 @@ sub findBestAudioTrack($$) {
 			next;
 		}
 
-		# Find the track with the most channels (Ófirst wins)
-		if (!defined($best) || $track->{'channels'} > $channels) {
-			$best     = $index;
-			$channels = $track->{'channels'};
-		}
+		push(@available, $index);
+	}
+	if (scalar(@available) < 1) {
+		return $best;
 	}
 
+	# Find the tracks with the most channels
+	{
+		my @most     = ();
+		my $channels = 0;
+		foreach my $index (@available) {
+			my $track = $tracks->{$index};
+			if ($track->{'channels'} > $channels) {
+				@most     = ($index);
+				$channels = $track->{'channels'};
+			} elsif ($track->{'channels'} == $channels) {
+				push(@most, $index);
+			}
+		}
+		@available = @most;
+	}
+	if (scalar(@available) < 1) {
+		return $best;
+	}
+
+	# Find the tracks with the highest bitrate
+	{
+		my @highest = ();
+		my $bitrate = 0;
+		foreach my $index (@available) {
+			my $track = $tracks->{$index};
+			if ($track->{'bitrate'} > $bitrate) {
+				@highest = ($index);
+				$bitrate = $track->{'bitrate'};
+			} elsif ($track->{'bitrate'} == $bitrate) {
+				push(@highest, $index);
+			}
+		}
+		@available = @highest;
+	}
+	if (scalar(@available) < 1) {
+		return $best;
+	}
+
+	# Find the track if the lowest index
+	foreach my $index (@available) {
+		if (!defined($best) || $index < $best) {
+			$best = $index;
+		}
+	}
 	return $best;
 }
 
