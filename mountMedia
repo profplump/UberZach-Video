@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# Ensure we have a valid TMPDIR
+if [ ! -d "${TMPDIR}" ]; then
+        TMPDIR="`getconf DARWIN_USER_TEMP_DIR 2>/dev/null`"
+        if [ ! -d "${TMPDIR}" ]; then
+                TMPDIR="/var/tmp"
+        fi
+        if [ ! -d "${TMPDIR}" ]; then
+                TMPDIR="/tmp"
+        fi
+fi
+
+# Config
 HOST="vera.uberzach.com"
 LOCK="${TMPDIR}/mountMedia.mounting"
 
