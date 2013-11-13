@@ -14,7 +14,7 @@ my $NEXT_EPISODES       = 3;
 my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
-my $PROTOCOL = 'https';
+my $PROTOCOL = 'http';
 my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 0);
 
 # Selection parameters
@@ -29,7 +29,7 @@ my $SEED_RATIO_COUNT = 10;
 # App config
 my $DELAY   = 4;
 my $TIMEOUT = 15;
-my $UA      = 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X 10_5_5; en-us) AppleWebKit/525.18 (KHTML, like Gecko) Version/3.1.2 Safari/525.20.1';
+my $UA      = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9) AppleWebKit/537.71 (KHTML, like Gecko) Version/7.0 Safari/537.71';
 
 # Includes
 use JSON;
