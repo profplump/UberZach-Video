@@ -29,6 +29,11 @@ if [ -z "${SUB_DIR}" ] || [ $NUM_FILES -lt 1 ] || [ $DELAY_DAYS -lt 1 ]; then
 	exit 1
 fi
 
+# Bail if the load is high
+if ! ~/bin/video/checkLoad.sh; then
+	exit 0
+fi
+
 # Allow usage with absolute local paths
 if [ "`echo "${SUB_DIR}" | head -c 1`" == '/' ]; then
 	BASE_LOCAL="`dirname "${SUB_DIR}"`"
