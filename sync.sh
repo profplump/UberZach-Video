@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Ensure the media share is mounted
+if ! ~/bin/video/isMediaMounted; then
+	echo 'Media share not available' 1>&2
+	exit 1
+fi
+
 # Config
 BASE_LOCAL="`~/bin/video/mediaPath`"
 BASE_REMOTE="/Volumes/Bitcasa Infinite Drive"
@@ -98,7 +104,7 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 	PATH_REMOTE="${BASE_REMOTE}/${FILE}"
 
 	# Determine the action (i.e. copy to or delete from remote)
-	if [ "${ACTION}" == '+' ]; then
+	if [ "${ACTION}" == '+' ] && [ -z "${NO_DELETE}" ]; then
 		if [ -d "${PATH_REMOTE}" ]; then
 			echo "Removing directory: ${FILE}"
 			rmdir "${PATH_REMOTE}"
