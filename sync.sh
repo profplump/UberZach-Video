@@ -109,8 +109,10 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 	PATH_REMOTE="${BASE_REMOTE}/${FILE}"
 
 	# Determine the action (i.e. copy to or delete from remote)
-	if [ "${ACTION}" == '+' ] && [ -z "${NO_DELETE}" ]; then
-		if [ -d "${PATH_REMOTE}" ]; then
+	if [ "${ACTION}" == '+' ]; then
+		if [ -n "${NO_DELETE}" ]; then
+			; # Do nothing
+		elif [ -d "${PATH_REMOTE}" ]; then
 			echo "Removing directory: ${FILE}"
 			rmdir "${PATH_REMOTE}"
 		elif [ -f "${PATH_REMOTE}" ]; then
