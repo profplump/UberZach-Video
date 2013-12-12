@@ -57,13 +57,13 @@ if ($ENV{'NO_QUALITY_CHECKS'}) {
 if ($ENV{'MORE_NUMBER_FORMATS'}) {
 	$MORE_NUMBER_FORMATS = 1;
 }
-if ($ENV{'MIN_DAYS_BACK'}) {
+if (defined($ENV{'MIN_DAYS_BACK'})) {
 	$MIN_DAYS_BACK = $ENV{'MIN_DAYS_BACK'};
 }
-if ($ENV{'MAX_DAYS_BACK'}) {
+if (defined($ENV{'MAX_DAYS_BACK'})) {
 	$MAX_DAYS_BACK = $ENV{'MAX_DAYS_BACK'};
 }
-if ($ENV{'NEXT_EPISODES'}) {
+if (defined($ENV{'NEXT_EPISODES'})) {
 	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
 }
 
