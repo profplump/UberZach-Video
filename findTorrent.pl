@@ -82,7 +82,7 @@ my %SOURCES = ();
 if ($ENABLE_SOURCE{'TPB'}) {
 
 	# Available TPB proxies, in order of preference
-	my @TPBs = ('thepiratebay.ac/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
+	my @TPBs = ('thepiratebay.pe/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
 
 	# Automatically select a TPB proxy that returns a search page
 	my $search_url = '';
