@@ -45,7 +45,12 @@ if ($ENV{'DEBUG'}) {
 }
 
 # Command-line parameters
-my ($force, $maxDays) = @ARGV;
+my ($force, $maxDays, $hash) = @ARGV;
+
+# If a hash is provided, always process matching torrents
+if (defined($hash)) {
+	$force = 1;
+}
 
 # Init
 my $fetch = Fetch->new();
@@ -94,8 +99,18 @@ foreach my $tor (@{$torrents}) {
 		}
 		next;
 	}
+
+	# If a hash is provided, process only that file
+	if (defined($hash) && $tor->{'hashString'} ne $hash) {
+		if ($DEBUG) {
+			printf STDERR 'Skipping torrent with non-matching hash: ' . $tor->{'name'} . ' (' . $tor->{'hashString'} . ")\n";
+		}
+		next;
+	}
+
+	# We've decided to do something about this torrent
 	if ($DEBUG) {
-		print STDERR 'Processing finished torrent: ' . $tor->{'name'} . "\n";
+		print STDERR 'Processing completed torrent: ' . $tor->{'name'} . "\n";
 	}
 
 	# Handle individual files and directories
