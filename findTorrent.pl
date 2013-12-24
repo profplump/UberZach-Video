@@ -465,8 +465,8 @@ if (scalar(@urls) < 1) {
 						if ($source->{'search_suffix'}) {
 							$url .= $source->{'search_suffix'};
 						}
+						push(@urls, $url);
 					}
-					push(@urls, $url);
 
 					# SXX EYY
 					$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+s' . $season_long . '+e' . $episode_long;
