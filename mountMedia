@@ -13,11 +13,18 @@ fi
 
 # Config
 HOST="vera.uberzach.com"
+SHARE="media"
 LOCK="${TMPDIR}/mountMedia.mounting"
+REMOTE_USER="${USER}"
+
+# Hack for mismatched usernames
+if [ "${USER}" == "tv" ]; then
+	REMOTE_USER="atv"
+fi
 
 function findMedia {
 	MEDIA=""
-	for i in /Volumes/media*; do
+	for i in "/Volumes/${SHARE}"*; do
 		if [ -d "${i}" ] && [ -d "${i}/TV" ]; then
 			MEDIA="${i}"
 		fi
@@ -48,7 +55,7 @@ if [ -z "${MEDIA}" ]; then
 	fi
 	if [ $LOCKED -eq 0 ]; then
 		echo $$ > "${LOCK}"
-		osascript -e 'tell application "Finder" to mount volume "smb://atv@'"${HOST}"'/media"'
+		osascript -e 'tell application "Finder" to mount volume "smb://'"${REMOTE_USER}@${HOST}/${SHARE}"'"'
 		sleep 5
 		rm -f "${LOCK}"
 	fi
