@@ -24,7 +24,7 @@ function printSeries($series) {
 
 	# Form
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post" data-ajax="false">';
-	echo '<input type="hidden" name="series" value="' . $series_html . '"/>';
+	echo '<input type="hidden" name="series" value="' . htmlspecialchars($series) . '"/>';
 
 	# Series flags
 	echo '<h2>Series Parameters</h2>';
