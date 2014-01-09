@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Ensure the media share is mounted
+if ! ~/bin/video/isMediaMounted; then
+	echo 'Media share not available' 1>&2
+	exit 1
+fi
+
 # Config
 BASE_LOCAL="`~/bin/video/mediaPath`"
 BASE_REMOTE="/Volumes/Bitcasa Infinite Drive"
@@ -21,6 +27,11 @@ fi
 if [ -z "${SUB_DIR}" ] || [ $NUM_FILES -lt 1 ] || [ $DELAY_DAYS -lt 1 ]; then
 	echo "Usage: `basename "${0}"` sub_directory [num_files] [delay_days]" 1>&2
 	exit 1
+fi
+
+# Bail if the load is high
+if ! ~/bin/video/checkLoad.sh; then
+	exit 0
 fi
 
 # Allow usage with absolute local paths
@@ -99,7 +110,10 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 
 	# Determine the action (i.e. copy to or delete from remote)
 	if [ "${ACTION}" == '+' ]; then
-		if [ -d "${PATH_REMOTE}" ]; then
+		if [ -n "${NO_DELETE}" ]; then
+			# Do nothing
+			true
+		elif [ -d "${PATH_REMOTE}" ]; then
 			echo "Removing directory: ${FILE}"
 			rmdir "${PATH_REMOTE}"
 		elif [ -f "${PATH_REMOTE}" ]; then

@@ -1,11 +1,30 @@
 #!/bin/bash
 
+# Ensure we have a valid TMPDIR
+if [ ! -d "${TMPDIR}" ]; then
+        TMPDIR="`getconf DARWIN_USER_TEMP_DIR 2>/dev/null`"
+        if [ ! -d "${TMPDIR}" ]; then
+                TMPDIR="/var/tmp"
+        fi
+        if [ ! -d "${TMPDIR}" ]; then
+                TMPDIR="/tmp"
+        fi
+fi
+
+# Config
 HOST="vera.uberzach.com"
+SHARE="media"
 LOCK="${TMPDIR}/mountMedia.mounting"
+REMOTE_USER="${USER}"
+
+# Hack for mismatched usernames
+if [ "${USER}" == "tv" ]; then
+	REMOTE_USER="atv"
+fi
 
 function findMedia {
 	MEDIA=""
-	for i in /Volumes/media*; do
+	for i in "/Volumes/${SHARE}"*; do
 		if [ -d "${i}" ] && [ -d "${i}/TV" ]; then
 			MEDIA="${i}"
 		fi
@@ -36,7 +55,7 @@ if [ -z "${MEDIA}" ]; then
 	fi
 	if [ $LOCKED -eq 0 ]; then
 		echo $$ > "${LOCK}"
-		osascript -e 'tell application "Finder" to mount volume "smb://atv@'"${HOST}"'/media"'
+		osascript -e 'tell application "Finder" to mount volume "smb://'"${REMOTE_USER}@${HOST}/${SHARE}"'"'
 		sleep 5
 		rm -f "${LOCK}"
 	fi
@@ -46,12 +65,12 @@ fi
 findMedia
 if [ -n "${MEDIA}" ]; then
 	if [ -d /mnt ]; then
-		if [ -h /mnt/media ]; then
+		if [ -e /mnt/media ] || [ -h /mnt/media ]; then
 			rm -f /mnt/media
 		fi
 		ln -s "${MEDIA}" /mnt/media
 	fi
-	if [ -e "${HOME}/media" ]; then
+	if [ -e "${HOME}/media" ] || [ -h "${HOME}/media" ]; then
 		rm -f "${HOME}/media"
 		ln -s "${MEDIA}" "${HOME}/media"
 	fi

@@ -14,7 +14,7 @@ my $NEXT_EPISODES       = 3;
 my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
-my $PROTOCOL = 'https';
+my $PROTOCOL = 'http';
 my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 0);
 
 # Selection parameters
@@ -29,7 +29,7 @@ my $SEED_RATIO_COUNT = 10;
 # App config
 my $DELAY   = 4;
 my $TIMEOUT = 15;
-my $UA      = 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X 10_5_5; en-us) AppleWebKit/525.18 (KHTML, like Gecko) Version/3.1.2 Safari/525.20.1';
+my $UA      = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9) AppleWebKit/537.71 (KHTML, like Gecko) Version/7.0 Safari/537.71';
 
 # Includes
 use JSON;
@@ -57,13 +57,13 @@ if ($ENV{'NO_QUALITY_CHECKS'}) {
 if ($ENV{'MORE_NUMBER_FORMATS'}) {
 	$MORE_NUMBER_FORMATS = 1;
 }
-if ($ENV{'MIN_DAYS_BACK'}) {
+if (defined($ENV{'MIN_DAYS_BACK'})) {
 	$MIN_DAYS_BACK = $ENV{'MIN_DAYS_BACK'};
 }
-if ($ENV{'MAX_DAYS_BACK'}) {
+if (defined($ENV{'MAX_DAYS_BACK'})) {
 	$MAX_DAYS_BACK = $ENV{'MAX_DAYS_BACK'};
 }
-if ($ENV{'NEXT_EPISODES'}) {
+if (defined($ENV{'NEXT_EPISODES'})) {
 	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
 }
 
@@ -82,7 +82,7 @@ my %SOURCES = ();
 if ($ENABLE_SOURCE{'TPB'}) {
 
 	# Available TPB proxies, in order of preference
-	my @TPBs = ('thepiratebay.sx/search/', 'tpb.jasohack.com/index.php?loadurl=/search/', 'tpb.allestec.com/index.php?loadurl=/search/');
+	my @TPBs = ('thepiratebay.se/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
 
 	# Automatically select a TPB proxy that returns a search page
 	my $search_url = '';
@@ -465,8 +465,8 @@ if (scalar(@urls) < 1) {
 						if ($source->{'search_suffix'}) {
 							$url .= $source->{'search_suffix'};
 						}
+						push(@urls, $url);
 					}
-					push(@urls, $url);
 
 					# SXX EYY
 					$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+s' . $season_long . '+e' . $episode_long;

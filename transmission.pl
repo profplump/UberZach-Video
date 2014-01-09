@@ -23,18 +23,20 @@ sub unrar($$);
 sub localSeriesCleanup($);
 sub seriesCleanup($);
 sub readDir($$);
+sub findMediaFiles($$);
 sub runAndCheck(@);
 
 # Parameters
-my $maxAge        = 2.5 * 86400;
-my $tvDir         = `~/bin/video/mediaPath` . '/TV';
-my $monitoredExec = '/Users/profplump/bin/video/torrentMonitored.pl';
-my $host          = 'http://localhost:9091';
-my $url           = $host . '/transmission/rpc';
-my $content       = '{"method":"torrent-get","arguments":{"fields":["hashString","id","addedDate","comment","creator","dateCreated","isPrivate","name","totalSize","pieceCount","pieceSize","downloadedEver","error","errorString","eta","haveUnchecked","haveValid","leftUntilDone","metadataPercentComplete","peersConnected","peersGettingFromUs","peersSendingToUs","rateDownload","rateUpload","recheckProgress","sizeWhenDone","status","trackerStats","uploadedEver","uploadRatio","seedRatioLimit","seedRatioMode","downloadDir","files","fileStats"]}}';
-my $delContent    = '{"method":"torrent-remove","arguments":{"ids":["#_ID_#"], "delete-local-data":"true"}';
-my $delSleep      = 10;
-my $RAR_MIN_FILES = 4;
+my $maxAge         = 2.5 * 86400;
+my $tvDir          = `~/bin/video/mediaPath` . '/TV';
+my $monitoredExec  = '/Users/profplump/bin/video/torrentMonitored.pl';
+my $host           = 'http://localhost:9091';
+my $url            = $host . '/transmission/rpc';
+my $content        = '{"method":"torrent-get","arguments":{"fields":["hashString","id","addedDate","comment","creator","dateCreated","isPrivate","name","totalSize","pieceCount","pieceSize","downloadedEver","error","errorString","eta","haveUnchecked","haveValid","leftUntilDone","metadataPercentComplete","peersConnected","peersGettingFromUs","peersSendingToUs","rateDownload","rateUpload","recheckProgress","sizeWhenDone","status","trackerStats","uploadedEver","uploadRatio","seedRatioLimit","seedRatioMode","downloadDir","files","fileStats"]}}';
+my $delContent     = '{"method":"torrent-remove","arguments":{"ids":["#_ID_#"], "delete-local-data":"true"}';
+my $delSleep       = 10;
+my $RAR_MIN_FILES  = 4;
+my $FIND_MAX_DEPTH = 5;
 
 # Debug
 my $DEBUG = 0;
@@ -43,7 +45,12 @@ if ($ENV{'DEBUG'}) {
 }
 
 # Command-line parameters
-my ($force, $maxDays) = @ARGV;
+my ($force, $maxDays, $hash) = @ARGV;
+
+# If a hash is provided, always process matching torrents
+if (defined($hash)) {
+	$force = 1;
+}
 
 # Init
 my $fetch = Fetch->new();
@@ -92,8 +99,18 @@ foreach my $tor (@{$torrents}) {
 		}
 		next;
 	}
+
+	# If a hash is provided, process only that file
+	if (defined($hash) && $tor->{'hashString'} ne $hash) {
+		if ($DEBUG) {
+			printf STDERR 'Skipping torrent with non-matching hash: ' . $tor->{'name'} . ' (' . $tor->{'hashString'} . ")\n";
+		}
+		next;
+	}
+
+	# We've decided to do something about this torrent
 	if ($DEBUG) {
-		print STDERR 'Processing finished torrent: ' . $tor->{'name'} . "\n";
+		print STDERR 'Processing completed torrent: ' . $tor->{'name'} . "\n";
 	}
 
 	# Handle individual files and directories
@@ -145,14 +162,8 @@ foreach my $tor (@{$torrents}) {
 			@newFiles = &unrar($IS_RAR, $path);
 		}
 
-		# Find all media files
-		my @tmpFiles = readDir($path, '/\.(?:avi|mkv|m4v|mov|mp4|ts|wmv)$/i');
-		foreach my $file (@tmpFiles) {
-			if ($file =~ /sample/i) {
-				next;
-			}
-			push(@files, $file);
-		}
+		# Find all media files, recursively
+		@files = findMediaFiles($path, 0);
 	}
 
 	# Bail if we found no files
@@ -231,9 +242,9 @@ sub getSSE($) {
 	my $season      = 0;
 	my $episode     = 0;
 	my $seasonBlock = '';
-	if ($name =~ /(?:\b|_)(S\d{1,2}[_\s\.]?E\d{1,2})(?:\b|_)/i) {
+	if ($name =~ /(?:\b|_)(S(?:eason)?[_\s\.\-]*\d{1,2}[_\s\.\-]*E(?:pisode)?[_\s\.]*\d{1,2})(?:\b|_)/i) {
 		$seasonBlock = $1;
-		($season, $episode) = $seasonBlock =~ /S(\d{1,2})[_\s\.]?E(\d{1,2})/i;
+		($season, $episode) = $seasonBlock =~ /S(?:eason)?[_\s\.\-]*(\d{1,2})[_\s\.\-]*E(?:pisode)?[_\s\.\-]*(\d{1,2})/i;
 		$season = int($season);
 		$episode = sprintf('%02d', int($episode));
 	} elsif ($name =~ /[\[\_\.](\d{1,2}x\d{2,3})[\]\_\.]/i) {
@@ -279,6 +290,9 @@ sub getDest($$$$) {
 	if ($DEBUG) {
 		print STDERR 'Finding destintion for: ' . $series . ' S' . $season . 'E' . $episode . "\n";
 	}
+
+	# Input cleanup
+	$episode =~ s/^0+//;
 
 	# Find all our existing TV series
 	my @shows    = ();
@@ -382,12 +396,13 @@ sub getDest($$$$) {
 	}
 
 	# Bail if we already have this episode
-	my @episodes = readDir($seasonDir, '/^\s*[\d\-]+\s*\-\s*/');
+	my @episodes = readDir($seasonDir, 0);
 	foreach my $ep (@episodes) {
-		$ep = basename($ep);
 		my ($epNum) = $ep =~ /^\s*([\d\-]+)\s*\-\s*/;
-		$epNum   =~ s/^0+//;
-		$episode =~ s/^0+//;
+		if (!defined($epNum)) {
+			next;
+		}
+		$epNum =~ s/^0+//;
 		if ($epNum eq $episode) {
 			print STDERR 'Existing episode for: ' . $series . ' S' . $season . 'E' . $episode . "\n";
 			return;
@@ -561,7 +576,7 @@ sub unrar($$) {
 	}
 
 	# Keep a list of old files, so we can find/delete the output
-	my @beforeFiles = readDir($path, undef());
+	my @beforeFiles = readDir($path, 1);
 
 	# Run the unrar utility
 	my $pid = fork();
@@ -583,7 +598,7 @@ sub unrar($$) {
 
 	# Compare the old file list to the new one
 	my @newFiles = ();
-	my @afterFiles = readDir($path, undef());
+	my @afterFiles = readDir($path, 1);
 	foreach my $file (@afterFiles) {
 		my $found = 0;
 		foreach my $file2 (@beforeFiles) {
@@ -630,13 +645,7 @@ sub seriesCleanup($) {
 }
 
 sub readDir($$) {
-	my ($indir, $regex) = @_;
-
-	# Allow optional use of a matching regex
-	my $useRegex = 1;
-	if (!defined($regex) || length($regex) < 1) {
-		$useRegex = 0;
-	}
+	my ($indir, $long) = @_;
 
 	# Clean up the input directory
 	$indir =~ s/\/+$//;
@@ -649,23 +658,18 @@ sub readDir($$) {
 	foreach my $file (readdir(DIR)) {
 		my $keep = 0;
 
-		# Regex filter (if active)
-		if (!$useRegex) {
-			$keep = 1;
-		} elsif (eval('$file =~ m' . $regex)) {
-			$keep = 1;
+		# Skip junk
+		if (   $file eq '.'
+			|| $file eq '..'
+			|| $file =~ /\._/)
+		{
+			next;
 		}
 
-		# Construct a complete file path
-		$file = $indir . '/' . $file;
-
-		# Ignore directories
-		if (-d $file) {
-			$keep = 0;
-		}
-
-		# Save matching files
-		if ($keep) {
+		# Save the full path
+		if ($long) {
+			push(@files, $indir . '/' . $file);
+		} else {
 			push(@files, $file);
 		}
 	}
@@ -677,6 +681,38 @@ sub readDir($$) {
 
 	# Return the file list
 	return (@orderedFiles);
+}
+
+sub findMediaFiles($$) {
+	my ($path, $depth) = @_;
+	my @files = ();
+
+	# Recursion limit
+	if ($depth > $FIND_MAX_DEPTH) {
+		return ();
+	}
+
+	my @tmpFiles = readDir($path, 1);
+	foreach my $file (@tmpFiles) {
+
+		# Skip sample files
+		if ($file =~ /sample/i) {
+			next;
+		}
+
+		# Recurse on directories
+		if (-d $file) {
+			push(@files, findMediaFiles($file, $depth + 1));
+			next;
+		}
+
+		# Save matching files
+		if ($file =~ /\.(?:avi|mkv|m4v|mov|mp4|ts|wmv)$/i) {
+			push(@files, $file);
+			next;
+		}
+	}
+	return @files;
 }
 
 sub runAndCheck(@) {

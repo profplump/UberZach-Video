@@ -13,9 +13,10 @@ my $QUALITY             = 20;
 my $HD_QUALITY          = 22;
 my $AUDIO_COPY          = 0;
 my $STEREO_ONLY         = 0;
+my $VIDEO_ONLY          = 0;
 my $HEIGHT              = undef();
 my $WIDTH               = undef();
-my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
+my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Deutsch|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
 my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4           = 0;
 my $OUT_DIR             = undef();
@@ -70,6 +71,11 @@ if ($ENV{'STEREO_ONLY'}) {
 	$STEREO_ONLY = 1;
 }
 
+# Allow video-only transfers
+if ($ENV{'VIDEO_ONLY'}) {
+	$VIDEO_ONLY = 1;
+}
+
 # Allow MP4-only output format (for use in mobile encoding)
 if ($ENV{'FORCE_MP4'}) {
 	$FORCE_MP4 = 1;
@@ -116,6 +122,9 @@ if (!defined($in_file) || length($in_file) < 1 || !-r $in_file) {
 # Sanity checks
 if ($AUDIO_COPY && $STEREO_ONLY) {
 	die(basename($0) . ": AUDIO_COPY and STEREO_ONLY are mutually exclusive\n");
+}
+if ($VIDEO_ONLY && ($AUDIO_COPY || $STEREO_ONLY)) {
+	die(basename($0) . ": VIDEO_ONLY and AUDIO_COPY or STEREO_ONLY are mutually exclusive\n");
 }
 
 # Scan for title/track info
@@ -202,10 +211,8 @@ foreach my $title (keys(%titles)) {
 	# Reset
 	$FORMAT = $format_default;
 
-	# Parse the title's audio and subtitle tracks
-	my $scan  = $titles{$title};
-	my @audio = &audioOptions($scan);
-	my @subs  = &subOptions($scan);
+	# Select a title
+	my $scan = $titles{$title};
 
 	# Skip tracks that have no video
 	if (scalar(@{ $scan->{'size'} }) < 2 || $scan->{'size'}[0] < $MIN_VIDEO_WIDTH) {
@@ -213,14 +220,23 @@ foreach my $title (keys(%titles)) {
 		next;
 	}
 
-	# Skip tracks that have no audio
-	if (scalar(@{ $scan->{'audio'} }) < 1 || scalar(@audio) < 1) {
-		print STDERR basename($0) . ': No audio detected in: ' . $in_file . ':' . $title . ". Skipping title...\n";
-		next;
-	}
+	# Parse subtitle tracks
+	my @subs = &subOptions($scan);
 
-	# Set the audio quality for re-encoded tracks
-	push(@audio, '--ab', $AUDIO_BITRATE);
+	# Parse audio tracks, unless we're in VIDEO_ONLY mode
+	my @audio = ();
+	if (!$VIDEO_ONLY) {
+		@audio = &audioOptions($scan);
+
+		# Skip tracks that have no audio
+		if (scalar(@{ $scan->{'audio'} }) < 1 || scalar(@audio) < 1) {
+			print STDERR basename($0) . ': No audio detected in: ' . $in_file . ':' . $title . ". Skipping title...\n";
+			next;
+		}
+
+		# Set the bitrate for transcoded audio tracks
+		push(@audio, '--ab', $AUDIO_BITRATE);
+	}
 
 	# Set the video quality, using $HD_QUALITY for images larger than $HD_WIDTH (to allow lower quality on HD streams)
 	my $title_quality = $QUALITY;
@@ -282,9 +298,13 @@ foreach my $title (keys(%titles)) {
 	push(@args, '--quality', $title_quality);
 	push(@args, '--crop',    join(':', @{ $scan->{'crop'} }));
 	push(@args, @video_params);
-	push(@args, @audio_params);
-	push(@args, @audio);
 	push(@args, @subs);
+
+	# Include audio unless specifically excluded
+	if (!$VIDEO_ONLY) {
+		push(@args, @audio_params);
+		push(@args, @audio);
+	}
 
 	if ($DEBUG) {
 		print STDERR "\n" . join(' ', @args) . "\n\n";
@@ -396,7 +416,7 @@ sub audioOptions($) {
 	# Type the audio tracks
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'audio'} }) {
-		my ($language, $codec, $note, $channels, $iso) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso(\d+\-\d+)\:\s+\w\w\w\))?/;
+		my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso(\d+\-\d+)\:\s+\w\w\w\))?(?:,\s+(.*))?/;
 		if (!defined($channels)) {
 			print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
 			next;
@@ -428,8 +448,31 @@ sub audioOptions($) {
 			}
 		}
 
+		# Standardize the specs
+		my $bitrate    = 0;
+		my $samplerate = 0;
+		if (!$specs) {
+			$specs = '';
+		}
+		if ($specs =~ /(\d+)bps/) {
+			$bitrate = $1 / 1000;
+		} elsif ($specs =~ /(\d+)\s*kb\/s/) {
+			$bitrate = $1;
+		}
+		if ($specs =~ /(\d+)Hz/) {
+			$samplerate = $1;
+		}
+
 		# Push all parsed data into the array
-		my %data = ('language' => $language, 'codec' => $codec, 'channels' => $channels, 'iso' => $iso, 'note' => $note);
+		my %data = (
+			'language'   => $language,
+			'codec'      => $codec,
+			'channels'   => $channels,
+			'iso'        => $iso,
+			'note'       => $note,
+			'bitrate'    => $bitrate,
+			'samplerate' => $samplerate,
+		);
 		$tracks{ $track->{'index'} } = \%data;
 
 		# Print what we found
@@ -508,7 +551,7 @@ sub audioOptions($) {
 		foreach my $index (keys(%tracks)) {
 			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'channels'} <= $MIXDOWN_CHANNELS) {
 				if ($DEBUG) {
-					print STDERR 'Skipping recode of track ' . $index . ' since it is already used as the default track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
+					print STDERR 'Skipping passthru of track ' . $index . ' since it is already used as the mixdown track and contains only ' . $tracks{$index}->{'channels'} . " channels\n";
 				}
 				next;
 			} elsif (!$tracks{$index}->{'codec'}) {
@@ -673,9 +716,10 @@ sub scan($) {
 
 sub findBestAudioTrack($$) {
 	my ($tracks, $codec) = @_;
-	my $best     = undef();
-	my $channels = 0;
+	my $best = undef();
+	my @available = ();
 
+	# Find available tracks
 	for my $index (keys(%{$tracks})) {
 		my $track = $tracks->{$index};
 
@@ -689,13 +733,56 @@ sub findBestAudioTrack($$) {
 			next;
 		}
 
-		# Find the track with the most channels (Ófirst wins)
-		if (!defined($best) || $track->{'channels'} > $channels) {
-			$best     = $index;
-			$channels = $track->{'channels'};
-		}
+		push(@available, $index);
+	}
+	if (scalar(@available) < 1) {
+		return $best;
 	}
 
+	# Find the tracks with the most channels
+	{
+		my @most     = ();
+		my $channels = 0;
+		foreach my $index (@available) {
+			my $track = $tracks->{$index};
+			if ($track->{'channels'} > $channels) {
+				@most     = ($index);
+				$channels = $track->{'channels'};
+			} elsif ($track->{'channels'} == $channels) {
+				push(@most, $index);
+			}
+		}
+		@available = @most;
+	}
+	if (scalar(@available) < 1) {
+		return $best;
+	}
+
+	# Find the tracks with the highest bitrate
+	{
+		my @highest = ();
+		my $bitrate = 0;
+		foreach my $index (@available) {
+			my $track = $tracks->{$index};
+			if ($track->{'bitrate'} > $bitrate) {
+				@highest = ($index);
+				$bitrate = $track->{'bitrate'};
+			} elsif ($track->{'bitrate'} == $bitrate) {
+				push(@highest, $index);
+			}
+		}
+		@available = @highest;
+	}
+	if (scalar(@available) < 1) {
+		return $best;
+	}
+
+	# Find the track if the lowest index
+	foreach my $index (@available) {
+		if (!defined($best) || $index < $best) {
+			$best = $index;
+		}
+	}
 	return $best;
 }
 
