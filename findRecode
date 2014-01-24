@@ -36,8 +36,15 @@ if [ ! -d "${FOLDER}" ]; then
 	exit 1
 fi
 
-# Find large video files
-# Later tests exclude Handbrake-encoded files
+# Derived parameters
+LAST_RECODE_FILE="`(cd "${FOLDER}" && pwd)`/.lastFindRecode"
+
+# Environmental parameters
+if [ -n "${NO_LAST_RECODE_FILE}" ]; then
+	LAST_RECODE_FILE=""
+fi
+
+# Find large video files that match the regex filter
 FILES="`find "${FOLDER}" -type f -maxdepth 1 -size "+${MIN_SIZE}" | grep -iE "${NAME_REGEX}"`"
 
 # Loop with newline-as-IFS
@@ -45,13 +52,18 @@ OLDIFS="${IFS}"
 IFS=$'\n'
 for i in ${FILES}; do
 
-	# Bail if the load is high
-	if ! ~/bin/video/checkLoad.sh; then
+	# Skip invalid files
+	if [ -z "${i}" ] || [ ! -r "${i}" ] || basename "${i}" | grep -q '^\._'; then
 		continue
 	fi
 
-	# Skip invalid files
-	if [ -z "${i}" ] || [ ! -r "${i}" ] || basename "${i}" | grep -q '^\._'; then
+	# Skip files older than the LAST_RECODE_FILE mtime
+	if [ -n "${LAST_RECODE_FILE}" ] && [ -f "${LAST_RECODE_FILE}" ] && [ "${i}" -ot "${LAST_RECODE_FILE}" ]; then
+		continue
+	fi
+
+	# Bail if the load is high
+	if ! ~/bin/video/checkLoad.sh; then
 		continue
 	fi
 
@@ -104,3 +116,8 @@ for i in ${FILES}; do
 	fi
 done
 IFS="${OLDIFS}"
+
+# Record the last scan time
+if [ -n "${LAST_RECODE_FILE}" ]; then
+	touch "${LAST_RECODE_FILE}"
+fi
