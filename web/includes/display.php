@@ -62,8 +62,8 @@ function printSeries($series) {
 
 			$episodes = findEpisodes($series, $season);
 
-			echo '<dt>Season ' . $season_html . '</dt>';
-			echo '<dd><label>Monitored: <input type="checkbox" value="1" name="season_' . $season_html . '" ';
+			echo '<h3>Season ' . $season_html . '</h3>';
+			echo '<label>Monitored: <input type="checkbox" value="1" name="season_' . $season_html . '" ';
 			if ($monitored !== false) {
 				echo 'checked="checked"';
 			}
@@ -76,7 +76,7 @@ function printSeries($series) {
 			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete"><br/>';
 			echo 'Episode count: ' . count($episodes) . '<br/>';
 			echo 'Highest episode number: ' . @max(array_keys($episodes)) . '<br/>';
-			echo '</dd>';
+			echo '<hr/>';
 		}
 		echo '</dl>';
 
