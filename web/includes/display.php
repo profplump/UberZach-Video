@@ -68,11 +68,6 @@ function printSeries($series) {
 				echo 'checked="checked"';
 			}
 			echo '/></label><br/>';
-			echo '<label>Search URL: <input type="text" size="150" name="url_' . $season_html . '" value="';
-			if ($monitored !== false && $monitored !== true) {
-				echo htmlspecialchars($monitored);
-			}
-			echo '"/></label><br/>';
 			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete"><br/>';
 			echo 'Episode count: ' . count($episodes) . '<br/>';
 			echo 'Highest episode number: ' . @max(array_keys($episodes)) . '<br/>';

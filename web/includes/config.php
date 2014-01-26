@@ -14,6 +14,6 @@ $TVDB_URL         = 'http://thetvdb.com/?tab=series';
 
 ### App Config
 $EXISTS_FILES  = array('no_quality_checks', 'more_number_formats', 'skip');
-$CONTENT_FILES = array('must_match', 'search_name');
+$CONTENT_FILES = array('must_match', 'search_name', 'excludes');
 
 ?>

@@ -42,20 +42,6 @@ function isMonitored($series, $season) {
 	return true;
 }
 
-# Get the season search status, including the URL (if any) for the provided path
-function seasonSearch($series, $season) {
-	$retval = isMonitored($series, $season);
-
-	if ($retval) {
-		$file = seasonPath($series, $season) . '/url';
-		if (is_readable($file)) {
-			$retval = trim(file_get_contents($file));
-		}
-	}
-
-	return $retval;
-}
-
 # Find all the season in a provided series folder and determine which are being monitored
 function findSeasons($series) {
 	$retval = array();
@@ -81,7 +67,7 @@ function findSeasons($series) {
 		# Record the season number and search status
 		if (preg_match('/Season\s+(\d+)/i', $season, $matches)) {
 			$season_num = $matches[1];
-			$retval[ $season_num ] = seasonSearch($series, $season_num);
+			$retval[ $season_num ] = isMonitored($series, $season_num);
 		}
 	}
 	closedir($dir);
@@ -116,19 +102,6 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 			}
 		}
 
-		$url = $data[ 'url_' . $season ];
-		$url_path = $season_path . '/url';
-		if ($url) {
-			if (isMonitored($series, $season)) {
-				file_put_contents($url_path, $url . "\n");
-			}
-		} else {
-			if ($seasons_last[ $season ] && isMonitored($series, $season)) {
-				if (file_exists($url_path)) {
-					unlink($url_path);
-				}
-			}
-		}
 	}
 }
 
