@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+use URI::Encode qw(uri_encode);
 
 # Defaults
 my $DEBUG               = 0;
@@ -103,7 +104,7 @@ if ($ENABLE_SOURCE{'TPB'}) {
 			'search_url'    => $search_url,
 			'search_suffix' => '/0/7/0',
 			'weight'        => 1.5,
-			'quote'         => '0'
+			'quote'         => 0
 		);
 		$SOURCES{'TPB'} = \%tmp;
 	}
@@ -378,9 +379,31 @@ if (scalar(@urls) < 1) {
 	}
 	close(SEASON);
 
+	# Read the excludes file, if any
+	my $exclude = '';
+	if (-e $dir . '/excludes') {
+		local $/ = undef;
+		open(EX, $dir . '/excludes')
+		  or die("Unable to open excludes file: ${!}\n");
+		my $ex = <EX>;
+		close(EX);
+
+		$ex =~ s/^\s+//;
+		$ex =~ s/^\s+//;
+		my @excludes = split(/\s*,\s*/, $ex);
+
+		foreach my $ex (@excludes) {
+			if (length($exclude)) {
+				$exclude .= ' ';
+			}
+			$exclude .= '-"' . $ex . '"';
+		}
+		$exclude = uri_encode(' ' . $exclude);
+	}
+
 	# Assume we need the next 2 episodes, unless no_next is set (i.e. season_done)
 	if (!$no_next) {
-		for (my $i = 1; $i <= $NEXT_EPISODES; $i++) {
+		for (my $i = 1 ; $i <= $NEXT_EPISODES ; $i++) {
 			push(@need, $highest + $i);
 		}
 	}
@@ -398,18 +421,6 @@ if (scalar(@urls) < 1) {
 	# Reverse the array for later matching
 	foreach my $episode (@need) {
 		$need{$episode} = 1;
-	}
-
-	# Check for URL files
-	if (-e "${dir}/url") {
-		open(URL, "${dir}/url")
-		  or die("Unable to open URLs file: ${!}\n");
-		while (<URL>) {
-			if (/^\s*[a-z]+(\:\S+)\s*$/) {
-				push(@urls, $PROTOCOL . $1);
-			}
-		}
-		close(URL);
 	}
 
 	# Construct a URL-friendly show name
@@ -444,16 +455,22 @@ if (scalar(@urls) < 1) {
 			my $episode_long = sprintf('%02d', $episode);
 			my $season_long  = sprintf('%02d', $season);
 			foreach my $source (values(%SOURCES)) {
+				
+				# Use quotes around the show name if the source needs them
 				my $quote = '%22';
 				if (!$source->{'quote'}) {
 					$quote = '';
 				}
 
-				# SXXEYY
-				my $url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+s' . $season_long . 'e' . $episode_long;
+				# Calculate the compete search prefix and suffix to simplify later concatenations
+				my $prefix = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote;
+				my $suffix = $exclude;
 				if ($source->{'search_suffix'}) {
-					$url .= $source->{'search_suffix'};
+					$suffix .= $source->{'search_suffix'};
 				}
+
+				# SXXEYY
+				my $url = $prefix . '+s' . $season_long . 'e' . $episode_long . $suffix;
 				push(@urls, $url);
 
 				# Extra searches for shows that have lazy/non-standard number formats
@@ -461,39 +478,24 @@ if (scalar(@urls) < 1) {
 
 					# SXEY
 					if ($season_long ne $season || $episode_long ne $episode) {
-						$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+s' . $season . 'e' . $episode;
-						if ($source->{'search_suffix'}) {
-							$url .= $source->{'search_suffix'};
-						}
+						$url = $prefix . '+s' . $season . 'e' . $episode . $exclude;
 						push(@urls, $url);
 					}
 
 					# SXX EYY
-					$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+s' . $season_long . '+e' . $episode_long;
-					if ($source->{'search_suffix'}) {
-						$url .= $source->{'search_suffix'};
-					}
+					$url = $prefix . '+s' . $season_long . '+e' . $episode_long . $exclude;
 					push(@urls, $url);
 
 					# Season XX Episode YY
-					$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+season+' . $season_long . '+episode+' . $episode_long;
-					if ($source->{'search_suffix'}) {
-						$url .= $source->{'search_suffix'};
-					}
+					$url = $prefix . '+season+' . $season_long . '+episode+' . $episode_long . $exclude;
 					push(@urls, $url);
 
 					# Series X Episode Y
-					$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+series+' . $season . '+episode+' . $episode;
-					if ($source->{'search_suffix'}) {
-						$url .= $source->{'search_suffix'};
-					}
+					$url = $prefix . '+series+' . $season . '+episode+' . $episode . $exclude;
 					push(@urls, $url);
 
 					# SxEE
-					$url = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote . '+' . $season . 'x' . $episode_long;
-					if ($source->{'search_suffix'}) {
-						$url .= $source->{'search_suffix'};
-					}
+					$url = $prefix . '+' . $season . 'x' . $episode_long . $exclude;
 					push(@urls, $url);
 
 				}
