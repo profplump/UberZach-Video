@@ -1,8 +1,7 @@
 <?
 
-require 'config.php';
-
 function printSeries($series) {
+	require 'config.php';
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
 
@@ -20,6 +19,11 @@ function printSeries($series) {
 	echo '<div data-role="header">';
 	echo '<h1>' . $series_html . '</h1>';
 	echo '<a href="' . $_SERVER['PHP_SELF'] . '" data-icon="arrow-l" data-iconpos="notext" data-ajax="false">Back</a>';
+	if (authenticated()) {
+		echo '<a href="' . $LOGIN_PAGE . '?logout=1" data-ajax="false">Logout: ' . username() . '</a>';
+	} else {
+		echo '<a href="' . $LOGIN_PAGE . '" data-ajax="false">Login</a>';
+	}
 	echo '</div>';
 
 	# Form
@@ -100,6 +104,7 @@ function printSeries($series) {
 
 # Print a DL of all series and note the available and monitored seasons
 function printAllSeries() {
+	require 'config.php';
 	global $TV_PATH;
 	$all_series = allSeriesSeasons($TV_PATH);
 
@@ -109,6 +114,11 @@ function printAllSeries() {
 	# Header
 	echo '<div data-role="header">';
 	echo '<h1>UberZach TV</h1>';
+	if (authenticated()) {
+		echo '<a href="' . $LOGIN_PAGE . '?logout=1" class="ui-btn-right" data-ajax="false">Logout: ' . username() . '</a>';
+	} else {
+		echo '<a href="' . $LOGIN_PAGE . '" class="ui-btn-right" data-ajax="false">Login</a>';
+	}
 	echo '</div>';
 
 	# Wrap all the sorted/filtered content
