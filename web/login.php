@@ -6,57 +6,14 @@ require_once 'includes/main.php';
 # Send our headers early
 header('Content-type: text/html; charset=utf-8');
 
-# Did the user request a specific series?
-$series = false;
-if (isset($_REQUEST['series'])) {
-	$series = cleanSeries($_REQUEST['series']);
+# Process login
+if (isset($_POST['username']) && isset($_POST['password'])) {
+	login($_POST['username'], $_POST['password']);
 }
 
-# Did the user request an update?
-if ($series !== false && isset($_POST['Save'])) {
-	require_authentication();
-
-	# Grab the current settings for comparison
-	$series_last = readFlags($series);
-	$seasons_last = findSeasons($series);
-
-	# Save series and season data
-	saveFlags($series, $_POST, $series_last, $seasons_last);
-	saveSeasons($series, $_POST, $series_last, $seasons_last);
-}
-
-# Did the user add a season?
-if ($series !== false && isset($_POST['AddSeason'])) {
-	require_authentication();
-
-	# Add a season folder
-	$season = intval($_POST['season_add']);
-	addSeason($series, $season);
-}
-
-# Did the user delete a season?
-if ($series !== false) {
-	$season = false;
-	foreach (array_keys($_POST) as $key) {
-		if (preg_match('/season_del_(\d+)/', $key, $matches)) {
-			$season = intval($matches[1]);
-			last;
-		}
-	}
-	if ($season !== false) {
-		require_authentication();
-
-		# Remove a season folder (if empty)
-		delSeason($series, $season);
-	}
-}
-
-# Did the user add a series?
-if ($series === false && isset($_POST['series_add'])) {
-	require_authentication();
-
-	# Add a series folder
-	$series = addSeries($_POST['series_add']);
+# Process logout
+if (isset($_REQUEST['logout'])) {
+	logout();
 }
 
 #=========================================================================================
@@ -68,7 +25,7 @@ print <<<ENDOLA
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
-	<title>UberZach TV</title>
+	<title>UberZach TV - Login</title>
 
 	<!-- Default JQuery -->
 	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
@@ -104,11 +61,23 @@ print <<<ENDOLA
 
 ENDOLA;
 
-if ($series === false) {
-	printAllSeries();
-} else {
-	printSeries($series);
+$url = $_SERVER['PHP_SELF'];
+if (isset($_GET['dest'])) {
+	$url .= '?dest=' . urlencode($_GET['dest']);
 }
+
+print <<<ENDOLA
+<div style="width: 50%; margin-left: auto; margin-right: auto;">
+<form action="${url}" method="post" data-ajax="false">
+<p>
+<label>Username: <input type="text" name="username" /></label><br/>
+<label>Password: <input type="password" name="password" /></label><br/>
+</p>
+<p><input type="submit" name="login" value="Login" /></p>
+</form>
+</div>
+
+ENDOLA;
 
 # Generic XHTML 1.1 footer
 print <<<ENDOLA
