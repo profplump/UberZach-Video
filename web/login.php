@@ -6,14 +6,19 @@ require_once 'includes/main.php';
 # Send our headers early
 header('Content-type: text/html; charset=utf-8');
 
+# Process logout
+if (isset($_REQUEST['logout'])) {
+	logout();
+}
+
 # Process login
 if (isset($_POST['username']) && isset($_POST['password'])) {
 	login($_POST['username'], $_POST['password']);
 }
 
-# Process logout
-if (isset($_REQUEST['logout'])) {
-	logout();
+# Redirect if we're already authenticated
+if (authenticated()) {
+	login_redirect();
 }
 
 #=========================================================================================

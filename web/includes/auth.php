@@ -17,10 +17,16 @@ function login($username, $password) {
 		logout();
 	}
 
-	# Redirect, if we have a target
+	# Redirect, using the provided target if available
+	login_redirect();
+}
+
+function login_redirect() {
+	$url = './';
 	if (isset($_GET['dest'])) {
-		header('Location: ' . $_GET['dest']);
+		$url = $_GET['dest'];
 	}
+	header('Location: ' . $url);
 }
 
 function logout() {
