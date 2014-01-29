@@ -1,8 +1,10 @@
 <?
 
 ### Config
-$TV_PATH       = '/mnt/media/TV';	# Root path for all TV series
-$MAX_AGE       = 86400 * 90;		# Consider a series "old" if it has not been updated for this many seconds
+$TV_PATH    = '/mnt/media/TV';	# Root path for all TV series
+$MAX_AGE    = 86400 * 90;		# Consider a series "old" if it has not been updated for this many seconds
+$CACHE_AGE  = 300;
+$CACHE_FILE = '/var/tmp/php/tv_web.cache';
 
 ### TVDB
 $ENABLE_TVDB      = true;	# Master enable/disable flag

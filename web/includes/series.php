@@ -12,12 +12,32 @@ function seriesPath($series) {
 }
 
 # Find all series and seasons under a given path
-function allSeriesSeasons($base) {
+function allSeriesSeasons($base, $use_cache = true) {
+	global $CACHE_AGE;
+	global $CACHE_FILE;
 	$retval = array();
-	$all_series = allSeries($base);
 
+	# Use the cache file if it exists, is fresh and contains at least 1 series
+	if ($use_cache && file_exists($CACHE_FILE)) {
+		if (filemtime($CACHE_FILE) > time() - $CACHE_AGE) {
+			$retval = @unserialize(@file_get_contents($CACHE_FILE));
+			if (is_array($retval) && count($retval) > 0) {
+				return $retval;
+			}
+		}
+	}
+
+	# Read live data from the disk
+	$all_series = allSeries($base);
 	foreach ($all_series as $series) {
 		$retval[ $series ] = findSeasons($series);
+	}
+
+	# Always update the cache if we read from disk
+	$temp = @tempnam(dirname($CACHE_FILE), 'tv_web.cache');
+	if ($temp) {
+		file_put_contents($temp, serialize($retval));
+		rename($temp, $CACHE_FILE);
 	}
 
 	return $retval;
