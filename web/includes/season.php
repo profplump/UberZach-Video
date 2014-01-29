@@ -80,6 +80,8 @@ function findSeasons($series) {
 
 # Save the search status for all seasons in a series
 function saveSeasons($series, $data, $series_last, $seasons_last) {
+	die_if_not_authenticated();
+
 	# Do nothing if we are or just were in "skip" mode
 	if ($data['skip'] || $series_last['skip']) {
 		return;
@@ -107,6 +109,7 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 
 # Add the specified season folder
 function addSeason($series, $season) {
+	die_if_not_authenticated();
 
 	# Cheap validation
 	$season = intval($season);
@@ -138,6 +141,7 @@ function addSeason($series, $season) {
 
 # Remove the specified season folder, if possible (i.e. if empty)
 function delSeason($series, $season) {
+	die_if_not_authenticated();
 
 	# Ensure the series exists
 	if (!seriesExists($series)) {

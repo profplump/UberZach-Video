@@ -1,7 +1,5 @@
 <?
 
-require 'config.php';
-
 # Cleanup the provided series name
 # This does NOT provide comprehensively safe output,
 # it merely attempts to make names compatible with the filesystem and local convetions

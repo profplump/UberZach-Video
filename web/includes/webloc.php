@@ -1,8 +1,8 @@
 <?
 
-require 'config.php';
-
 function writeWebloc($url, $path) {
+	die_if_not_authenticated();
+
 	$encoded_url = htmlspecialchars($url, ENT_XML1, 'UTF-8');
 
 	$str = '<?xml version="1.0" encoding="UTF-8"?>';

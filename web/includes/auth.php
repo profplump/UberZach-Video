@@ -4,7 +4,7 @@
 session_start();
 
 function login($username, $password) {
-	require 'config.php';
+	global $PAM_SERVICE;
 	$username = preg_replace('/\W/', '_', $username);
 
 	# Set the PAM service name
@@ -22,7 +22,8 @@ function login($username, $password) {
 }
 
 function login_redirect() {
-	$url = './';
+	global $MAIN_PAGE;
+	$url = $MAIN_PAGE;
 	if (isset($_GET['dest'])) {
 		$url = $_GET['dest'];
 	}
@@ -30,10 +31,10 @@ function login_redirect() {
 }
 
 function logout() {
-	require 'config.php';
+	global $MAIN_PAGE;
 	unset($_SESSION['USER']);
 	session_regenerate_id(true);
-	header('Location: ./');
+	header('Location: ' . $MAIN_PAGE);
 	exit();
 }
 
@@ -46,7 +47,7 @@ function authenticated() {
 }
 
 function require_authentication() {
-	require 'config.php';
+	global $LOGIN_PAGE;
 	if (!authenticated()) {
 
 		# Provide the current URL for post-auth redirect, if possible
@@ -65,6 +66,12 @@ function require_authentication() {
 
 		header('Location: ' . $url);
 		exit();
+	}
+}
+
+function die_if_not_authenticated() {
+	if (!authenticated) {
+		die('Failure: Auth');
 	}
 }
 

@@ -108,6 +108,8 @@ function readFlags($series) {
 
 # Parse and save all of the serires-level exists and content files
 function saveFlags($series, $data, $series_last, $seasons_last) {
+	die_if_not_authenticated();
+
 	global $EXISTS_FILES;
 	global $CONTENT_FILES;
 
@@ -165,6 +167,8 @@ function saveFlags($series, $data, $series_last, $seasons_last) {
 
 # Add a series as identified by TVDB URL or ID
 function addSeries($str) {
+	die_if_not_authenticated();
+
 	global $TVDB_LANG_ID;
 	$id     = false;
 	$lid    = false;

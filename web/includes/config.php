@@ -19,5 +19,6 @@ $CONTENT_FILES = array('must_match', 'search_name', 'excludes');
 ### Auth Config
 $LOGIN_PAGE  = 'login';
 $PAM_SERVICE = 'tv_web';
+$MAIN_PAGE = '/tv/';
 
 ?>

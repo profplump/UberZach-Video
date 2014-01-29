@@ -1,6 +1,5 @@
 <?
 
-require 'config.php';
 $TVDB_DOWNLOAD_TIME  = 0;
 $TVDB_DOWNLOAD_COUNT = 0;
 
