@@ -36,6 +36,12 @@ function allSeriesSeasons($base, $use_cache = true) {
 	# Always update the cache if we read from disk
 	$temp = @tempnam(dirname($CACHE_FILE), 'tv_web.cache');
 	if ($temp) {
+		if (dirname($temp) != dirname($CACHE_FILE)) {
+			unlink($temp);
+			$temp = false;
+		}
+	}
+	if ($temp) {
 		file_put_contents($temp, serialize($retval));
 		rename($temp, $CACHE_FILE);
 	}
