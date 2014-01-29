@@ -1,7 +1,9 @@
 <?
 
-# Always start a session
-session_start();
+# Always start a session, unless we're on the CLI
+if (php_sapi_name() != 'cli') {
+	session_start();
+}
 
 function login($username, $password) {
 	global $PAM_SERVICE;
