@@ -15,6 +15,7 @@ function writeWebloc($url, $path) {
 	$str .= '</plist>';
 
 	file_put_contents($path, $str);
+	clearCache();
 }
 
 # Find the *.webloc file, if in, in the provided folder
