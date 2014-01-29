@@ -52,4 +52,11 @@ function displayTitle($title) {
 	return $title;
 }
 
+function clearCache() {
+	global $CACHE_FILE;
+	if (file_exists($CACHE_FILE)) {
+		unlink($CACHE_FILE);
+	}
+}
+
 ?>

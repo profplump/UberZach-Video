@@ -105,6 +105,9 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 		}
 
 	}
+
+	# Force a cache update
+	clearCache();
 }
 
 # Add the specified season folder
@@ -136,7 +139,10 @@ function addSeason($series, $season) {
 	}
 
 	# Create the directory
-	mkdir($season_path);
+	@mkdir($season_path);
+
+	# Force a cache update
+	clearCache();
 }
 
 # Remove the specified season folder, if possible (i.e. if empty)
@@ -155,6 +161,9 @@ function delSeason($series, $season) {
 
 	# Remove the directory (or fail silently)
 	@rmdir(seasonPath($series, $season));
+
+	# Force a cache update
+	clearCache();
 }
 
 ?>

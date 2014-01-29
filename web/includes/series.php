@@ -183,6 +183,9 @@ function saveFlags($series, $data, $series_last, $seasons_last) {
 			}
 		}
 	}
+
+	# Force a cache update
+	clearCache();
 }
 
 # Add a series as identified by TVDB URL or ID
