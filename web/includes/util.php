@@ -55,8 +55,12 @@ function displayTitle($title) {
 function clearCache() {
 	global $CACHE_FILE;
 	if (file_exists($CACHE_FILE)) {
-		unlink($CACHE_FILE);
+		rename($CACHE_FILE, staleCacheName($CACHE_FILE));
 	}
+}
+
+function staleCacheName($file) {
+	return $file . '.stale';
 }
 
 ?>

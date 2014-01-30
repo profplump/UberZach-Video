@@ -9,6 +9,25 @@ header('Content-type: text/html; charset=utf-8');
 # Did the user request a specific series?
 $series = false;
 if (isset($_REQUEST['series'])) {
+
+	# Allow overloading of series requests for certain functions
+	if (preg_match('/^\*\*\*/', $_REQUEST['series'])) {
+		require_authentication();
+
+		# Force refresh of the series list
+		if (preg_match('/refresh/i', $_REQUEST['series'])) {
+			set_time_limit(0);
+			global $TV_PATH;
+			allSeriesSeasons($TV_PATH, false);
+		}
+
+		# Always redirect to the main page
+		global $MAIN_PAGE;
+		header('Location: ' . $MAIN_PAGE);
+		exit();
+	}
+
+	# Set the safe series name
 	$series = cleanSeries($_REQUEST['series']);
 }
 

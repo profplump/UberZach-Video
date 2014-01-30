@@ -17,13 +17,25 @@ function allSeriesSeasons($base, $use_cache = true) {
 	global $CACHE_FILE;
 	$retval = array();
 
-	# Use the cache file if it exists, is fresh and contains at least 1 series
-	if ($use_cache && file_exists($CACHE_FILE)) {
-		if (filemtime($CACHE_FILE) > time() - $CACHE_AGE) {
-			$retval = @unserialize(@file_get_contents($CACHE_FILE));
-			if (is_array($retval) && count($retval) > 0) {
-				return $retval;
+	# Look for a cache file (stale or otherwise)
+	if ($use_cache) {
+		$stale = false;
+		$file = $CACHE_FILE;
+		if (!file_exists($file)) {
+			$file = staleCacheName($CACHE_FILE);
+			$stale = true;
+		}
+		if (file_exists($file)) {
+			if (filemtime($file) + $CACHE_AGE <  time()) {
+				$stale = true;
 			}
+			$retval = @unserialize(@file_get_contents($file));
+		}
+		if (is_array($retval) && count($retval) > 0) {
+			if ($stale) {
+				$retval['***Stale data - Click to force a refresh'] = array();
+			}
+			return $retval;
 		}
 	}
 
