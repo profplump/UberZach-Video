@@ -3,6 +3,7 @@
 require 'config.php';
 
 require_once 'auth.php';
+require_once 'header.php';
 
 require_once 'util.php';
 require_once 'webloc.php';
