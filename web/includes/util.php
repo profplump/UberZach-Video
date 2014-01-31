@@ -63,4 +63,16 @@ function staleCacheName($file) {
 	return $file . '.stale';
 }
 
+function protocolName() {
+	$protocol = 'http';
+	if ($_SERVER['HTTPS']) {
+		$protocol = 'https';
+	}
+	return $protocol;
+}
+
+function adjustProtocol($url) {
+	return preg_replace('/^https?\:/i', protocolName() . ':', $url);
+}
+
 ?>

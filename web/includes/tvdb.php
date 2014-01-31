@@ -31,6 +31,7 @@ function TVDBURL($id, $lid) {
 	}
 	if ($id) {
 		$url = $TVDB_URL . '&id=' . $id . '&lid=' . $lid;
+		$url = adjustProtocol($url);
 	}
 
 	return $url;
