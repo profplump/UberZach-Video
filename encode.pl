@@ -610,7 +610,7 @@ sub scan($) {
 
 	# Fork to scan the file
 	my $child_out = '';
-	my $pid = open3('<&STDIN', $child_out, $child_out, $HB_EXEC, '--title', '0', '--input', $in_file);
+	my $pid = open3('<&STDIN', $child_out, $child_out, $HB_EXEC, '--previews', '30', '--title', '0', '--input', $in_file);
 
 	# Loop through the output
 	my $scan;
