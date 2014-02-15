@@ -28,6 +28,7 @@ my $HD_WIDTH         = 1350;
 my $MIN_VIDEO_WIDTH  = 100;
 my $MAX_CROP_DIFF    = .1;
 my $MAX_DURA_DIFF    = 5;
+my $NO_CROP          = 0;
 my @CODEC_ORDER      = ('DTS-HD', 'DTS', 'PCM', 'AC3', $MIXDOWN_CODEC, 'OTHER');
 my %LANG_INCLUDE_ISO = ('639-1' => 1);
 my $HB_EXEC          = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
@@ -104,6 +105,11 @@ if ($ENV{'HEIGHT'}) {
 }
 if ($ENV{'WIDTH'}) {
 	push(@video_params, '--maxWidth', $ENV{'WIDTH'});
+}
+
+# Disable cropping
+if ($ENV{'NO_CROP'}) {
+	$NO_CROP = 1;
 }
 
 # Additional arguments for HandBrake, to allow options not supported directly by this script
@@ -244,11 +250,17 @@ foreach my $title (keys(%titles)) {
 		$title_quality = $HD_QUALITY;
 	}
 
-	# Override unlikely autocrop values
+	# Detect unlikely autocrop values
+	my $bad_crop = 0;
 	if (   abs($scan->{'crop'}[0] - $scan->{'crop'}[1]) > $scan->{'size'}[0] * $MAX_CROP_DIFF
 		|| abs($scan->{'crop'}[2] - $scan->{'crop'}[3]) > $scan->{'size'}[0] * $MAX_CROP_DIFF)
 	{
 		print STDERR basename($0) . ': Overriding unlikely autocrop values: ' . join(':', @{ $scan->{'crop'} }) . "\n";
+		$bad_crop = 1;
+	}
+
+	# Disable cropping (if no crop argument is passed, HB will autocrop, so set 0:0:0:0 explictly)
+	if ($NO_CROP || $bad_crop) {
 		my @crop = (0, 0, 0, 0);
 		$scan->{'crop'} = \@crop;
 	}
@@ -716,7 +728,7 @@ sub scan($) {
 
 sub findBestAudioTrack($$) {
 	my ($tracks, $codec) = @_;
-	my $best = undef();
+	my $best      = undef();
 	my @available = ();
 
 	# Find available tracks
