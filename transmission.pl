@@ -185,7 +185,6 @@ foreach my $tor (@{$torrents}) {
 			}
 		} elsif (defined($result) && $result == -1) {
 			print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
-			$failure = 1;
 			last;
 		} else {
 			print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
