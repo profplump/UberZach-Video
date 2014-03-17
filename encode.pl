@@ -16,7 +16,7 @@ my $STEREO_ONLY         = 0;
 my $VIDEO_ONLY          = 0;
 my $HEIGHT              = undef();
 my $WIDTH               = undef();
-my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Deutsch|Espanol|Francais|Japanese|Korean|Portugues|Thai)\b';
+my $AUDIO_EXCLUDE_REGEX = '\b(?:Chinese|Deutsch|Espanol|Francais|Japanese|Korean|Polish|Portugues|Thai)\b';
 my $SUB_INCLUDE_REGEX   = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4           = 0;
 my $OUT_DIR             = undef();
@@ -28,6 +28,7 @@ my $HD_WIDTH         = 1350;
 my $MIN_VIDEO_WIDTH  = 100;
 my $MAX_CROP_DIFF    = .1;
 my $MAX_DURA_DIFF    = 5;
+my $NO_CROP          = 0;
 my @CODEC_ORDER      = ('DTS-HD', 'DTS', 'PCM', 'AC3', $MIXDOWN_CODEC, 'OTHER');
 my %LANG_INCLUDE_ISO = ('639-1' => 1);
 my $HB_EXEC          = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
@@ -104,6 +105,11 @@ if ($ENV{'HEIGHT'}) {
 }
 if ($ENV{'WIDTH'}) {
 	push(@video_params, '--maxWidth', $ENV{'WIDTH'});
+}
+
+# Disable cropping
+if ($ENV{'NO_CROP'}) {
+	$NO_CROP = 1;
 }
 
 # Additional arguments for HandBrake, to allow options not supported directly by this script
@@ -244,11 +250,17 @@ foreach my $title (keys(%titles)) {
 		$title_quality = $HD_QUALITY;
 	}
 
-	# Override unlikely autocrop values
+	# Detect unlikely autocrop values
+	my $bad_crop = 0;
 	if (   abs($scan->{'crop'}[0] - $scan->{'crop'}[1]) > $scan->{'size'}[0] * $MAX_CROP_DIFF
 		|| abs($scan->{'crop'}[2] - $scan->{'crop'}[3]) > $scan->{'size'}[0] * $MAX_CROP_DIFF)
 	{
 		print STDERR basename($0) . ': Overriding unlikely autocrop values: ' . join(':', @{ $scan->{'crop'} }) . "\n";
+		$bad_crop = 1;
+	}
+
+	# Disable cropping (if no crop argument is passed, HB will autocrop, so set 0:0:0:0 explictly)
+	if ($NO_CROP || $bad_crop) {
 		my @crop = (0, 0, 0, 0);
 		$scan->{'crop'} = \@crop;
 	}
@@ -610,7 +622,7 @@ sub scan($) {
 
 	# Fork to scan the file
 	my $child_out = '';
-	my $pid = open3('<&STDIN', $child_out, $child_out, $HB_EXEC, '--title', '0', '--input', $in_file);
+	my $pid = open3('<&STDIN', $child_out, $child_out, $HB_EXEC, '--previews', '30', '--title', '0', '--input', $in_file);
 
 	# Loop through the output
 	my $scan;
@@ -716,7 +728,7 @@ sub scan($) {
 
 sub findBestAudioTrack($$) {
 	my ($tracks, $codec) = @_;
-	my $best = undef();
+	my $best      = undef();
 	my @available = ();
 
 	# Find available tracks

@@ -71,7 +71,7 @@ fi
 LENGTH_RATIO=0
 LENGTH_IN="`~/bin/video/movInfo.pl "${IN}" LENGTH | sed 's%\..*$%%'`"
 LENGTH_OUT="`~/bin/video/movInfo.pl "${OUT}" LENGTH | sed 's%\..*$%%'`"
-if [ -z "${LENGTH_IN}" ] || [ -z "${LENGTH_OUT}" ]; then
+if [ -z "${LENGTH_IN}" ] || [ -z "${LENGTH_OUT}" ] || [ $LENGTH_IN == 0 ] || [ $LENGTH_OUT == 0 ]; then
 	KEEP_IN=1
 	echo "`basename "${0}"`: Unable to determine length_in or length_out." 1>&2
 else
