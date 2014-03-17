@@ -26,10 +26,7 @@ ENDOLA;
 
 function printJQuery() {
 	# Determine our protocol
-	$protocol = 'http';
-	if ($_SERVER['HTTPS']) {
-		$protocol = 'https';
-	}
+	$protocol = protocolName();
 
 	# Print
 	echo <<<ENDOLA
