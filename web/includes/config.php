@@ -26,9 +26,11 @@ $MAIN_PAGE = '/tv/';
 $PAM_SERVICE = 'tv_web';
 
 ### MyPlex Config
-$PLEX_PRODUCT = 'UberZach TV';
-$PLEX_VERSION = '0.1';
-$PLEX_ID      = 'UberZach-TV-v' . $PLEX_VERSION;
+$PLEX_PRODUCT     = 'UberZach TV';
+$PLEX_VERSION     = '0.1';
+$PLEX_ID          = 'UberZach-TV-v' . $PLEX_VERSION;
+$PLEX_AUTH_URL    = 'https://my.plexapp.com/users/sign_in.xml';
+$PLEX_SERVERS_URL = 'https://my.plexapp.com/pms/servers?auth_token=';
 
 # Import the secret (i.e. non-repo) config
 require_once('secrets.php');

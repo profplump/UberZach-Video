@@ -2,6 +2,7 @@
 
 require 'config.php';
 
+require_once 'myplex.php';
 require_once 'auth.php';
 require_once 'header.php';
 

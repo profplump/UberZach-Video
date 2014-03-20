@@ -6,13 +6,22 @@ if (php_sapi_name() != 'cli') {
 }
 
 function login($username, $password) {
-	global $PAM_SERVICE;
-	$username = preg_replace('/\W/', '_', $username);
+	$authenticated = false;
+	$authorized    = false;
 
-	# Set the PAM service name
-	ini_set('pam.servicename', $PAM_SERVICE);
+	# Auth against MyPlex
+	$token = myplexToken($username, $password);
+	if ($token !== false) {
+		$authenticated = true;
+	}
 
-	if (pam_auth($username, $password)) {
+	# Authorize against MyPlex
+	if ($authenticated) {
+		$authorized = myplexAuthorize($token);
+	}
+
+	# Login on dual success
+	if ($authenticated && $authorized) {
 		$_SESSION['USER'] = $username;
 		session_regenerate_id(true);
 	} else {
