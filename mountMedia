@@ -55,7 +55,7 @@ if [ -z "${MEDIA}" ]; then
 	fi
 	if [ $LOCKED -eq 0 ]; then
 		echo $$ > "${LOCK}"
-		osascript -e 'tell application "Finder" to mount volume "smb://'"${REMOTE_USER}@${HOST}/${SHARE}"'"'
+		~/bin/video/timeout -t 30 osascript -e 'tell application "Finder" to mount volume "smb://'"${REMOTE_USER}@${HOST}/${SHARE}"'"'
 		sleep 5
 		rm -f "${LOCK}"
 	fi
