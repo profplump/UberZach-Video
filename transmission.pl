@@ -20,7 +20,8 @@ sub delTor($);
 sub guessExt($);
 sub processFile($$);
 sub unrar($$);
-sub localSeriesCleanup($);
+sub seriesCleanupLocal($);
+sub seriesCleanupCore($);
 sub seriesCleanup($);
 sub readDir($$);
 sub findMediaFiles($$);
@@ -275,7 +276,7 @@ sub getSSE($) {
 	my $sIndex = index($name, $seasonBlock);
 	if ($sIndex > 0) {
 		$series = substr($name, 0, $sIndex - 1);
-		$series = seriesCleanup($series);
+		$series = seriesCleanupCore($series);
 	}
 
 	if ($DEBUG) {
@@ -301,15 +302,16 @@ sub getDest($$$$) {
 	while (<SHOWS>) {
 		chomp;
 		my $orig  = $_;
-		my $clean = localSeriesCleanup($_);
+		my $clean = seriesCleanupLocal($_);
 		push(@shows, $clean);
 		$showsCan{$clean} = $orig;
 	}
 	close SHOWS or die("Unable to read monitored series list: ${!} ${?}\n");
 
 	# See if we can find a unique series name match
-	my $sClean = seriesCleanup($series);
-	my $sMatch = '\b' . $sClean . '\b';
+	my $sClean     = seriesCleanup($series);
+	my $sCleanCore = seriesCleanupCore($series);
+	my $sMatch     = '\b' . $sClean . '\b';
 	$series = '';
 
 	foreach my $show (@shows) {
@@ -353,7 +355,7 @@ sub getDest($$$$) {
 				}
 				foreach my $line (@lines) {
 					chomp($line);
-					if (!eval('$sClean =~ m' . $line)) {
+					if (!eval('$sCleanCore =~ m' . $line)) {
 						if ($DEBUG) {
 							print STDERR 'Skipping ' . $show . ' due to must_match failure for: ' . $line . "\n";
 						}
@@ -615,32 +617,33 @@ sub unrar($$) {
 	return @newFiles;
 }
 
-sub localSeriesCleanup($) {
+sub seriesCleanupLocal($) {
 	my ($name) = @_;
 	$name =~ s/\.//g;
 	return seriesCleanup($name);
 }
 
-sub seriesCleanup($) {
+sub seriesCleanupCore($) {
 	my ($name) = @_;
 	$name =~ s/\b(?:and|\&)\b/ /ig;
 	$name =~ s/^\s*The\b//ig;
-#	if (!($name =~ /Being\W+Human/i) && !($name =~ /Top\W+Gear/i) && !($name =~ /Rake/i)) {
-#		$name =~ s/\bAU\b?\s*$//ig;
-#		$name =~ s/\bUS\b?\s*$//ig;
-#		$name =~ s/\([^\)]*\)//g;
-#	}
 	$name =~ s/\[[^\]]*\]//g;
 	$name =~ s/\{[^\}]*\}//g;
 	$name =~ s/[\(\)]//g;
 	$name =~ s/[\'\"]//g;
 	$name =~ s/[^\w\s]+/ /g;
-	$name =~ s/\b20[01][0-9]\s*$//;
 	$name =~ s/_+/ /g;
 	$name =~ s/\s+/ /g;
 	$name =~ s/^\s*//;
 	$name =~ s/\s*$//;
 	return $name;
+}
+
+sub seriesCleanup($) {
+	my ($name) = @_;
+	$name =~ s/\s*\(?US\)?\s*$//i;
+	$name =~ s/\s*\(?20[01][0-9]\)?\s*$//;
+	return seriesCleanupCore($name);
 }
 
 sub readDir($$) {
