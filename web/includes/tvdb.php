@@ -56,13 +56,23 @@ function getTVDBPage($id, $lid) {
 	$TVDB_DOWNLOAD_COUNT++;
 	$TVDB_DOWNLOAD_TIME = time();
 
-	# Download with a timeout
+	# Download with a timeout and forced IPv4 resolution
 	global $TVDB_TIMEOUT;
-	$url = TVDBURL($id, $lid);
-	$ctx = stream_context_create(array(
-		'http' => array( 'timeout' => $TVDB_TIMEOUT )
-	)); 
-	return @file_get_contents($url, 0, $ctx);
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL,            TVDBURL($id, $lid));
+	curl_setopt($ch, CURLOPT_TIMEOUT,        $TVDB_TIMEOUT);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+	curl_setopt($ch, CURLOPT_IPRESOLVE,      CURL_IPRESOLVE_V4);
+	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+	curl_setopt($ch, CURLOPT_AUTOREFERER,    true);
+	$body = curl_exec($ch);
+	if ($err = curl_error($ch)) {
+		echo '<!-- cURL Error: ' . $err . "-->\n";
+	}
+	curl_close($ch);
+
+	return $body;
 }
 
 # Plain-text title of a TVDB entity (or FALSE on failure)
