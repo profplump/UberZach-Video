@@ -368,14 +368,31 @@ sub getDest($$$$) {
 				next;
 			}
 
-			# Bail if we find more than one matching series
+			# If we find more than one matching series
 			if (length($series) > 0) {
-				print STDERR 'Matched both ' . $series . ' and ' . $show . "\n";
-				return;
-			}
 
-			# If we're still around this is the first series title match
-			$series = $show;
+				# If the old match is a subset of the new match, prefer the new match
+				# If the new match is a subet of the old match, prefer the old match
+				# Bail if the matches do not overlap
+				if ($show =~ m/^${series}\b/) {
+					if ($DEBUG) {
+						print STDERR 'Using longer match (' . $showsCan{$show} . ') in place of shorter match (' . $showsCan{$series} . ")\n";
+					}
+					$series = $show;
+				} elsif ($series =~ m/^${show}\b/) {
+					if ($DEBUG) {
+						print STDERR 'Using longer match (' . $showsCan{$series} . ') in place of shorter match (' . $showsCan{$show} . ")\n";
+					}
+					$series = $series;
+				} else {
+					print STDERR 'Matched both ' . $showsCan{$series} . ' and ' . $showsCan{$show} . "\n";
+					return;
+				}
+			} else {
+
+				# If we're still around this is the first series title match
+				$series = $show;
+			}
 		}
 	}
 	if (length($series) < 1) {
@@ -620,7 +637,7 @@ sub unrar($$) {
 sub seriesCleanupLocal($) {
 	my ($name) = @_;
 	$name =~ s/\.//g;
-	return seriesCleanup($name);
+	return seriesCleanupCore($name);
 }
 
 sub seriesCleanupCore($) {
