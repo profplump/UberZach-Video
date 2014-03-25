@@ -5,6 +5,7 @@ use strict;
 # Includes
 use JSON;
 use Date::Parse;
+use File::Touch;
 use File::Temp qw/ :mktemp /;
 use File::Basename;
 use FindBin qw($Bin);
@@ -582,6 +583,9 @@ sub processFile($$) {
 	my $tmp = mktemp($dest . '.XXXXXXXX');
 	runAndCheck(('cp', $file, $tmp));
 	rename($tmp, $dest);
+
+	# Touch to avoid carrying dates set in the download process
+	touch($dest);
 
 	# Return success
 	return 1;
