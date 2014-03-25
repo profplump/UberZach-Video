@@ -7,8 +7,12 @@ if ! ~/bin/video/isMediaMounted; then
 fi
 
 # Config
-BASE_LOCAL="`~/bin/video/mediaPath`"
-BASE_REMOTE="/Volumes/Bitcasa Infinite Drive"
+if [ -z "${BASE_LOCAL}" ]; then
+	BASE_LOCAL="`~/bin/video/mediaPath`"
+fi
+if [ -z "${BASE_REMOTE}" ]; then
+	BASE_REMOTE="/Volumes/Bitcasa Infinite Drive"
+fi
 
 # Command-line arguments
 SUB_DIR="${1}"
