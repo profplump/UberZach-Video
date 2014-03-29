@@ -213,6 +213,28 @@ if (-e $dir . '/no_quality_checks') {
 	$NO_QUALITY_CHECKS = 1;
 }
 
+# Read the excludes file, if any
+my $exclude = '';
+if (-e $dir . '/excludes') {
+	local $/ = undef;
+	open(EX, $dir . '/excludes')
+	  or die("Unable to open excludes file: ${!}\n");
+	my $ex = <EX>;
+	close(EX);
+
+	$ex =~ s/^\s+//;
+	$ex =~ s/^\s+//;
+	my @excludes = split(/\s*,\s*/, $ex);
+
+	foreach my $ex (@excludes) {
+		if (length($exclude)) {
+			$exclude .= ' ';
+		}
+		$exclude .= '-"' . $ex . '"';
+	}
+	$exclude = uri_encode(' ' . $exclude);
+}
+
 # Handle custom searches
 if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 
@@ -225,7 +247,7 @@ if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 	# Create the relevent search strings
 	foreach my $key (keys(%SOURCES)) {
 		my $source = $SOURCES{$key};
-		push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search . $source->{'search_suffix'});
+		push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search . $exclude . $source->{'search_suffix'});
 	}
 }
 
@@ -295,7 +317,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 		$search_str =~ s/%d/${day}/g;
 		foreach my $key (keys(%SOURCES)) {
 			my $source = $SOURCES{$key};
-			push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search_str . $source->{'search_suffix'});
+			push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search_str . $exclude . $source->{'search_suffix'});
 		}
 	}
 
@@ -379,28 +401,6 @@ if (scalar(@urls) < 1) {
 	}
 	close(SEASON);
 
-	# Read the excludes file, if any
-	my $exclude = '';
-	if (-e $dir . '/excludes') {
-		local $/ = undef;
-		open(EX, $dir . '/excludes')
-		  or die("Unable to open excludes file: ${!}\n");
-		my $ex = <EX>;
-		close(EX);
-
-		$ex =~ s/^\s+//;
-		$ex =~ s/^\s+//;
-		my @excludes = split(/\s*,\s*/, $ex);
-
-		foreach my $ex (@excludes) {
-			if (length($exclude)) {
-				$exclude .= ' ';
-			}
-			$exclude .= '-"' . $ex . '"';
-		}
-		$exclude = uri_encode(' ' . $exclude);
-	}
-
 	# Assume we need the next 2 episodes, unless no_next is set (i.e. season_done)
 	if (!$no_next) {
 		for (my $i = 1 ; $i <= $NEXT_EPISODES ; $i++) {
@@ -455,7 +455,7 @@ if (scalar(@urls) < 1) {
 			my $episode_long = sprintf('%02d', $episode);
 			my $season_long  = sprintf('%02d', $season);
 			foreach my $source (values(%SOURCES)) {
-				
+
 				# Use quotes around the show name if the source needs them
 				my $quote = '%22';
 				if (!$source->{'quote'}) {
