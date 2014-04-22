@@ -70,6 +70,9 @@ if [ -z "${NAME}" ]; then
 	exit 1
 fi
 
+# Ensure the name is filesystem-safe
+NAME="`echo "${NAME}" | sed 's%[^a-zA-Z0-9_\-\ ,;\.!@#$\%\^&\*()=\+\?]%_%'`"
+
 # Create the output directory
 if [ ! -d "${OUT_DIR}/${NAME}" ]; then
 	mkdir "${OUT_DIR}/${NAME}"
