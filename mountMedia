@@ -25,13 +25,13 @@ fi
 function findMedia {
 	MEDIA=""
 	for i in "/Volumes/${SHARE}"*; do
-		if [ -d "${i}" ] && [ -d "${i}/TV" ]; then
+		if [ -d "${i}" ] && [ -d "${i}/TV/30 Rock" ]; then
 			MEDIA="${i}"
 		fi
 	done
 }
 
-# Skip this whole shebang if we've got valid links
+# Skip this whole shebang if we've got a valid link
 if ~/bin/video/isMediaMounted; then
 	exit 0
 fi
@@ -64,9 +64,10 @@ fi
 # Fix links
 findMedia
 if [ -n "${MEDIA}" ]; then
-	if [ -d /mnt ]; then
+	if [ -d /mnt ] && touch /mnt/media.writeTest >/dev/null 2>&1; then
+		rm -f /mnt/media.writeTest
 		if [ -e /mnt/media ] || [ -h /mnt/media ]; then
-			rm -f /mnt/media
+				rm -f /mnt/media
 		fi
 		ln -s "${MEDIA}" /mnt/media
 	fi
@@ -77,9 +78,4 @@ if [ -n "${MEDIA}" ]; then
 else
 	echo "`basename "${0}"`: Unable to mount media volume" 1>&2
 	exit 1
-fi
-
-# Add a "Baldwin RAID" link as needed
-if [ ! -h '/Volumes/Baldwin RAID' ]; then
-	ln -s / '/Volumes/Baldwin RAID'
 fi
