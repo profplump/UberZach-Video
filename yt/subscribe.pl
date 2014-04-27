@@ -160,6 +160,11 @@ foreach my $id (keys(%{$videos})) {
 		}
 		saveString($nfo, $xml);
 	}
+
+	# Warn if the episode numbers drift
+	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
+		warn('Video ' . $id . ' had episode number ' . $files->{$id}->{'number'} . ' but now has episode number ' . $videos->{$id}->{'number'} . "\n");
+	}
 }
 
 sub saveString($$) {
