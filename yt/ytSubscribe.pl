@@ -88,13 +88,21 @@ if (!$DEBUG) {
 # Grab the channel data
 my $channel = getChannel($user);
 
-# Create the channel NFO, if needed
+# Create the channel NFO and poster, if needed
 my $nfo = $dir . '/tvshow.nfo';
 if (!-e $nfo) {
 	if ($DEBUG) {
-		print STDERR 'Creating series NFO: ' . $channel->{'title'} . "\n";
+		print STDERR 'Saving series data for: ' . $channel->{'title'} . "\n";
 	}
-	
+
+	# Save the poster
+	if (exists($channel->{'thumbnail'}) && length($channel->{'thumbnail'}) > 5) {
+		my $poster = $dir . '/poster.jpg';
+		my $jpg    = get($channel->{'thumbnail'});
+		saveString($poster, $jpg);
+	}
+
+	# Save the series NFO
 	my $xml = buildSeriesNFO($channel);
 	if ($DEBUG > 1) {
 		print STDERR 'Saving NFO: ' . $xml . "\n";
@@ -360,9 +368,10 @@ sub getChannel($) {
 	# Extract the data we want
 	my %channel = (
 		'id'          => $data->{'yt$channelId'}->{'$t'},
-		'title'       => $data->{'author'}[0]->{'name'}->{'$t'},
+		'title'       => $data->{'title'}->{'$t'},
 		'date'        => str2time($data->{'published'}->{'$t'}),
 		'description' => $data->{'summary'}->{'$t'},
+		'thumbnail'   => $data->{'media$thumbnail'}->{'url'},
 	);
 	return \%channel;
 }
