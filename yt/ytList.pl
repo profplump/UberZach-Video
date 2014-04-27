@@ -90,8 +90,11 @@ foreach my $id (keys(%{$videos})) {
 		$safeTitle =~ s/[^\w\-\.\?\!\&\,\; ]/_/g;
 		$basePath = $dir . '/' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $safeTitle . ' (' . $id . ').';
 	}
+	my $nfo = $basePath . 'nfo';
 
-	if (!exists($files->{$id})) {
+	# If we haven't heard of the file, or don't have an NFO for it
+	# Checking for the NFO allows use to resume failed downloads
+	if (!exists($files->{$id}) || !-e $nfo) {
 		if ($DEBUG) {
 			print STDERR 'Fetching video: ' . $id . "\n";
 		}
@@ -117,13 +120,6 @@ foreach my $id (keys(%{$videos})) {
 				}
 				system(@cmd);
 			}
-		}
-	}
-
-	if (!exists($files->{$id}) || !-e $files->{$id}->{'nfo'}) {
-		my $nfo = $basePath . 'nfo';
-		if ($DEBUG) {
-			print STDERR 'Creating NFO: ' . $nfo . "\n";
 		}
 
 		# Build the XML document
