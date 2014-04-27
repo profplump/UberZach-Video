@@ -148,12 +148,12 @@ foreach my $id (keys(%{$videos})) {
 		my ($url, $suffix) = ytURL($id);
 		if (!defined($url) || length($url) < 5) {
 			warn('Could not determine URL for video: ' . $id . "\n");
-			next;
+			$url = undef();
 		}
 
 		# Fetch with cURL
 		# I know LWP exists (and is even loaded) but cURL makes my life easier
-		{
+		if ($url) {
 			my @cmd = ($CURL_BIN);
 			push(@cmd, @CURL_ARGS);
 			push(@cmd, '-o', $basePath . $suffix, $url);
@@ -270,7 +270,7 @@ sub ytURL($) {
 	my $tube = WWW::YouTube::Download->new;
 
 	# Fetch metadata
-	my $meta = $tube->prepare_download($id);
+	my $meta = eval { $tube->prepare_download($id); };
 	if (!defined($meta) || ref($meta) ne 'HASH' || !exists($meta->{'video_url_map'}) || ref($meta->{'video_url_map'}) ne 'HASH') {
 		return undef();
 	}
