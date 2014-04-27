@@ -123,7 +123,7 @@ my $files = findFiles($dir);
 
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
-	my $basePath = $dir . '/' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
+	my $basePath = $dir . '/S01E' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
 	$nfo = $basePath . 'nfo';
 
 	# Warn (and optionally rename) if the episode numbers drift
@@ -308,7 +308,7 @@ sub findFiles($) {
 	opendir($fh, $dir)
 	  or die('Unable to open output directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
-		my ($num, $id, $suffix) = $file =~ /(\d+) - ([\w\-]+)\.(\w\w\w)$/;
+		my ($num, $id, $suffix) = $file =~ /S\d+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
 		if (defined($id) && length($id) > 0) {
 			if ($suffix eq 'nfo') {
 				next;
