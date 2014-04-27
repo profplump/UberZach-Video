@@ -74,6 +74,10 @@ my $NO_FETCH = 0;
 if ($ENV{'NO_FETCH'}) {
 	$NO_FETCH = 1;
 }
+my $RENAME = 0;
+if ($ENV{'RENAME'}) {
+	$RENAME = 1;
+}
 if ($ENV{'MAX_INDEX'} && $ENV{'MAX_INDEX'} =~ /(\d+)/) {
 	$MAX_INDEX = $1;
 }
@@ -123,6 +127,20 @@ foreach my $id (keys(%{$videos})) {
 	my $basePath = $dir . '/' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
 	$nfo = $basePath . 'nfo';
 
+	# Warn (and optionally rename) if the episode numbers drift
+	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
+		warn('Video ' . $id . ' had episode number ' . $files->{$id}->{'number'} . ' but now has episode number ' . $videos->{$id}->{'number'} . "\n");
+		if ($RENAME) {
+			my ($name, $suffix) = $files->{$id}->{'path'} =~ /^(.*\.)(\w\w\w)$/;
+			if (defined($name) && defined($suffix) && -e ($name . $suffix)) {
+				print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $suffix . "\n";
+				rename($files->{$id}->{'path'}, $basePath . $suffix);
+				unlink($name . 'nfo');
+				delete($files->{$id});
+			}
+		}
+	}
+
 	# If we haven't heard of the file, or don't have an NFO for it
 	# Checking for the NFO allows use to resume failed downloads
 	if (!exists($files->{$id}) || !-e $nfo) {
@@ -159,11 +177,6 @@ foreach my $id (keys(%{$videos})) {
 			print STDERR 'Saving NFO: ' . $xml . "\n";
 		}
 		saveString($nfo, $xml);
-	}
-
-	# Warn if the episode numbers drift
-	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
-		warn('Video ' . $id . ' had episode number ' . $files->{$id}->{'number'} . ' but now has episode number ' . $videos->{$id}->{'number'} . "\n");
 	}
 }
 
