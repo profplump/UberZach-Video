@@ -15,7 +15,7 @@ echo $$ > "${PID_FILE}"
 
 # Execute
 find "${MEDIA_PATH}/YouTube" -maxdepth 1 -mindepth 1 -type d \
-	-exec ~/bin/video/yt/ytSubscribe.pl {} \;
+	-exec ~/bin/video/yt/subscribe.pl {} \;
 
 # Cleanup
 rm -f "${PID_FILE}"
