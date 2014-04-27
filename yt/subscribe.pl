@@ -131,13 +131,10 @@ foreach my $id (keys(%{$videos})) {
 	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
 		warn('Video ' . $id . ' had episode number ' . $files->{$id}->{'number'} . ' but now has episode number ' . $videos->{$id}->{'number'} . "\n");
 		if ($RENAME) {
-			my ($name, $suffix) = $files->{$id}->{'path'} =~ /^(.*\.)(\w\w\w)$/;
-			if (defined($name) && defined($suffix) && -e ($name . $suffix)) {
-				print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $suffix . "\n";
-				rename($files->{$id}->{'path'}, $basePath . $suffix);
-				unlink($name . 'nfo');
-				delete($files->{$id});
-			}
+			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
+			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
+			unlink($files->{$id}->{'nfo'});
+			delete($files->{$id});
 		}
 	}
 
