@@ -28,10 +28,9 @@ my %CHAN_PARAMS = (
 	'alt'    => 'json',
 );
 my %LIST_PARAMS = (
-	'strict'  => 1,
-	'v'       => 2,
-	'alt'     => 'jsonc',
-	#'orderby' => 'published',
+	'strict' => 1,
+	'v'      => 2,
+	'alt'    => 'jsonc',
 );
 
 # Prototypes
