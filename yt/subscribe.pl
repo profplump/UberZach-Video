@@ -322,6 +322,16 @@ sub findFiles($) {
 			);
 			$tmp{'nfo'} = $tmp{'path'};
 			$tmp{'nfo'} =~ s/\.\w\w\w$/\.nfo/;
+
+			if (exists($files{$id})) {
+				warn('Duplicate ID: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $tmp{'path'} . "\n");
+				if ($RENAME) {
+					print STDERR 'Deleting duplicate: ' . $files{$id}->{'path'} . "\n";
+					unlink($files{$id}->{'path'});
+					unlink($files{$id}->{'nfo'});
+					delete($files{$id});
+				}
+			}
 			$files{$id} = \%tmp;
 		}
 	}
