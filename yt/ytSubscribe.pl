@@ -11,15 +11,21 @@ use JSON;
 use XML::LibXML;
 use IPC::System::Simple qw( system );
 use WWW::YouTube::Download;
+use PrettyPrint;
 
 # Paramters
-my $CURL_BIN   = 'curl';
-my @CURL_ARGS  = ('-4', '--insecure', '-C', '-');
-my $BATCH_SIZE = 50;
-my $MAX_INDEX  = 500;
-my $URL_PREFIX = 'http://gdata.youtube.com/feeds/api/users/';
-my $URL_SUFFIX = '/uploads';
-my %API_PARAMS = (
+my $CURL_BIN    = 'curl';
+my @CURL_ARGS   = ('-4', '--insecure', '-C', '-');
+my $BATCH_SIZE  = 50;
+my $MAX_INDEX   = 500;
+my $URL_PREFIX  = 'http://gdata.youtube.com/feeds/api/users/';
+my $URL_SUFFIX  = '/uploads';
+my %CHAN_PARAMS = (
+	'strict' => 1,
+	'v'      => 2,
+	'alt'    => 'json',
+);
+my %LIST_PARAMS = (
 	'strict'  => 1,
 	'v'       => 2,
 	'alt'     => 'jsonc',
@@ -31,6 +37,11 @@ sub findVideos($);
 sub findFiles($);
 sub ytURL($);
 sub buildNFO($);
+sub buildSeriesNFO($);
+sub getChannel($);
+sub fetchParse($);
+sub buildURL($$);
+sub saveString($$);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -69,9 +80,26 @@ if ($ENV{'BATCH_SIZE'} && $ENV{'BATCH_SIZE'} =~ /(\d+)/) {
 }
 
 # Construct globals
-$API_PARAMS{'max-results'} = $BATCH_SIZE;
+$LIST_PARAMS{'max-results'} = $BATCH_SIZE;
 if (!$DEBUG) {
 	push(@CURL_ARGS, '--silent');
+}
+
+# Grab the channel data
+my $channel = getChannel($user);
+
+# Create the channel NFO, if needed
+my $nfo = $dir . '/tvshow.nfo';
+if (!-e $nfo) {
+	if ($DEBUG) {
+		print STDERR 'Creating series NFO: ' . $channel->{'title'} . "\n";
+	}
+	
+	my $xml = buildSeriesNFO($channel);
+	if ($DEBUG > 1) {
+		print STDERR 'Saving NFO: ' . $xml . "\n";
+	}
+	saveString($nfo, $xml);
 }
 
 # Find all the user's videos on YT
@@ -83,7 +111,7 @@ my $files = findFiles($dir);
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
 	my $basePath = $dir . '/' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
-	my $nfo = $basePath . 'nfo';
+	$nfo = $basePath . 'nfo';
 
 	# If we haven't heard of the file, or don't have an NFO for it
 	# Checking for the NFO allows use to resume failed downloads
@@ -115,21 +143,53 @@ foreach my $id (keys(%{$videos})) {
 			}
 		}
 
-		# Build the XML document
+		# Build and save the XML document
 		my $xml = buildNFO($videos->{$id});
 		if ($DEBUG > 1) {
 			print STDERR 'Saving NFO: ' . $xml . "\n";
 		}
-
-		# Save to disk
-		my $fh = undef();
-		if (!open($fh, '>', $nfo)) {
-			warn('Cannot open NFO: ' . $! . "\n");
-			next;
-		}
-		print $fh $xml;
-		close($fh);
+		saveString($nfo, $xml);
 	}
+}
+
+sub saveString($$) {
+	my ($path, $str) = @_;
+
+	my $fh = undef();
+	if (!open($fh, '>', $path)) {
+		warn('Cannot open file for writing: ' . $! . "\n");
+		return undef();
+	}
+	print $fh $str;
+	close($fh);
+	return 1;
+}
+
+sub buildSeriesNFO($) {
+	my ($channel) = @_;
+
+	# Create an XML tree
+	my $doc = XML::LibXML::Document->new('1.0', 'UTF-8');
+	$doc->setStandalone(1);
+	my $show = $doc->createElement('tvshow');
+	$doc->setDocumentElement($show);
+	my $elm;
+
+	# Add data
+	$elm = $doc->createElement('title');
+	$elm->appendText($channel->{'title'});
+	$show->appendChild($elm);
+
+	$elm = $doc->createElement('premiered');
+	$elm->appendText(time2str('%Y-%m-%d', $channel->{'date'}));
+	$show->appendChild($elm);
+
+	$elm = $doc->createElement('plot');
+	$elm->appendText($channel->{'description'});
+	$show->appendChild($elm);
+
+	# Return the string
+	return $doc->toString();
 }
 
 sub buildNFO($) {
@@ -142,32 +202,11 @@ sub buildNFO($) {
 	$doc->setDocumentElement($show);
 	my $elm;
 
-	# Generic elements (in case we get excited later)
-	my $fileinfo = $doc->createElement('fileinfo');
-	$show->appendChild($fileinfo);
-	my $streamdetails = $doc->createElement('streamdetails');
-	$fileinfo->appendChild($streamdetails);
-	$elm = $doc->createElement('video');
-	$streamdetails->appendChild($elm);
-
-	$elm = $doc->createElement('playcount');
-	$show->appendChild($elm);
-	$elm = $doc->createElement('credits');
-	$show->appendChild($elm);
-
-	my $actor = $doc->createElement('actor');
-	$show->appendChild($actor);
-	$elm = $doc->createElement('name');
-	$actor->appendChild($elm);
-	$elm = $doc->createElement('role');
-	$actor->appendChild($elm);
-
-	# Static elements (per the nature of this process)
+	# Add data
 	$elm = $doc->createElement('season');
 	$elm->appendText('1');
 	$show->appendChild($elm);
 
-	# Dynamic data
 	$elm = $doc->createElement('episode');
 	$elm->appendText($video->{'number'});
 	$show->appendChild($elm);
@@ -219,7 +258,7 @@ sub ytURL($) {
 		my $stream = $meta->{'video_url_map'}->{$streamID};
 		my ($res) = $stream->{'resolution'} =~ /^\s*(\d+)/;
 		if ($DEBUG > 1) {
-			print STDERR $streamID . ' (' . $stream->{'suffix'} . ')' . ' => ' . $stream->{'resolution'} . ' : ' . $stream->{'url'} . "\n\n";
+			print STDERR $streamID . ' (' . $stream->{'suffix'} . ')' . ' => ' . $stream->{'resolution'} . ' : ' . $stream->{'url'} . "\n";
 		}
 		if (   ($res > $bestResolution)
 			|| ($res == $bestResolution && defined($bestStream) && $bestStream->{'suffix'} ne 'mp4'))
@@ -264,9 +303,8 @@ sub findFiles($) {
 	close($fh);
 
 	if ($DEBUG) {
-		print STDERR "\n\nFound " . scalar(keys(%files)) . " files:\n\t" . join("\n\t", keys(%files)) . "\n\n";
+		print STDERR "\nFound " . scalar(keys(%files)) . " files:\n\t" . join("\n\t", keys(%files)) . "\n";
 		if ($DEBUG > 1) {
-			use PrettyPrint;
 			print STDERR prettyPrint(\%files, "\t") . "\n";
 		}
 	}
@@ -274,54 +312,92 @@ sub findFiles($) {
 	return \%files;
 }
 
+sub buildURL($$) {
+	my ($base, $params) = @_;
+	my $url = $base . '?';
+	foreach my $name (keys(%{$params})) {
+		$url .= '&' . uri_escape($name) . '=' . uri_escape($params->{$name});
+	}
+	return $url;
+}
+
+sub fetchParse($) {
+	my ($url) = @_;
+
+	# Fetch
+	if ($DEBUG) {
+		print STDERR 'Fetching list URL: ' . $url . "\n";
+	}
+	my $content = get($url);
+	if (!defined($content) || length($content) < 10) {
+		die('Invalid content from URL: ' . $url . "\n");
+	}
+
+	# Parse
+	my $data = decode_json($content);
+	if (!defined($data) || ref($data) ne 'HASH') {
+		die('Invalid JSON: ' . $content . "\n");
+	}
+	if ($DEBUG > 2) {
+		print STDERR "Raw JSON data:\n" . prettyPrint($data, '  ') . "\n";
+	}
+
+	return $data;
+}
+
+sub getChannel($) {
+	my ($user) = @_;
+
+	# Build, fetch, parse
+	my $url = buildURL($URL_PREFIX . $user, \%CHAN_PARAMS);
+	my $data = fetchParse($url);
+
+	if (!exists($data->{'entry'}) || ref($data->{'entry'}) ne 'HASH') {
+		die("Invalid channel data\n");
+	}
+	$data = $data->{'entry'};
+
+	# Extract the data we want
+	my %channel = (
+		'id'          => $data->{'yt$channelId'}->{'$t'},
+		'title'       => $data->{'author'}[0]->{'name'}->{'$t'},
+		'date'        => str2time($data->{'published'}->{'$t'}),
+		'description' => $data->{'summary'}->{'$t'},
+	);
+	return \%channel;
+}
+
 sub findVideos($) {
 	my ($user) = @_;
 	my %videos = ();
 
-	# Build the base URL
+	# Prepare the static URL elements
 	my $baseURL = $URL_PREFIX . $user . $URL_SUFFIX;
-
-	# And the static URL parameters
-	my %params = %API_PARAMS;
+	my %params  = %LIST_PARAMS;
 
 	# Loop through until we have all the entries
 	my $index     = 1;
 	my $itemCount = undef();
 	LOOP:
 	{
-		# Build the actual URL
-		my $url = $baseURL . '?start-index=' . $index;
-		foreach my $name (keys(%params)) {
-			$url .= '&' . uri_escape($name) . '=' . uri_escape($params{$name});
-		}
 
-		# Fetch
-		if ($DEBUG) {
-			print STDERR 'Fetching list URL: ' . $url . "\n";
-		}
-		my $content = get($url);
-		if (!defined($content) || length($content) < 10) {
-			die('Invalid content from URL: ' . $url . "\n");
-		}
-
-		# Parse
-		my $data = decode_json($content);
-		if (!defined($data) || ref($data) ne 'HASH') {
-			die('Invalid JSON: ' . $content . "\n");
-		}
-		if (!exists($data->{'data'})) {
-			die('Invalid data set: ' . $content . "\n");
-		}
-		$data = $data->{'data'};
+		# Build, fetch, parse
+		$params{'start-index'} = $index;
+		my $url = buildURL($baseURL, \%params);
+		my $data = fetchParse($url);
 
 		# Grab the total count, so we know when to stop
+		if (!exists($data->{'data'})) {
+			die("Invalid video list\n");
+		}
+		$data = $data->{'data'};
 		if (!defined($itemCount) && exists($data->{'totalItems'})) {
 			$itemCount = $data->{'totalItems'};
 		}
 
 		# Process each item
 		if (!exists($data->{'items'}) || ref($data->{'items'}) ne 'ARRAY') {
-			die('Invalid item list: ' . $content . "\n");
+			die("Invalid video list\n");
 		}
 		my $items  = $data->{'items'};
 		my $offset = 0;
@@ -351,9 +427,8 @@ sub findVideos($) {
 	}
 
 	if ($DEBUG) {
-		print STDERR "\n\nFound " . scalar(keys(%videos)) . ' videos for YouTube user ' . $user . ":\n\t" . join("\n\t", keys(%videos)) . "\n\n";
+		print STDERR "\nFound " . scalar(keys(%videos)) . ' videos for YouTube user ' . $user . ":\n\t" . join("\n\t", keys(%videos)) . "\n";
 		if ($DEBUG > 1) {
-			use PrettyPrint;
 			print STDERR prettyPrint(\%videos, "\t") . "\n";
 		}
 	}
