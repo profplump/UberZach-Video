@@ -14,7 +14,7 @@ use WWW::YouTube::Download;
 
 # Paramters
 my $CURL_BIN   = 'curl';
-my @CURL_ARGS  = ('--insecure', '-C', '-');
+my @CURL_ARGS  = ('-4', '--insecure', '-C', '-');
 my $BATCH_SIZE = 50;
 my $MAX_INDEX  = 500;
 my $URL_PREFIX = 'http://gdata.youtube.com/feeds/api/users/';
