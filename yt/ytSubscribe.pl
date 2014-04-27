@@ -82,14 +82,7 @@ my $files = findFiles($dir);
 
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
-	my $basePath;
-	{
-		my $safeTitle = $videos->{$id}->{'title'};
-		$safeTitle =~ s/\:/ - /g;
-		$safeTitle =~ s/\s+/ /g;
-		$safeTitle =~ s/[^\w\-\.\?\!\&\,\; ]/_/g;
-		$basePath = $dir . '/' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $safeTitle . ' (' . $id . ').';
-	}
+	my $basePath = $dir . '/' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
 	my $nfo = $basePath . 'nfo';
 
 	# If we haven't heard of the file, or don't have an NFO for it
@@ -252,7 +245,7 @@ sub findFiles($) {
 	opendir($fh, $dir)
 	  or die('Unable to open output directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
-		my ($num, $title, $id, $suffix) = $file =~ /(\d+) - (.+) \(([\w\-]+)\)\.(\w\w\w)$/;
+		my ($num, $id, $suffix) = $file =~ /(\d+) - ([\w\-]+)\.(\w\w\w)$/;
 		if (defined($id) && length($id) > 0) {
 			if ($suffix eq 'nfo') {
 				next;
@@ -260,7 +253,6 @@ sub findFiles($) {
 
 			my %tmp = (
 				'number' => $num,
-				'title'  => $title,
 				'suffix' => $suffix,
 				'path'   => $dir . '/' . $file,
 			);
