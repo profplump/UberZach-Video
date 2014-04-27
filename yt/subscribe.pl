@@ -308,7 +308,7 @@ sub findFiles($) {
 	opendir($fh, $dir)
 	  or die('Unable to open output directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
-		my ($num, $id, $suffix) = $file =~ /S\d+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
+		my ($num, $id, $suffix) = $file =~ /^S\d+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
 		if (defined($id) && length($id) > 0) {
 			if ($suffix eq 'nfo') {
 				next;
