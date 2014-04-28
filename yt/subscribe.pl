@@ -172,7 +172,11 @@ foreach my $id (keys(%{$videos})) {
 		if ($DEBUG > 1) {
 			print STDERR 'Saving NFO: ' . $xml . "\n";
 		}
-		saveString($nfo, $xml);
+		if ($NO_FETCH) {
+			print STDERR "Not saving NFO\n";
+		} else {
+			saveString($nfo, $xml);
+		}
 	}
 }
 
