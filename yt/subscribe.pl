@@ -16,33 +16,58 @@ use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
+my $EXTRAS_FILE = 'extra_videos.ini';
 my $CURL_BIN    = 'curl';
 my @CURL_ARGS   = ('-4', '--insecure', '-C', '-');
 my $BATCH_SIZE  = 50;
 my $MAX_INDEX   = 500;
-my $URL_PREFIX  = 'http://gdata.youtube.com/feeds/api/users/';
-my $URL_SUFFIX  = '/uploads';
-my %CHAN_PARAMS = (
-	'strict' => 1,
-	'v'      => 2,
-	'alt'    => 'json',
-);
-my %LIST_PARAMS = (
-	'strict' => 1,
-	'v'      => 2,
-	'alt'    => 'jsonc',
+my $API_URL     = 'https://gdata.youtube.com/feeds/api/';
+my %API         = (
+	'search' => {
+		'prefix' => $API_URL . 'users/',
+		'suffix' => '/uploads',
+		'params' => {
+			'start-index' => 1,
+			'max-results' => 1,
+			'strict'      => 1,
+			'v'           => 2,
+			'alt'         => 'jsonc',
+		},
+	},
+	'video' => {
+		'prefix' => $API_URL . 'videos/',
+		'suffix' => '',
+		'params' => {
+			'strict' => 1,
+			'v'      => 2,
+			'alt'    => 'jsonc'
+		},
+	},
+	'channel' => {
+		'prefix' => $API_URL . 'users/',
+		'suffix' => '',
+		'params' => {
+			'strict' => 1,
+			'v'      => 2,
+			'alt'    => 'json'
+		},
+	},
 );
 
 # Prototypes
 sub findVideos($);
 sub findFiles($);
+sub findVideo($);
 sub ytURL($);
 sub buildNFO($);
 sub buildSeriesNFO($);
 sub getChannel($);
-sub fetchParse($);
-sub buildURL($$);
+sub fetchParse($$);
 sub saveString($$);
+sub readExtras($);
+sub parseVideoData($);
+sub addExtras($$);
+sub saveChannel($$);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -60,7 +85,7 @@ if (length($user) < 1 || !($user =~ /^\w+$/)) {
 	die('Invalid user: ' . $user . "\n");
 }
 
-# Environmental parameters
+# Environmental parameters (debug)
 my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
 	if ($ENV{'DEBUG'} =~ /(\d+)/) {
@@ -73,6 +98,24 @@ my $NO_FETCH = 0;
 if ($ENV{'NO_FETCH'}) {
 	$NO_FETCH = 1;
 }
+my $NO_SEARCH = 0;
+if ($ENV{'NO_SEARCH'}) {
+	$NO_SEARCH = 1;
+}
+my $NO_FILES = 0;
+if ($ENV{'NO_FILES'}) {
+	$NO_FILES = 1;
+}
+my $NO_CHANNEL = 0;
+if ($ENV{'NO_CHANNEL'}) {
+	$NO_CHANNEL = 1;
+}
+my $NO_EXTRAS = 0;
+if ($ENV{'NO_EXTRAS'}) {
+	$NO_EXTRAS = 1;
+}
+
+# Environmental parameters (functional)
 my $RENAME = 0;
 if ($ENV{'RENAME'}) {
 	$RENAME = 1;
@@ -85,50 +128,44 @@ if ($ENV{'BATCH_SIZE'} && $ENV{'BATCH_SIZE'} =~ /(\d+)/) {
 }
 
 # Construct globals
-$LIST_PARAMS{'max-results'} = $BATCH_SIZE;
+$API{'search'}{'params'}{'max-results'} = $BATCH_SIZE;
 if (!$DEBUG) {
 	push(@CURL_ARGS, '--silent');
 }
 
 # Grab the channel data
-my $channel = getChannel($user);
-
-# Create the channel NFO and poster, if needed
-my $nfo = $dir . '/tvshow.nfo';
-if (!-e $nfo) {
-	if ($DEBUG) {
-		print STDERR 'Saving series data for: ' . $channel->{'title'} . "\n";
-	}
-
-	# Save the poster
-	if (exists($channel->{'thumbnail'}) && length($channel->{'thumbnail'}) > 5) {
-		my $poster = $dir . '/poster.jpg';
-		my $jpg    = get($channel->{'thumbnail'});
-		saveString($poster, $jpg);
-	}
-
-	# Save the series NFO
-	my $xml = buildSeriesNFO($channel);
-	if ($DEBUG > 1) {
-		print STDERR 'Saving NFO: ' . $xml . "\n";
-	}
-	saveString($nfo, $xml);
+my $channel = {};
+if (!$NO_CHANNEL) {
+	$channel = getChannel($user);
+	saveChannel($dir, $channel);
 }
 
 # Find all the user's videos on YT
-my $videos = findVideos($user);
+my $videos = {};
+if (!$NO_SEARCH) {
+	$videos = findVideos($user);
+}
+
+# Find any requested "extra" videos
+my $extras = {};
+if (!$NO_EXTRAS) {
+	$extras = addExtras($dir, $videos);
+}
 
 # Find all existing YT files on disk
-my $files = findFiles($dir);
+my $files = {};
+if (!$NO_FILES) {
+	$files = findFiles($dir);
+}
 
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
 	my $basePath = $dir . '/S01E' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
-	$nfo = $basePath . 'nfo';
+	my $nfo = $basePath . 'nfo';
 
-	# Warn (and optionally rename) if the episode numbers drift
+	# Warn (and optionally rename) if the video numbers drift
 	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
-		warn('Video ' . $id . ' had episode number ' . $files->{$id}->{'number'} . ' but now has episode number ' . $videos->{$id}->{'number'} . "\n");
+		warn('Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n");
 		if ($RENAME) {
 			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
@@ -158,7 +195,7 @@ foreach my $id (keys(%{$videos})) {
 			push(@cmd, @CURL_ARGS);
 			push(@cmd, '-o', $basePath . $suffix, $url);
 			if ($NO_FETCH) {
-				print STDERR 'Not fetching: ' . join(' ', @cmd) . "\n";
+				print STDERR 'Not running: ' . join(' ', @cmd) . "\n";
 			} else {
 				if ($DEBUG > 1) {
 					print STDERR join(' ', @cmd) . "\n";
@@ -307,6 +344,11 @@ sub findFiles($) {
 	my ($dir) = @_;
 	my %files = ();
 
+	# Allow complete bypass
+	if ($NO_FILES) {
+		return \%files;
+	}
+
 	# Read the output directory
 	my $fh = undef();
 	opendir($fh, $dir)
@@ -350,21 +392,17 @@ sub findFiles($) {
 	return \%files;
 }
 
-sub buildURL($$) {
-	my ($base, $params) = @_;
-	my $url = $base . '?';
-	foreach my $name (keys(%{$params})) {
-		$url .= '&' . uri_escape($name) . '=' . uri_escape($params->{$name});
-	}
-	return $url;
-}
+sub fetchParse($$) {
+	my ($name, $id) = @_;
 
-sub fetchParse($) {
-	my ($url) = @_;
+	my $url = $API{$name}{'prefix'} . $id . $API{$name}{'suffix'} . '?';
+	foreach my $key (keys(%{ $API{$name}{'params'} })) {
+		$url .= '&' . uri_escape($key) . '=' . uri_escape($API{$name}{'params'}{$key});
+	}
 
 	# Fetch
 	if ($DEBUG) {
-		print STDERR 'Fetching list URL: ' . $url . "\n";
+		print STDERR 'Fetching API URL: ' . $url . "\n";
 	}
 	my $content = get($url);
 	if (!defined($content) || length($content) < 10) {
@@ -383,12 +421,36 @@ sub fetchParse($) {
 	return $data;
 }
 
+sub saveChannel($$) {
+	my ($dir, $channel) = @_;
+
+	my $nfo = $dir . '/tvshow.nfo';
+	if (!-e $nfo) {
+		if ($DEBUG) {
+			print STDERR 'Saving series data for: ' . $channel->{'title'} . "\n";
+		}
+
+		# Save the poster
+		if (exists($channel->{'thumbnail'}) && length($channel->{'thumbnail'}) > 5) {
+			my $poster = $dir . '/poster.jpg';
+			my $jpg    = get($channel->{'thumbnail'});
+			saveString($poster, $jpg);
+		}
+
+		# Save the series NFO
+		my $xml = buildSeriesNFO($channel);
+		if ($DEBUG > 1) {
+			print STDERR 'Saving NFO: ' . $xml . "\n";
+		}
+		saveString($nfo, $xml);
+	}
+}
+
 sub getChannel($) {
 	my ($user) = @_;
 
 	# Build, fetch, parse
-	my $url = buildURL($URL_PREFIX . $user, \%CHAN_PARAMS);
-	my $data = fetchParse($url);
+	my $data = fetchParse('channel', $user);
 
 	if (!exists($data->{'entry'}) || ref($data->{'entry'}) ne 'HASH') {
 		die("Invalid channel data\n");
@@ -406,13 +468,91 @@ sub getChannel($) {
 	return \%channel;
 }
 
+sub readExtras($) {
+	my ($dir) = @_;
+	my %extras = ();
+
+	# Allow complete bypass
+	if ($NO_EXTRAS) {
+		return \%extras;
+	}
+
+	# Read and parse the extra videos file, if it exists
+	my $file = $dir . '/' . $EXTRAS_FILE;
+	if (-e $file) {
+		my $fh;
+		open($fh, $file)
+		  or die('Unable to open extra videos file: ' . $! . "\n");
+		while (<$fh>) {
+
+			# Skip blank lines and comments
+			if ($_ =~ /^\s*#/ || $_ =~ /^\s*$/) {
+				next;
+			}
+
+			# Match our specific format or whine
+			if ($_ =~ /^\s*(\d+)\s*[=:>]+\s*([\w\-]+)\s*$/) {
+				if ($DEBUG > 1) {
+					print STDERR 'Adding extra video: ' . $1 . ' => ' . $2 . "\n";
+				}
+				$extras{$2} = $1;
+			} else {
+				print STDERR 'Skipped extra video line: ' . $_;
+			}
+		}
+		close($fh);
+	}
+
+	return \%extras;
+}
+
+sub parseVideoData($) {
+	my ($data) = @_;
+	my %video = (
+		'title'       => $data->{'title'},
+		'date'        => str2time($data->{'uploaded'}),
+		'description' => $data->{'description'},
+		'duration'    => $data->{'duration'},
+		'rating'      => $data->{'rating'},
+		'creator'     => $data->{'uploader'},
+	);
+	return \%video;
+}
+
+sub findVideo($) {
+	my ($id) = @_;
+
+	# Build, fetch, parse
+	my $data = fetchParse('video', $id);
+
+	# Validate
+	if (!exists($data->{'data'})) {
+		die("Invalid video list\n");
+	}
+	$data = $data->{'data'};
+
+	# Parse the video data
+	return parseVideoData($data);
+}
+
+sub addExtras($$) {
+	my ($dir, $videos) = @_;
+	my $extras = readExtras($dir);
+	foreach my $id (keys(%{$extras})) {
+		my $video = findVideo($id);
+		$video->{'number'} = $extras->{$id};
+		$videos->{$id} = $video;
+	}
+}
+
 sub findVideos($) {
 	my ($user) = @_;
 	my %videos = ();
 
-	# Prepare the static URL elements
-	my $baseURL = $URL_PREFIX . $user . $URL_SUFFIX;
-	my %params  = %LIST_PARAMS;
+	# Allow complete bypass
+	if ($NO_SEARCH) {
+		return \%videos;
+	}
 
 	# Loop through until we have all the entries
 	my $index     = 1;
@@ -421,9 +561,8 @@ sub findVideos($) {
 	{
 
 		# Build, fetch, parse
-		$params{'start-index'} = $index;
-		my $url = buildURL($baseURL, \%params);
-		my $data = fetchParse($url);
+		$API{'search'}{'params'}{'start-index'} = $index;
+		my $data = fetchParse('search', $user);
 
 		# Grab the total count, so we know when to stop
 		if (!exists($data->{'data'})) {
@@ -441,16 +580,9 @@ sub findVideos($) {
 		my $items  = $data->{'items'};
 		my $offset = 0;
 		foreach my $item (@{$items}) {
-			my %tmp = (
-				'number'      => ($itemCount - $index - $offset + 1),
-				'title'       => $item->{'title'},
-				'date'        => str2time($item->{'uploaded'}),
-				'description' => $item->{'description'},
-				'duration'    => $item->{'duration'},
-				'rating'      => $item->{'rating'},
-				'creator'     => $item->{'uploader'},
-			);
-			$videos{ $item->{'id'} } = \%tmp;
+			my $video = parseVideoData($item);
+			$video->{'number'} = $itemCount - $index - $offset + 1;
+			$videos{ $item->{'id'} } = $video;
 			$offset++;
 		}
 
