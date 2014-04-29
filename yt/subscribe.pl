@@ -539,6 +539,13 @@ sub addExtras($$) {
 	my ($dir, $videos) = @_;
 	my $extras = readExtras($dir);
 	foreach my $id (keys(%{$extras})) {
+		if (exists($videos->{$id})) {
+			if ($DEBUG > 1) {
+				print STDERR 'Skipping known video: ' . $id . "\n";
+			}
+			next;
+		}
+
 		my $video = findVideo($id);
 		$video->{'number'} = $extras->{$id};
 		$videos->{$id} = $video;
