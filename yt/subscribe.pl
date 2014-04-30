@@ -16,13 +16,14 @@ use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
-my $EXTRAS_FILE = 'extra_videos.ini';
-my $CURL_BIN    = 'curl';
-my @CURL_ARGS   = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
-my $BATCH_SIZE  = 50;
-my $MAX_INDEX   = 2500;
-my $API_URL     = 'https://gdata.youtube.com/feeds/api/';
-my %API         = (
+my $EXTRAS_FILE   = 'extra_videos.ini';
+my $EXCLUDES_FILE = 'exclude_videos.ini';
+my $CURL_BIN      = 'curl';
+my @CURL_ARGS     = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
+my $BATCH_SIZE    = 50;
+my $MAX_INDEX     = 2500;
+my $API_URL       = 'https://gdata.youtube.com/feeds/api/';
+my %API           = (
 	'search' => {
 		'prefix' => $API_URL . 'users/',
 		'suffix' => '/uploads',
@@ -64,8 +65,10 @@ sub buildSeriesNFO($);
 sub getChannel($);
 sub fetchParse($$);
 sub saveString($$);
+sub readExcludes($);
 sub readExtras($);
 sub parseVideoData($);
+sub dropExcludes($$);
 sub addExtras($$);
 sub saveChannel($$);
 
@@ -114,6 +117,10 @@ my $NO_EXTRAS = 0;
 if ($ENV{'NO_EXTRAS'}) {
 	$NO_EXTRAS = 1;
 }
+my $NO_EXCLUDES = 0;
+if ($ENV{'NO_EXCLUDES'}) {
+	$NO_EXCLUDES = 1;
+}
 
 # Environmental parameters (functional)
 my $RENAME = 0;
@@ -150,6 +157,12 @@ if (!$NO_SEARCH) {
 my $extras = {};
 if (!$NO_EXTRAS) {
 	$extras = addExtras($dir, $videos);
+}
+
+# Drop any "excludes" videos
+my $excludes = {};
+if (!$NO_EXCLUDES) {
+	$excludes = dropExcludes($dir, $videos);
 }
 
 # Find all existing YT files on disk
@@ -471,14 +484,42 @@ sub getChannel($) {
 	return \%channel;
 }
 
+sub readExcludes($) {
+	my ($dir) = @_;
+	my %excludes = ();
+
+	# Read and parse the excludes videos file, if it exists
+	my $file = $dir . '/' . $EXCLUDES_FILE;
+	if (-e $file) {
+		my $fh;
+		open($fh, $file)
+		  or die('Unable to open excludes videos file: ' . $! . "\n");
+		while (<$fh>) {
+
+			# Skip blank lines and comments
+			if ($_ =~ /^\s*#/ || $_ =~ /^\s*$/) {
+				next;
+			}
+
+			# Match our specific format or whine
+			if ($_ =~ /^\s*([\w\-]+)\s*$/) {
+				if ($DEBUG > 1) {
+					print STDERR 'Adding exclude video: ' . $1 . "\n";
+				}
+				$excludes{$1} = 1;
+			} else {
+				print STDERR 'Skipped exclude video line: ' . $_;
+			}
+		}
+		close($fh);
+	}
+
+	return \%excludes;
+}
+
 sub readExtras($) {
 	my ($dir) = @_;
 	my %extras = ();
-
-	# Allow complete bypass
-	if ($NO_EXTRAS) {
-		return \%extras;
-	}
 
 	# Read and parse the extra videos file, if it exists
 	my $file = $dir . '/' . $EXTRAS_FILE;
@@ -538,13 +579,28 @@ sub findVideo($) {
 	return parseVideoData($data);
 }
 
+sub dropExcludes($$) {
+	my ($dir, $videos) = @_;
+	my $excludes = readExcludes($dir);
+	foreach my $id (keys(%{$excludes})) {
+		if (!exists($videos->{$id})) {
+			if ($DEBUG > 1) {
+				print STDERR 'Skipping unknown excludes video: ' . $id . "\n";
+			}
+			next;
+		}
+		delete($videos->{$id});
+	}
+	return $excludes;
+}
+
 sub addExtras($$) {
 	my ($dir, $videos) = @_;
 	my $extras = readExtras($dir);
 	foreach my $id (keys(%{$extras})) {
 		if (exists($videos->{$id})) {
 			if ($DEBUG > 1) {
-				print STDERR 'Skipping known video: ' . $id . "\n";
+				print STDERR 'Skipping known extra video: ' . $id . "\n";
 			}
 			next;
 		}
@@ -553,6 +609,7 @@ sub addExtras($$) {
 		$video->{'number'} = $extras->{$id};
 		$videos->{$id} = $video;
 	}
+	return $extras;
 }
 
 sub findVideos($) {
