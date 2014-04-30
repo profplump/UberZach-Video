@@ -402,7 +402,7 @@ sub fetchParse($$) {
 
 	# Fetch
 	if ($DEBUG) {
-		print STDERR 'Fetching API URL: ' . $url . "\n";
+		print STDERR 'Fetching ' . $name . ' API URL: ' . $url . "\n";
 	}
 	my $content = get($url);
 	if (!defined($content) || length($content) < 10) {
