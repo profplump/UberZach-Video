@@ -18,7 +18,7 @@ use PrettyPrint;
 # Paramters
 my $EXTRAS_FILE = 'extra_videos.ini';
 my $CURL_BIN    = 'curl';
-my @CURL_ARGS   = ('-4', '--insecure', '-C', '-');
+my @CURL_ARGS   = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
 my $BATCH_SIZE  = 50;
 my $MAX_INDEX   = 2500;
 my $API_URL     = 'https://gdata.youtube.com/feeds/api/';
