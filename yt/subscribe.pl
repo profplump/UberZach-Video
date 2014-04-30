@@ -313,6 +313,9 @@ sub ytURL($) {
 	# Fetch metadata
 	my $meta = eval { $tube->prepare_download($id); };
 	if (!defined($meta) || ref($meta) ne 'HASH' || !exists($meta->{'video_url_map'}) || ref($meta->{'video_url_map'}) ne 'HASH') {
+		if ($@ =~ /age gate/i) {
+			print STDERR "Video not available due to age gate restrictions\n";
+		}
 		return undef();
 	}
 
