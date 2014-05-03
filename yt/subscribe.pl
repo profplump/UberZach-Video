@@ -387,10 +387,17 @@ sub findFiles($) {
 			if (exists($files{$id})) {
 				warn('Duplicate ID: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $tmp{'path'} . "\n");
 				if ($RENAME) {
-					print STDERR 'Deleting duplicate: ' . $files{$id}->{'path'} . "\n";
-					unlink($files{$id}->{'path'});
-					unlink($files{$id}->{'nfo'});
-					delete($files{$id});
+
+					# Prefer to delete MP4 files, if the suffixes differ
+					my $del = $files{$id};
+					if ($tmp{'suffix'} eq 'mp4' && $del->{'suffix'} ne 'mp4') {
+						$del = \%tmp;
+						%tmp = %{ $files{$id} };
+					}
+
+					print STDERR 'Deleting duplicate: ' . $del->{'path'} . "\n";
+					unlink($del->{'path'});
+					unlink($del->{'nfo'});
 				}
 			}
 			$files{$id} = \%tmp;
