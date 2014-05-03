@@ -16,6 +16,13 @@ HOST="vera.uberzach.com"
 SHARE="media"
 LOCK="${TMPDIR}/mountMedia.mounting"
 REMOTE_USER="${USER}"
+LOCAL_MEDIA="/Users/Shared/Plex"
+MEDIA_CHECK_DIR="TV/John Plays FIFA"
+
+# Globals
+OFFLINE=0
+LOCAL_LINK=0
+MEDIA=""
 
 # Hack for mismatched usernames
 if [ "${USER}" == "tv" ]; then
@@ -24,27 +31,68 @@ fi
 
 function findMedia {
 	MEDIA=""
+	
+	# Find media at the root of any mounted volume with a name starting with $SHARE
 	for i in "/Volumes/${SHARE}"*; do
-		if [ -d "${i}" ] && [ -d "${i}/TV/30 Rock" ]; then
+		if [ -d "${i}" ] && [ -d "${i}/${MEDIA_CHECK_DIR}" ]; then
 			MEDIA="${i}"
 		fi
 	done
+	
+	# Find offline media if we're offline
+	if [ $OFFLINE -gt 0 ]; then
+		if [ -z "${MEDIA}" ] && [ -d "${LOCAL_MEDIA}" ] && [ -d "${LOCAL_MEDIA}/${MEDIA_CHECK_DIR}" ]; then
+			MEDIA="${LOCAL_MEDIA}"
+		fi
+	fi
 }
 
-# Skip this whole shebang if we've got a valid link
+function writeLinks {
+	DEST="${1}"
+	if [ -d /mnt ] && touch /mnt/media.writeTest >/dev/null 2>&1; then
+		rm -f /mnt/media.writeTest
+		if [ -e /mnt/media ] || [ -h /mnt/media ]; then
+				rm -f /mnt/media
+		fi
+		ln -s "${DEST}" /mnt/media
+	fi
+	if [ -e "${HOME}/media" ] || [ -h "${HOME}/media" ]; then
+		rm -f "${HOME}/media"
+		ln -s "${DEST}" "${HOME}/media"
+	fi
+}
+
+# Determine if we have a remote link
+if [ -h /mnt/media ] && readlink /mnt/media | grep -qE "^${LOCAL_MEDIA}"; then
+	LOCAL_LINK=1
+elif [ -h "${HOME}/media" ] && readlink "${HOME}/media" | grep -qE "^${LOCAL_MEDIA}"; then
+	LOCAL_LINK=1
+fi
+
+# Skip this whole shebang if we've got a valid, remote link
+if [ $LOCAL_LINK -eq 0 ] && ~/bin/video/isMediaMounted; then
+	exit 0
+fi
+
+# Check for connectivity and server live-ness
+if ! ~/bin/video/timeout -t 2 nc -z "${HOST}" 139 >/dev/null 2>&1; then
+	echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
+	OFFLINE=1
+fi
+
+# Drop local links if we're online
+if [ $OFFLINE -eq 0 ] && [ $LOCAL_LINK -ne 0 ]; then
+	writeLinks "/var/empty"
+fi
+
+# At this point any valid link is acceptable
 if ~/bin/video/isMediaMounted; then
 	exit 0
 fi
 
-# Check for connectivity (and server live-ness)
-if ! ~/bin/video/timeout -t 2 nc -z "${HOST}" 139 >/dev/null 2>&1; then
-	echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
-	exit 1
-fi
-
-# Connect as needed
+# Connect if needed and possible
 findMedia
-if [ -z "${MEDIA}" ]; then
+if [ -z "${MEDIA}" ] && [ $OFFLINE -eq 0 ]; then
 	LOCKED=0
 	touch "${LOCK}"
 	read MOUNT_PID < "${LOCK}"
@@ -61,21 +109,11 @@ if [ -z "${MEDIA}" ]; then
 	fi
 fi
 
-# Fix links
+# Create links to the best media we can find
 findMedia
 if [ -n "${MEDIA}" ]; then
-	if [ -d /mnt ] && touch /mnt/media.writeTest >/dev/null 2>&1; then
-		rm -f /mnt/media.writeTest
-		if [ -e /mnt/media ] || [ -h /mnt/media ]; then
-				rm -f /mnt/media
-		fi
-		ln -s "${MEDIA}" /mnt/media
-	fi
-	if [ -e "${HOME}/media" ] || [ -h "${HOME}/media" ]; then
-		rm -f "${HOME}/media"
-		ln -s "${MEDIA}" "${HOME}/media"
-	fi
+	writeLinks "${MEDIA}"
 else
-	echo "`basename "${0}"`: Unable to mount media volume" 1>&2
+	echo "`basename "${0}"`: Unable to link media volume" 1>&2
 	exit 1
 fi
