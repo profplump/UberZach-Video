@@ -182,8 +182,7 @@ foreach my $id (keys(%{$videos})) {
 		if ($RENAME) {
 			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
-			unlink($files->{$id}->{'nfo'});
-			delete($files->{$id});
+			rename($files->{$id}->{'nfo'}, $nfo);
 		}
 	}
 
@@ -397,7 +396,6 @@ sub findFiles($) {
 
 					print STDERR 'Deleting duplicate: ' . $del->{'path'} . "\n";
 					unlink($del->{'path'});
-					unlink($del->{'nfo'});
 				}
 			}
 			$files{$id} = \%tmp;
