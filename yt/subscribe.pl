@@ -178,11 +178,16 @@ foreach my $id (keys(%{$videos})) {
 
 	# Warn (and optionally rename) if the video numbers drift
 	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
-		warn('Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n");
 		if ($RENAME) {
 			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
-			rename($files->{$id}->{'nfo'}, $nfo);
+			rename($files->{$id}->{'nfo'},  $nfo);
+		} else {
+
+			# Ignore small changes
+			if (abs($files->{$id}->{'number'} - $videos->{$id}->{'number'}) > 2 || $DEBUG) {
+				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
+			}
 		}
 	}
 
