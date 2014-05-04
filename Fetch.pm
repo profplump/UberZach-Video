@@ -531,6 +531,15 @@ sub fetch() {
 		}
 	}
 
+	# Always add the 'Accept-Encoding' header
+	# But allow headers() to override the value
+	if (!defined($self->{'headers'}{'Accept-Encoding'}) || length($self->{'headers'}{'Accept-Encoding'}) < 1) {
+		$request->header('Accept-Encoding' => HTTP::Message::decodable);
+		if ($DEBUG) {
+			print STDERR 'Setting Accept-Encoding header: ' . HTTP::Message::decodable . "\n";
+		}
+	}
+
 	# Append any extra headers
 	foreach my $key (keys(%{ $self->{'headers'} })) {
 		$request->header($key => $self->{'headers'}{$key});
@@ -572,7 +581,7 @@ sub fetch() {
 	($self->{'status_code'}) = $response->status_line =~ /^(\d+)\s/;
 
 	# Grab the content for future use
-	$self->{'content'} = $response->content();
+	$self->{'content'} = $response->decoded_content();
 
 	# Save the output (save() does its own validity checks)
 	$self->Fetch::save('nocheck' => $nocheck);
