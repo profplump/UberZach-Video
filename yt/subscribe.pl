@@ -293,29 +293,43 @@ sub buildNFO($) {
 	$elm->appendText($video->{'number'});
 	$show->appendChild($elm);
 
+	if (!defined($video->{'title'})) {
+		$video->{'title'} = 'Episode ' . $video->{'number'};
+	}
 	$elm = $doc->createElement('title');
 	$elm->appendText($video->{'title'});
 	$show->appendChild($elm);
 
+	if (!defined($video->{'date'})) {
+		$video->{'date'} = time();
+	}
 	$elm = $doc->createElement('aired');
 	$elm->appendText(time2str('%Y-%m-%d', $video->{'date'}));
 	$show->appendChild($elm);
 
-	$elm = $doc->createElement('plot');
-	$elm->appendText($video->{'description'});
-	$show->appendChild($elm);
+	if (defined($video->{'description'})) {
+		$elm = $doc->createElement('plot');
+		$elm->appendText($video->{'description'});
+		$show->appendChild($elm);
+	}
 
-	$elm = $doc->createElement('runtime');
-	$elm->appendText($video->{'duration'});
-	$show->appendChild($elm);
+	if (defined($video->{'duration'})) {
+		$elm = $doc->createElement('runtime');
+		$elm->appendText($video->{'duration'});
+		$show->appendChild($elm);
+	}
 
-	$elm = $doc->createElement('rating');
-	$elm->appendText($video->{'rating'});
-	$show->appendChild($elm);
+	if (defined($video->{'rating'})) {
+		$elm = $doc->createElement('rating');
+		$elm->appendText($video->{'rating'});
+		$show->appendChild($elm);
+	}
 
-	$elm = $doc->createElement('director');
-	$elm->appendText($video->{'creator'});
-	$show->appendChild($elm);
+	if (defined($video->{'creator'})) {
+		$elm = $doc->createElement('director');
+		$elm->appendText($video->{'creator'});
+		$show->appendChild($elm);
+	}
 
 	# Return the string
 	return $doc->toString();
