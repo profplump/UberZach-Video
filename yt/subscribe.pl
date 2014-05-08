@@ -184,6 +184,9 @@ foreach my $id (keys(%{$videos})) {
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
 			rename($files->{$id}->{'nfo'},  $nfo);
 		} else {
+			
+			# Find the old NFO to avoid re-fetching
+			$nfo = $files->{$id}->{'nfo'};
 
 			# Ignore small changes
 			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
