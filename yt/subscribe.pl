@@ -22,6 +22,7 @@ my $CURL_BIN      = 'curl';
 my @CURL_ARGS     = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
 my $BATCH_SIZE    = 50;
 my $MAX_INDEX     = 2500;
+my $MIN_TOLERANCE = 2;
 my $API_URL       = 'https://gdata.youtube.com/feeds/api/';
 my %API           = (
 	'search' => {
@@ -185,7 +186,12 @@ foreach my $id (keys(%{$videos})) {
 		} else {
 
 			# Ignore small changes
-			if (abs($files->{$id}->{'number'} - $videos->{$id}->{'number'}) > ($files->{$id}->{'number'} / 100.0) || $DEBUG) {
+			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
+			my $tolerance = $files->{$id}->{'number'} / 100.0;
+			if ($tolerance < $MIN_TOLERANCE) {
+				$tolerance = $MIN_TOLERANCE;
+			}
+			if ($delta >= $tolerance || $DEBUG) {
 				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
 			}
 		}
