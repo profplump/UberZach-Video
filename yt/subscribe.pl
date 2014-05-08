@@ -185,7 +185,7 @@ foreach my $id (keys(%{$videos})) {
 		} else {
 
 			# Ignore small changes
-			if (abs($files->{$id}->{'number'} - $videos->{$id}->{'number'}) > 2 || $DEBUG) {
+			if (abs($files->{$id}->{'number'} - $videos->{$id}->{'number'}) > ($files->{$id}->{'number'} / 100.0) || $DEBUG) {
 				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
 			}
 		}
