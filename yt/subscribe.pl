@@ -16,15 +16,16 @@ use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
-my $EXTRAS_FILE   = 'extra_videos.ini';
-my $EXCLUDES_FILE = 'exclude_videos.ini';
-my $CURL_BIN      = 'curl';
-my @CURL_ARGS     = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
-my $BATCH_SIZE    = 50;
-my $MAX_INDEX     = 2500;
-my $MIN_TOLERANCE = 2;
-my $API_URL       = 'https://gdata.youtube.com/feeds/api/';
-my %API           = (
+my $EXTRAS_FILE     = 'extra_videos.ini';
+my $EXCLUDES_FILE   = 'exclude_videos.ini';
+my $CURL_BIN        = 'curl';
+my @CURL_ARGS       = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
+my $BATCH_SIZE      = 50;
+my $MAX_INDEX       = 2500;
+my $DRIFT_TOLERANCE = 2;
+my $DRIFT_FACTOR    = 100.0;
+my $API_URL         = 'https://gdata.youtube.com/feeds/api/';
+my %API             = (
 	'search' => {
 		'prefix' => $API_URL . 'users/',
 		'suffix' => '/uploads',
@@ -184,17 +185,17 @@ foreach my $id (keys(%{$videos})) {
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
 			rename($files->{$id}->{'nfo'},  $nfo);
 		} else {
-			
+
 			# Find the old NFO to avoid re-fetching
 			$nfo = $files->{$id}->{'nfo'};
 
 			# Ignore small changes
 			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
-			my $tolerance = $files->{$id}->{'number'} / 100.0;
-			if ($tolerance < $MIN_TOLERANCE) {
-				$tolerance = $MIN_TOLERANCE;
+			my $tolerance = $files->{$id}->{'number'} / $DRIFT_FACTOR;
+			if ($tolerance < $DRIFT_TOLERANCE) {
+				$tolerance = $DRIFT_TOLERANCE;
 			}
-			if ($delta >= $tolerance || $DEBUG) {
+			if ($delta > $tolerance || $DEBUG) {
 				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
 			}
 		}
