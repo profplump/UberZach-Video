@@ -22,6 +22,7 @@ my $FORCE_MP4           = 0;
 my $OUT_DIR             = undef();
 my $MIXDOWN_CODEC       = 'AAC';
 my $MIXDOWN_CHANNELS    = 2.0;
+my $AAC_ENCODER         = 'ca_aac';
 
 # Applicaton configuration
 my $HD_WIDTH         = 1350;
@@ -551,7 +552,7 @@ sub audioOptions($) {
 				print STDERR "\tMixing down with Dolby Pro Logic II encoding\n";
 			}
 		}
-		my %track = ('index' => $mixdown, 'encoder' => 'ca_aac');
+		my %track = ('index' => $mixdown, 'encoder' => $AAC_ENCODER);
 		push(@audio_tracks, \%track);
 	}
 
