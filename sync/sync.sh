@@ -15,7 +15,8 @@ fi
 SUB_DIR="${1}"
 
 # Deal with SMB mappings
-SUB_DIR="`echo "${SUB_DIR}" | sed 's%\?%%g'`"
+# I need some way to detect when this is necessary -- maybe try both paths?
+#SUB_DIR="`echo "${SUB_DIR}" | sed 's%\?%%g'`"
 
 # Allow absolute paths, or those relative to the media path
 if [ "`echo "${SUB_DIR}" | head -c 1`" == '/' ]; then
