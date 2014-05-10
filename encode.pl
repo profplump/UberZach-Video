@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 # Includes
+use POSIX;
 use IPC::Open3;
 use File::Basename;
 
@@ -22,7 +23,7 @@ my $FORCE_MP4           = 0;
 my $OUT_DIR             = undef();
 my $MIXDOWN_CODEC       = 'AAC';
 my $MIXDOWN_CHANNELS    = 2.0;
-my $AAC_ENCODER         = 'ca_aac';
+my $AAC_ENCODER         = 'ffaac';
 
 # Applicaton configuration
 my $HD_WIDTH         = 1350;
@@ -38,6 +39,12 @@ my $DEBUG            = 0;
 # General parameters for HandBrake
 my @video_params = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50');
 my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3');
+
+# Use CoreAudio where available
+my ($OS) = POSIX::uname();
+if ($OS eq 'Darwin') {
+	$AAC_ENCODER = 'ca_aac';
+}
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
