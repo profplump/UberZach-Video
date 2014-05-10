@@ -1,13 +1,21 @@
 #!/bin/bash
 
-# Target path
+# Parameters
 TARGET="Heady"
-
-# Establish a base of operations
 BASE_DIR="`~/bin/video/mediaPath`"
 
-# We need an input directory
+# Environmental parameters
+if [ "${DEBUG}" ]; then
+        DEBUG=1
+else
+	DEBUG=0
+fi
+
+# Command-line parameters
 SUB_DIR="${1}"
+
+# Deal with SMB mappings
+SUB_DIR="`echo "${SUB_DIR}" | sed 's%\?%%g'`"
 
 # Allow absolute paths, or those relative to the media path
 if [ "`echo "${SUB_DIR}" | head -c 1`" == '/' ]; then
@@ -82,6 +90,9 @@ for infile in $FILES; do
 
 	# Skip files that exist
 	if ls "${OUT_DIR}/${nobase}".* >/dev/null 2>&1; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Skipping: ${infile}" 1>&2
+		fi
 		continue
 	fi
 

@@ -5,13 +5,15 @@ TARGET="Heady"
 BASE_DIR="`~/bin/video/mediaPath`/${TARGET}"
 
 # Environmental parameters
-DEBUG=0
-if [ -n "${DEBUG}" ]; then
+if [ "${DEBUG}" ]; then
 	DEBUG=1
+else
+	DEBUG=0
 fi
-NO_WRITE=0
-if [ -n "${NO_WRITE}" ]; then
-	NO_WRITE=1
+if [ "${NO_SYNC}" ]; then
+	NO_SYNC=1
+else
+	NO_SYNC=0
 fi
 
 # Command-line options
@@ -74,7 +76,7 @@ for i in $FILES; do
 	if [ $DEBUG -gt 0 ]; then
 		echo "Will encode: ${i}"
 	fi
-	if [ $NO_WRITE -eq 0 ]; then
+	if [ $NO_SYNC -eq 0 ]; then
 		~/bin/video/sync/sync.sh "${i}"
 	fi
 
@@ -88,7 +90,7 @@ for i in $OLD_FILES; do
 	if [ $DEBUG -gt 0 ]; then
 		echo "Will delete: ${BASE_DIR}/${i}"
 	fi
-	if [ $NO_WRITE -eq 0 ]; then
+	if [ $NO_SYNC -eq 0 ]; then
 		rm -f "${BASE_DIR}/${i}"
 	fi
 done
