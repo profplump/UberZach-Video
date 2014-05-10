@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# Parameters
+TARGET="Heady"
+BASE_DIR="`~/bin/video/mediaPath`/${TARGET}"
+if [ -n "${DEBUG}" ]; then
+	DEBUG=1
+else
+	DEBUG=0
+fi
+
+# Command-line options
+DIR="TV"
+if echo "${1}" | grep -qi "Movie"; then
+	DIR="Movies"
+fi
+
+# Ensure we have a valid TMPDIR
+if [ ! -d "${TMPDIR}" ]; then
+	TMPDIR="`getconf DARWIN_USER_TEMP_DIR 2>/dev/null`"
+	if [ ! -d "${TMPDIR}" ]; then
+		TMPDIR="/var/tmp"
+	fi
+	if [ ! -d "${TMPDIR}" ]; then
+		TMPDIR="/tmp"
+	fi
+fi
+
+# Check and write the run file
+PID_FILE="${TMPDIR}/syncUnwatched.pid"
+if [ -f "${PID_FILE}" ]; then
+	PID=`cat "${PID_FILE}"`
+	if ps auwx | grep -v grep | grep "`basename "${0}"`" | grep -q "${PID}"; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Already running: ${PID}" 1>&2
+			exit -1
+		else
+			exit 0
+		fi
+	fi
+fi
+echo $$ > "${PID_FILE}"
+
+# Construct directories
+DEST_DIR="${BASE_DIR}/${DIR}"
+
+# Figure out what we want
+FILES="`~/bin/video/sync/recentlyUnwatched.sh "${1}"`"
+
+# Ensure the input is sane
+if [ `echo "${FILES}" | wc -l` -lt 5 ]; then
+	echo -e "Invalid sync file list:\n${FILE}" 1>&2
+	exit -2
+fi
+
+# Figure out what we already have
+OLD_FILES="`find "${DEST_DIR}" -type f | sed "s%^${BASE_DIR}/%%"`"
+
+# Allow special files
+EXTRAS="`cat ~/.sync_extras`"
+IFS=$'\n'
+for i in $EXTRAS; do
+	OLD_FILES="`echo "${OLD_FILES}" | grep -v "^${i}"`"
+done
+
+# Encode and allow any expected files
+IFS=$'\n'
+for i in $FILES; do
+	if [ $DEBUG -eq 0 ]; then
+		~/bin/video/sync/sync.sh "${i}"
+	else
+		echo "Would encode: ${i}"
+	fi
+
+	nobase="`echo "${i}" | sed 's%\....$%%'`"
+	OLD_FILES="`echo "${OLD_FILES}" | grep -v "${nobase}"`"
+done
+
+# Delete anything leftover
+IFS=$'\n'
+for i in $OLD_FILES; do
+	if [ $DEBUG -eq 0 ]; then
+		rm -f "${BASE_DIR}/${i}"
+	else
+		echo "Would delete: ${BASE_DIR}/${i}"
+	fi
+done
+find "${DEST_DIR}" -type d -empty -delete
+
+# Cleanup
+rm -f "${PID_FILE}"
