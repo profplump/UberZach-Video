@@ -3,10 +3,15 @@
 # Parameters
 TARGET="Heady"
 BASE_DIR="`~/bin/video/mediaPath`/${TARGET}"
+
+# Environmental parameters
+DEBUG=0
 if [ -n "${DEBUG}" ]; then
 	DEBUG=1
-else
-	DEBUG=0
+fi
+NO_WRITE=0
+if [ -n "${NO_WRITE}" ]; then
+	NO_WRITE=1
 fi
 
 # Command-line options
@@ -66,10 +71,11 @@ done
 # Encode and allow any expected files
 IFS=$'\n'
 for i in $FILES; do
-	if [ $DEBUG -eq 0 ]; then
+	if [ $DEBUG -gt 0 ]; then
+		echo "Will encode: ${i}"
+	fi
+	if [ $NO_WRITE -eq 0 ]; then
 		~/bin/video/sync/sync.sh "${i}"
-	else
-		echo "Would encode: ${i}"
 	fi
 
 	nobase="`echo "${i}" | sed 's%\....$%%'`"
@@ -79,10 +85,11 @@ done
 # Delete anything leftover
 IFS=$'\n'
 for i in $OLD_FILES; do
-	if [ $DEBUG -eq 0 ]; then
+	if [ $DEBUG -gt 0 ]; then
+		echo "Will delete: ${BASE_DIR}/${i}"
+	fi
+	if [ $NO_WRITE -eq 0 ]; then
 		rm -f "${BASE_DIR}/${i}"
-	else
-		echo "Would delete: ${BASE_DIR}/${i}"
 	fi
 done
 find "${DEST_DIR}" -type d -empty -delete
