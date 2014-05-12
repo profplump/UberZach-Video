@@ -167,6 +167,13 @@ if (!$NO_EXCLUDES) {
 	$excludes = dropExcludes($dir, $videos);
 }
 
+# Calculate the episode number using the publish dates
+my @byDate = sort { $videos->{$a}->{'date'} <=> $videos->{$b}->{'date'} || $a cmp $b } keys %{$videos};
+my $num = 1;
+foreach my $id (@byDate) {
+	$videos->{$id}->{'number'} = $num++;
+}
+
 # Find all existing YT files on disk
 my $files = {};
 if (!$NO_FILES) {
@@ -683,7 +690,7 @@ sub findVideos($) {
 		my $offset = 0;
 		foreach my $item (@{$items}) {
 			my $video = parseVideoData($item);
-			$video->{'number'} = $itemCount - $index - $offset + 1;
+			$video->{'api_number'} = $itemCount - $index - $offset + 1;
 			$videos{ $item->{'id'} } = $video;
 			$offset++;
 		}
