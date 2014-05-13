@@ -648,7 +648,7 @@ sub addExtras($$) {
 		}
 
 		my $video = findVideo($id);
-		$video->{'number'} = $extras->{$id};
+		$video->{'api_number'} = $extras->{$id};
 		$videos->{$id} = $video;
 	}
 	return $extras;
