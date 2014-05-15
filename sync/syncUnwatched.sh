@@ -20,6 +20,8 @@ fi
 DIR="TV"
 if echo "${1}" | grep -qi "Movie"; then
 	DIR="Movies"
+elif echo "${1}" | grep -qi "YouTube"; then
+	DIR="YouTube"
 fi
 
 # Ensure we have a valid TMPDIR
