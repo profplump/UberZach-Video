@@ -13,7 +13,7 @@ if echo "${1}" | grep -iq Movie; then
 	URL1="${HOST}/library/sections/1/recentlyAdded/"
 	URL2_POST=""
 elif echo "${1}" | grep -iq YouTube; then
-	URL1="${HOST}/library/sections/16/recentlyAdded/"
+	URL1="${HOST}/library/sections/16/onDeck/"
 fi
 
 # Find recent items
