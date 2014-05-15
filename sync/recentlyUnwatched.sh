@@ -12,6 +12,8 @@ URL2_POST="children/allLeaves?unwatched=1"
 if echo "${1}" | grep -iq Movie; then
 	URL1="${HOST}/library/sections/1/recentlyAdded/"
 	URL2_POST=""
+elif echo "${1}" | grep -iq YouTube; then
+	URL1="${HOST}/library/sections/16/recentlyAdded/"
 fi
 
 # Find recent items
@@ -58,8 +60,12 @@ for i in $SERIES; do
 	IFS=$'\n'
 	for j in $FILES; do
 		# Find the season number and increment the count
+		# I know the metadata has the season number in it, but this is less work
 		# Account no-season items (i.e. movies) separately
 		SEASON="`echo "${j}" | sed 's%^.*/Season \([0-9]*\)/.*$%\1%'`"
+		if ! echo "${SEASON}" | grep -q '^[0-9]*$'; then
+			SEASON="`echo "${j}" | sed 's%^.*/S\([0-9]*\)E[0-9].*$%\1%'`"
+		fi
 		if ! echo "${SEASON}" | grep -q '^[0-9]*$'; then
 			SEASON=-1
 		else
