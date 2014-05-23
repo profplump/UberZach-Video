@@ -193,8 +193,9 @@ function saveFlags($series, $data, $series_last, $seasons_last) {
 	# Content files
 	foreach ($CONTENT_FILES as $file) {
 		$path = $series_path . '/' . $file;
+		$data[ $file ] = trim($data[ $file ]);
 		if ($data[ $file ]) {
-			file_put_contents($path, $data[ $file ]);
+			file_put_contents($path, $data[ $file ] . "\n");
 		} else {
 			if (file_exists($path)) {
 				unlink($path);
