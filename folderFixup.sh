@@ -20,7 +20,7 @@ fi
 
 # Bail if we're already running
 me="`basename "${0}"`"
-if [ `ps auwx | grep -v grep | grep "${me}" | wc -l` -gt 2 ]; then
+if [ `ps auwx | grep -v grep | grep "${me}" | wc -l` -gt 3 ]; then
 	if [ -n "${DEBUG}" ] && [ $DEBUG -gt 0 ]; then
 		echo 'Already running' 1>&2
 	fi
