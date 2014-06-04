@@ -605,7 +605,13 @@ sub content() {
 		print STDERR "Fetch::content()\n";
 	}
 
+	# Extract content (if any)
 	my $data = $self->{'content'};
+	if (!$data) {
+		return undef();
+	}
+
+	# Standardize line endings
 	$data =~ s/\r\n/\n/;
 
 	# Return an array when requested
