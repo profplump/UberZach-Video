@@ -607,8 +607,8 @@ sub content() {
 
 	# Extract content (if any)
 	my $data = $self->{'content'};
-	if (!$data) {
-		return undef();
+	if (!defined($data)) {
+		$data = '';
 	}
 
 	# Standardize line endings
