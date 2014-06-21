@@ -1,26 +1,24 @@
 UberZach Video Tools
-Copyright 2009-2012, Zach Kotlarek <zach@kotlarek.com>
+Copyright 2009-2014, Zach Kotlarek <zach@kotlarek.com>
 ======================================================
 
-The following readme applies primarily to the encode.pl script, formerly released as the Handbrake CLI Helper project. 
-Additional documentation may follow as I have time/interest.
+The following readme applies primarily to the encode.pl script, formerly released as the Handbrake CLI Helper project. Additional documentation may follow as I have time/interest.
 
 ======================================================
 
-HandBrake CLI Helper is a fairly simple script intended to assist in automation of HandBrake-based encoding workflows. It is 
-designed to automatically select appropriate HandBrake settings to produce output that:
+Encode.pl is a fairly simple script intended to assist in automation of HandBrake-based encoding workflows. It is designed to automatically select appropriate HandBrake settings to produce output that:
 	Copies all English (or unspecified) audio tracks unmodified
-	Downmixes the first audio track to AAC-2.0 w/Dolby Pro Logic II encoding
-	Copies all subtitle tracks
+	Downmixes the "best" audio track to AAC-2.0 w/Dolby Pro Logic II encoding
+	Copies all subtitle tracks, except languages that are explicitly excluded
 	Includes external SRT files in the same folder and with the same name
 	Autocrops video, but overrides autocrop when it makes obviously wrong choices
 	Invokes the detelecine and decomb filters in the default mode (i.e. auto-detect)
 
-The script can handle both single-title and multi-title video sources, and for multi-title sources can encode all titles or 
-a specific, selected title.
+The script can handle both single-title and multi-title video sources, and for multi-title sources can encode all titles or  a specific, selected title.
 
-Both MKV and M4V wrapper formats are supported. M4V is prefered unless DTS audio is selected, in which case only MKV can be 
-used. Use of MKV can be forced by invoking the script with an output file name ending in .mkv
+Both MKV and M4V wrapper formats are supported. M4V is prefered unless DTS audio is selected, in which case only MKV can be used. Use of MKV can be forced by invoking the script with an output file name ending in .mkv
+
+Many of the options above can be selected at runtime via enviromental variables. Read the source for usage -- they are all defined at the top of the script.
 
 
 #==========================
@@ -32,27 +30,20 @@ Usage is simple:
 
 The input file path is obviously required.
 
-The output file path can be provided, but a default based on the input file path will be automatically selected if 
-necessary.
+The output file path can be provided, but a default based on the input file path will be automatically selected if necessary.
 
-The title number is only useful for multi-title sources, like TS_VIDEO folders or DVD ISOs. If provided the title number 
-should match whatever number HandBrake shows for the title you want to encode. You can also use the title number "main" to 
-select the longest title in the source.
+The title number is only useful for multi-title sources, like TS_VIDEO folders or DVD ISOs. If provided the title number should match whatever number HandBrake shows for the title you want to encode. You can also use the title number "main" to select the longest title in the source.
 
 If you want to see what's actually happening, set the DEBUG enviornmental variable to something non-zero, like this:
 	DEBUG=1 encode.pl <input_file>
-The script will then provide details about its decisions, and will also copy all output from HandBrake so you can see what 
-it is doing. By default the script suppresses most HandBrake output to support use in automation systems.
+The script will then provide details about its decisions, and will also copy all output from HandBrake so you can see what it is doing. By default the script suppresses most HandBrake output to support use in automation systems.
 
 
 #==========================
 # Configuration
 #==========================
 
-You will need to tell the script where the HandBrakeCLI binary lives. Do that by adjusting the HB_EXEC parameter at the top 
-of the script. The default is:
+You will need to tell the script where the HandBrakeCLI binary lives. Do that by adjusting the HB_EXEC parameter at the top of the script. The default is:
 	~/bin/video/HandBrakeCLI
 
-You can adjust a number of other parameters, including the default parameter string for HandBrake, the video encoding 
-quality for both HD and SD sources, the cutoff point for what is considered an HD source, the prefered output format, and a 
-of other more technical parameters. If you don't know what they mean you probably don't need to change them.
+You can adjust a number of other parameters, including the default parameter string for HandBrake, the video encoding  quality for both HD and SD sources, the cutoff point for what is considered an HD source, the prefered output format, and a  of other more technical parameters. If you don't know what they mean you probably don't need to change them.
