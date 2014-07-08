@@ -1,11 +1,14 @@
 <?
 
+$AUTH_ERR = '';
+
 # Always start a session, unless we're on the CLI
 if (php_sapi_name() != 'cli') {
 	session_start();
 }
 
 function login($username, $password) {
+	global $AUTH_ERR;
 	$authenticated = false;
 	$authorized    = false;
 
@@ -13,11 +16,16 @@ function login($username, $password) {
 	$token = myplexToken($username, $password);
 	if ($token !== false) {
 		$authenticated = true;
+	} else {
+		$AUTH_ERR = 'Invalid Credentials';
 	}
 
 	# Authorize against MyPlex
 	if ($authenticated) {
 		$authorized = myplexAuthorize($token);
+		if (!$authorized) {
+			$AUTH_ERR = 'Not Authorized';
+		}
 	}
 
 	# Login on dual success
@@ -25,11 +33,13 @@ function login($username, $password) {
 		$_SESSION['USER'] = $username;
 		session_regenerate_id(true);
 	} else {
-		logout();
+		logout(false);
 	}
 
 	# Redirect, using the provided target if available
-	login_redirect();
+	if (authenticated()) {
+		login_redirect();
+	}
 }
 
 function login_redirect() {
@@ -41,12 +51,14 @@ function login_redirect() {
 	header('Location: ' . $url);
 }
 
-function logout() {
-	global $MAIN_PAGE;
+function logout($redirect = true) {
 	unset($_SESSION['USER']);
 	session_regenerate_id(true);
-	header('Location: ' . $MAIN_PAGE);
-	exit();
+	if ($redirect) {
+		global $MAIN_PAGE;
+		header('Location: ' . $MAIN_PAGE);
+		exit();
+	}
 }
 
 function username() {
