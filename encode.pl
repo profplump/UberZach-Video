@@ -456,7 +456,7 @@ sub audioOptions($) {
 				$codec = $code;
 				last;
 			} elsif ($code eq 'OTHER') {
-				if ($codec =~ /MP3/i || $codec =~ /MPEG/i) {
+				if ($codec =~ /MP3/i || $codec =~ /MPEG/i || $codec =~ /MP2/i) {
 					$codec = $code;
 				} elsif ($codec eq 'dca') {
 					print STDERR 'Found incompatible audio (' . $track->{'description'} . ')  in track ' . $track->{'index'} . "\n";

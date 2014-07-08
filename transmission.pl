@@ -662,7 +662,7 @@ sub seriesCleanupCore($) {
 
 sub seriesCleanup($) {
 	my ($name) = @_;
-	$name =~ s/\s*\(?US\)?\s*$//i;
+	$name =~ s/\s*\(?US\)?\s*$//;
 	$name =~ s/\s*\(?20[01][0-9]\)?\s*$//;
 	return seriesCleanupCore($name);
 }
