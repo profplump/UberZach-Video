@@ -11,14 +11,14 @@ if (isset($_REQUEST['logout'])) {
 	logout();
 }
 
-# Redirect if we're already authenticated
-if (authenticated()) {
-	login_redirect();
-}
-
 # Process login
 if (isset($_POST['username']) && isset($_POST['password'])) {
 	login($_POST['username'], $_POST['password']);
+}
+
+# Redirect if we're already authenticated
+if (authenticated()) {
+	login_redirect();
 }
 
 #=========================================================================================
