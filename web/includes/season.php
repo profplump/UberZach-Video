@@ -2,6 +2,9 @@
 
 require 'config.php';
 
+$DONE_FILE   = 'season_done';
+$RECODE_FILE = '.lastFindRecode';
+
 function seasonExists($series, $season) {
         return is_dir(seasonPath($series, $season));
 }
@@ -12,6 +15,7 @@ function seasonPath($series, $season) {
 
 # True if the provided season folder is being monitored
 function isMonitored($series, $season) {
+	global $DONE_FILE;
 
 	# Season 0 is never monitored
 	if (!$season) {
@@ -34,7 +38,7 @@ function isMonitored($series, $season) {
 	}
 
 	# Seasons marked done are not monitored
-	if (file_exists(seasonPath($series, $season) . '/season_done')) {
+	if (file_exists(seasonPath($series, $season) . '/' . $DONE_FILE)) {
 		return false;
 	}
 
@@ -81,6 +85,7 @@ function findSeasons($series) {
 # Save the search status for all seasons in a series
 function saveSeasons($series, $data, $series_last, $seasons_last) {
 	die_if_not_authenticated();
+	global $DONE_FILE;
 
 	# Do nothing if we are or just were in "skip" mode
 	if ($data['skip'] || $series_last['skip']) {
@@ -93,7 +98,7 @@ function saveSeasons($series, $data, $series_last, $seasons_last) {
 		$season_path = seasonPath($series, $season);
 
 		$monitored = $data[ 'season_' . $season ];
-		$monitored_path = $season_path . '/season_done';
+		$monitored_path = $season_path . '/' . $DONE_FILE;
 		if ($monitored) {
 			if (file_exists($monitored_path)) {
 				unlink($monitored_path);
@@ -148,6 +153,8 @@ function addSeason($series, $season) {
 # Remove the specified season folder, if possible (i.e. if empty)
 function delSeason($series, $season) {
 	die_if_not_authenticated();
+	global $DONE_FILE;
+	global $RECODE_FILE;
 
 	# Ensure the series exists
 	if (!seriesExists($series)) {
@@ -159,8 +166,13 @@ function delSeason($series, $season) {
 		die('Invalid season: ' . htmlspecialchars($season) . "\n");
 	}
 
+	# Drop known files from the season folder
+	$path = seasonPath($series, $season);
+	@unlink($path . '/' . $RECODE_FILE);
+	@unlink($path . '/' . $DONE_FILE);
+
 	# Remove the directory (or fail silently)
-	@rmdir(seasonPath($series, $season));
+	@rmdir($path);
 
 	# Force a cache update
 	clearCache();
