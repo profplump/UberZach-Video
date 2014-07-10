@@ -6,7 +6,8 @@ function myplexToken($username, $password) {
 	global $PLEX_ID;
 	global $PLEX_AUTH_URL;
 
-	$username = preg_replace('/\W/', '_', $username);
+	# This probably forbids some allowed characters -- expand as needed
+	$username = preg_replace('/[^\w\@\-\+\.]/', '_', $username);
 	$token = false;
 
 	# Construct the headers
