@@ -119,5 +119,5 @@ IFS="${OLDIFS}"
 
 # Record the last scan time
 if [ -n "${LAST_RECODE_FILE}" ]; then
-	touch "${LAST_RECODE_FILE}"
+	touch "${LAST_RECODE_FILE}" >/dev/null 2>&1
 fi
