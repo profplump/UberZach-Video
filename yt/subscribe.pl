@@ -195,6 +195,9 @@ foreach my $id (keys(%{$videos})) {
 			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
 			rename($files->{$id}->{'nfo'},  $nfo);
+			
+			# This is a hack, but it fits nicely in one line
+			system('sed', '-i', 's%<episode>[0-9]*</episode>%<episode>' . $videos->{$id}->{'number'} . '</episode>%');
 		} else {
 
 			# Find the old NFO to avoid re-fetching
