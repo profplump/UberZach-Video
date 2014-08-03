@@ -103,6 +103,10 @@ my $NO_FETCH = 0;
 if ($ENV{'NO_FETCH'}) {
 	$NO_FETCH = 1;
 }
+my $NO_NFO = 0;
+if ($ENV{'NO_NFO'}) {
+	$NO_NFO = 1;
+}
 my $NO_SEARCH = 0;
 if ($ENV{'NO_SEARCH'}) {
 	$NO_SEARCH = 1;
@@ -243,7 +247,7 @@ foreach my $id (keys(%{$videos})) {
 		if ($DEBUG > 1) {
 			print STDERR 'Saving NFO: ' . $xml . "\n";
 		}
-		if ($NO_FETCH) {
+		if ($NO_NFO) {
 			print STDERR "Not saving NFO\n";
 		} else {
 			saveString($nfo, $xml);
