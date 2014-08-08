@@ -19,7 +19,7 @@ use PrettyPrint;
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $CURL_BIN        = 'curl';
-my @CURL_ARGS       = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '600');
+my @CURL_ARGS       = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '1800');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 5000;
 my $DRIFT_TOLERANCE = 2;
