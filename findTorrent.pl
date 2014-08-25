@@ -712,6 +712,13 @@ foreach my $tor (@tors) {
 			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'title'} . "\n";
 		}
 		next;
+
+		# Skip unedited files
+	} elsif ($tor->{'title'} =~ /unedited/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "unedited": ' . $tor->{'title'} . "\n";
+		}
+		next;
 	}
 
 	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
