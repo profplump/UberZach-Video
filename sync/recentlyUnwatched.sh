@@ -2,8 +2,8 @@
 
 HOST="http://pms.uberzach.com:32400"
 CURL_OPTS=(--silent --connect-timeout 5 --max-time 30)
-NUM_SERIES=15
-NUM_EPISODES=6
+NUM_SERIES=20
+NUM_EPISODES=8
 MAX_RESULTS=100
 
 # Select a configuration mode
