@@ -36,19 +36,21 @@ if [ ! -d "${TMPDIR}" ]; then
 fi
 
 # Check and write the run file
-PID_FILE="${TMPDIR}/syncUnwatched.pid"
-if [ -f "${PID_FILE}" ]; then
-	PID=`cat "${PID_FILE}"`
-	if ps auwx | grep -v grep | grep "`basename "${0}"`" | grep -q "${PID}"; then
-		if [ $DEBUG -gt 0 ]; then
-			echo "Already running: ${PID}" 1>&2
-			exit -1
-		else
-			exit 0
+if [ -z "${NO_PID}" ]; then
+	PID_FILE="${TMPDIR}/syncUnwatched.pid"
+	if [ -f "${PID_FILE}" ]; then
+		PID=`cat "${PID_FILE}"`
+		if ps auwx | grep -v grep | grep "`basename "${0}"`" | grep -q "${PID}"; then
+			if [ $DEBUG -gt 0 ]; then
+				echo "Already running: ${PID}" 1>&2
+				exit -1
+			else
+				exit 0
+			fi
 		fi
 	fi
+	echo $$ > "${PID_FILE}"
 fi
-echo $$ > "${PID_FILE}"
 
 # Construct directories
 DEST_DIR="${BASE_DIR}/${DIR}"
@@ -99,4 +101,6 @@ done
 find "${DEST_DIR}" -type d -empty -delete
 
 # Cleanup
-rm -f "${PID_FILE}"
+if [ -n "${PID_FILE}" ]; then
+	rm -f "${PID_FILE}"
+fi
