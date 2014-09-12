@@ -93,7 +93,7 @@ IFS=$'\n'
 MIN_AGE="`date -v -1H +%s`"
 for i in $OLD_FILES; do
 	# Skip files under 1H old to avoid churn and provide a no-delete signal for other conditions (e.g. filename encoding)
-	STAT="`stat -f '%m' "${BASE_DIR}/${i}" >/dev/null 2>&1`"
+	STAT="`stat -f '%m' "${BASE_DIR}/${i}" 2>/dev/null`"
 	if [ -z "${STAT}" ]; then
 		STAT=1
 	fi
