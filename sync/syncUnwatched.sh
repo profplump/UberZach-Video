@@ -90,7 +90,17 @@ done
 
 # Delete anything leftover
 IFS=$'\n'
+MIN_AGE="`date -v -1H +%s`"
 for i in $OLD_FILES; do
+	# Skip files under 1H old to avoid churn and provide a no-delete signal for other conditions (e.g. filename encoding)
+	if [ `stat -f '%m' "${BASE_DIR}/${i}"` -ge $MIN_AGE ]; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Will skip due to minimum age: ${BASE_DIR}/${i}"
+		fi
+		continue
+	fi
+
+	# Delete if set to sync
 	if [ $DEBUG -gt 0 ]; then
 		echo "Will delete: ${BASE_DIR}/${i}"
 	fi

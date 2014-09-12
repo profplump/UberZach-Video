@@ -98,5 +98,18 @@ for infile in $FILES; do
 	fi
 
 	# Encode things that do not
-	~/bin/video/encode.pl "${IN_DIR}/${infile}"
+	ERR="`~/bin/video/encode.pl "${IN_DIR}/${infile}" 2>&1`"
+
+	# If the singular output error is "already exists" assume the error is related to filename encoding
+	# Suppress the error and touch the output file to prevent it from being deleted
+	if [ -n "${ERR}" ] && \
+		[ `echo "${ERR}" | wc -l` -eq 1 ] && \
+		echo "${ERR}" | grep -q 'encode.pl: Output file exists: '; then
+			OUTFILE="`echo "${ERR}" | \
+				sed 's%encode.pl: Output file exists: %%' | \
+				sed 's%. Skipping...%%'`"
+			touch "${OUTFILE}"
+	else
+		echo "${ERR}" 1>&2
+	fi
 done
