@@ -2,7 +2,8 @@
 
 # Parameters
 TARGET="Heady"
-BASE_DIR="`~/bin/video/mediaPath`/${TARGET}"
+MEDIA_PATH="`~/bin/video/mediaPath`"
+BASE_DIR="${MEDIA_PATH}/${TARGET}"
 
 # Environmental parameters
 if [ "${DEBUG}" ]; then
@@ -67,10 +68,10 @@ fi
 # Figure out what we already have
 OLD_FILES="`find "${DEST_DIR}" -type f | sed "s%^${BASE_DIR}/%%"`"
 
-# Allow special files
-EXTRAS="`cat ~/.sync_extras`"
+# Always include special files
 IFS=$'\n'
-for i in $EXTRAS; do
+for i in `cat ~/.sync_extras`; do
+	~/bin/video/sync/sync.sh "${MEDIA_PATH}/${i}"*
 	OLD_FILES="`echo "${OLD_FILES}" | grep -v "^${i}"`"
 done
 
