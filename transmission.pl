@@ -525,24 +525,32 @@ sub processFile($$) {
 		print STDERR 'Attempting to process file: ' . basename($file) . "\n";
 	}
 
-	# Guess a file extension
+	# Guess a file extension and basename
 	my $ext = &guessExt($file);
+	my $filename = basename($file);
 
 	# Delete WMV files -- mostly viruses
 	if ($ext =~ /wmv/i) {
-		print STDERR 'Declining to save WMV file: ' . basename($file) . "\n";
+		print STDERR 'Declining to save WMV file: ' . $filename . "\n";
 		return -1;
 	}
 
 	# Delete ZIP files -- mostly fake
 	if ($ext =~ /zip/i) {
-		print STDERR 'Declining to save ZIP file: ' . basename($file) . "\n";
+		print STDERR 'Declining to save ZIP file: ' . $filename . "\n";
 		return -1;
 	}
 
+	# Skip RARBG.com files with success code -- always extra but not a problem
+	if ($filename =~ /RARBG\.com/i) {
+		if ($DEBUG) {
+			print STDERR 'Declining to save RARBG.com file: ' . $filename . "\n";
+		}
+		return 1;
+	}
+
 	# Allow multiple guesses at the series/season/episode
-	my $dest     = '';
-	my $filename = basename($file);
+	my $dest = '';
 	LOOP: {
 
 		# Determine the series, season, and episode number
