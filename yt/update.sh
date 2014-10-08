@@ -15,7 +15,8 @@ echo $$ > "${PID_FILE}"
 
 # Execute
 find "${MEDIA_PATH}/YouTube" -maxdepth 1 -mindepth 1 -type d \
-	-exec ~/bin/video/yt/subscribe.pl {} \;
+	-exec ~/bin/video/yt/subscribe.pl {} \; 2>&1 | \
+	grep -v 'Invalid content from URL:'
 
 # Cleanup
 rm -f "${PID_FILE}"
