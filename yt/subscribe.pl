@@ -704,7 +704,7 @@ sub findVideos($) {
 
 		# Loop if there are results left to fetch
 		$index += $BATCH_SIZE;
-		if (defined($itemCount) && $itemCount > $index) {
+		if (defined($itemCount) && $itemCount >= $index) {
 
 			# But don't go past the max supported index
 			if ($index <= $MAX_INDEX) {
