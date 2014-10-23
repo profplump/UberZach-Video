@@ -13,6 +13,7 @@ fi
 
 # Config
 HOST="vera.uberzach.com"
+TIMEOUT=10
 SHARE="media"
 LOCK="${TMPDIR}/mountMedia.mounting"
 REMOTE_USER="${USER}"
@@ -75,7 +76,7 @@ if [ $LOCAL_LINK -eq 0 ] && ~/bin/video/isMediaMounted; then
 fi
 
 # Check for connectivity and server live-ness
-if ! ~/bin/video/timeout -t 2 nc -z "${HOST}" 139 >/dev/null 2>&1; then
+if ! ~/bin/video/timeout -t "${TIMEOUT}" nc -z "${HOST}" 139 >/dev/null 2>&1; then
 	echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
 	OFFLINE=1
 fi
