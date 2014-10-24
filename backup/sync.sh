@@ -11,7 +11,7 @@ if [ -z "${BASE_LOCAL}" ]; then
 	BASE_LOCAL="`~/bin/video/mediaPath`"
 fi
 if [ -z "${BASE_REMOTE}" ]; then
-	BASE_REMOTE="/Volumes/Bitcasa Infinite Drive"
+	BASE_REMOTE="/Volumes/webdav.opendrive.com"
 fi
 
 # Command-line arguments
