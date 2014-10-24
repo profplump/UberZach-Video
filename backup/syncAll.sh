@@ -30,15 +30,15 @@ else
 fi
 
 # Fast updates for previously-synced paths
+"${SYNC_BIN}" iTunes/iTunes\ Music 100
+"${SYNC_BIN}" DMX 100
+"${SYNC_BIN}" School 100
+"${SYNC_BIN}" YouTube 50
 
 # Slower updates for recently added paths
 "${SYNC_BIN}" Backups 5
-"${SYNC_BIN}" DMX 10
-"${SYNC_BIN}" iTunes/iTunes\ Music 10
-"${SYNC_BIN}" School 10
 "${SYNC_BIN}" Movies 5
 "${SYNC_BIN}" TV 5
-"${SYNC_BIN}" YouTube 50
 
 # Always exit cleanly
 rm -f "${PID_FILE}"
