@@ -11,7 +11,7 @@ if [ -z "${BASE_LOCAL}" ]; then
 	BASE_LOCAL="`~/bin/video/mediaPath`"
 fi
 if [ -z "${BASE_REMOTE}" ]; then
-	BASE_REMOTE="/mnt/opendrive"
+	BASE_REMOTE="/mnt/remote/opendrive"
 fi
 
 # Command-line arguments
