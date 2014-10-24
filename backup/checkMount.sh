@@ -31,7 +31,7 @@ if [ $FAILED -gt 0 ]; then
 	fi
 
 	DASH_NAME="`echo "${BASE_REMOTE}" | cut -d '/' -f 2- | sed 's%/%-%g'`"
-	PID=`ps a -o pid=,command= | grep "${BASE_REMOTE}" | awk '{print $1}'`
+	PID=`ps a -o pid=,command= | grep 'mount.davfs' | grep "${BASE_REMOTE}" | awk '{print $1}'`
 	if [ -n "${PID}" ] && [ $PID -gt 1 ]; then
 		${SUDO} kill -9 $PID
 		${SUDO} umount "${BASE_REMOTE}"
