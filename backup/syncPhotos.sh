@@ -11,10 +11,15 @@ if [ ! -d "${BASE_REMOTE}" ]; then
 fi
 if [ ! -d "${BASE_REMOTE}/${TARGET}" ]; then
 	MOUNTED_REMOTE=1
-	if ! mount_webdav -s https://webdav.opendrive.com "${BASE_REMOTE}"; then
-		echo "Unable to mount remote drive" 1>&2
-		exit 1
-	fi
+	FAIL_COUNT=0
+	while ! mount_webdav -s https://webdav.opendrive.com "${BASE_REMOTE}"; do
+		if [ $FAIL_COUNT -gt 5 ]; then
+			echo "Unable to mount remote drive" 1>&2
+			exit 1
+		fi
+		FAIL_COUNT=$(( $FAIL_COUNT + 1 ))
+		sleep 5
+	done
 fi
 
 # Mount th local drive if needed
