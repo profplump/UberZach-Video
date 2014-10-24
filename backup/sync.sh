@@ -11,7 +11,7 @@ if [ -z "${BASE_LOCAL}" ]; then
 	BASE_LOCAL="`~/bin/video/mediaPath`"
 fi
 if [ -z "${BASE_REMOTE}" ]; then
-	BASE_REMOTE="/Volumes/webdav.opendrive.com"
+	BASE_REMOTE="/mnt/opendrive"
 fi
 
 # Command-line arguments
@@ -75,7 +75,7 @@ fi
 # Limit files by mtime, but include all directories
 TMP_LOCAL="`mktemp -t sync.local.XXXXXXXX`"
 TMP_LOCAL2="`mktemp -t sync.local2.XXXXXXXX`"
-(cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type f -mtime "+${DELAY_DAYS}d" > "${TMP_LOCAL2}")
+(cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type f -mtime "+${DELAY_DAYS}" > "${TMP_LOCAL2}")
 (cd "${BASE_LOCAL}" && find "${SUB_DIR}" -type d >> "${TMP_LOCAL2}")
 cat "${TMP_LOCAL2}" | sort > "${TMP_LOCAL}"
 
