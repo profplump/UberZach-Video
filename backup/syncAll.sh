@@ -20,7 +20,7 @@ if [ ! -d "${TMPDIR}" ]; then
 fi
 
 # Bail if we're already running
-PID_FILE="${TMPDIR}/syncAll.pid"
+PID_FILE="${TMPDIR}/`basename "${0}"`.pid"
 touch "${PID_FILE}"
 read SYNC_PID < "${PID_FILE}"
 if [ -n "${SYNC_PID}" ] && ps -A -o pid | grep -q "${SYNC_PID}"; then
@@ -39,21 +39,6 @@ fi
 "${SYNC_BIN}" Movies 5
 "${SYNC_BIN}" TV 5
 "${SYNC_BIN}" YouTube 50
-
-# If iPhoto is available back it up too
-if compgen -c hdiutil > /dev/null 2>&1; then
-	MOUNTED=0
-	if [ ! -d /Volumes/iPhoto ]; then
-		MOUNTED=1
-		hdiutil attach -readonly /mnt/media/Pictures/iPhoto.sparsebundle >/dev/null 2>&1
-	fi
-	if [ -d /Volumes/iPhoto ]; then
-		BASE_LOCAL="/Volumes/iPhoto" "${SYNC_BIN}" Shared.photolibrary 1000
-		if [ $MOUNTED -gt 0 ]; then
-			hdiutil detach /Volumes/iPhoto >/dev/null 2>&1
-		fi
-	fi
-fi
 
 # Always exit cleanly
 rm -f "${PID_FILE}"
