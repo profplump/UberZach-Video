@@ -6,9 +6,15 @@ TARGET="Shared.photolibrary"
 
 # Mount the remote drive if needed
 MOUNTED_REMOTE=0
+# Mount point exists but is unreadable, so kill it
+if [ -e "${BASE_REMOTE}" ] && [ ! -d "${BASE_REMOTE}" ]; then
+	umount "${BASE_REMOTE}"
+fi
+# Mount point does not exist
 if [ ! -d "${BASE_REMOTE}" ]; then
 	mkdir "${BASE_REMOTE}"
 fi
+# Drive not mounted
 if [ ! -d "${BASE_REMOTE}/${TARGET}" ]; then
 	MOUNTED_REMOTE=1
 	FAIL_COUNT=0
