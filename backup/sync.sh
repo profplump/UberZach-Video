@@ -1,14 +1,11 @@
 #!/bin/bash
 
-# Ensure the media share is mounted
-if ! ~/bin/video/isMediaMounted; then
-	echo 'Media share not available' 1>&2
-	exit 1
-fi
-
 # Config
+if [ -z "${VIDEO_DIR}" ]; then
+	VIDEO_DIR="${HOME}/bin/video"
+fi
 if [ -z "${BASE_LOCAL}" ]; then
-	BASE_LOCAL="`~/bin/video/mediaPath`"
+	BASE_LOCAL="`${VIDEO_DIR}/mediaPath`"
 fi
 if [ -z "${BASE_REMOTE}" ]; then
 	BASE_REMOTE="/mnt/remote/opendrive"
@@ -34,7 +31,7 @@ if [ -z "${SUB_DIR}" ] || [ $NUM_FILES -lt 1 ] || [ $DELAY_DAYS -lt 1 ]; then
 fi
 
 # Bail if the load is high
-if ! ~/bin/video/checkLoad.sh; then
+if ! "${VIDEO_DIR}/checkLoad.sh"; then
 	exit 0
 fi
 
