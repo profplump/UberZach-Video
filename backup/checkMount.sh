@@ -5,20 +5,27 @@ if [ -z "${BASE_REMOTE}" ]; then
 	BASE_REMOTE="/mnt/remote/opendrive"
 fi
 WC="${BASE_REMOTE}/.live_check"
+TIMEOUT=20
 
 # State
 FAILED=0
 
-# Check
-touch "${WC}" >/dev/null 2>&1
-if [ ! -e "${WC}" ]; then
-	FAILED=1
+# Stat check
+if [ $FAILED -lt 1 ]; then
+	if ! timeout "${TIMEOUT}" ls "${BASE_REMOTE}" >/dev/null 2>&1; then
+		FAILED=1
+	fi
 fi
 
-# Re-check (and cleanup)
-rm -f "${WC}" >/dev/null 2>&1
+# Write check
 if [ $FAILED -lt 1 ]; then
-	if [ -e "${WC}" ]; then
+	timeout "${TIMEOUT}" touch "${WC}" >/dev/null 2>&1
+	if [ ! -e "${WC}" ]; then
+		FAILED=1
+	fi
+
+	timeout "${TIMEOUT}" rm -f "${WC}" >/dev/null 2>&1
+	if [ $FAILED -lt 1 ] && [ -e "${WC}" ]; then
 		FAILED=1
 	fi
 fi
@@ -31,7 +38,7 @@ if [ $FAILED -gt 0 ]; then
 	fi
 
 	DASH_NAME="`echo "${BASE_REMOTE}" | cut -d '/' -f 2- | sed 's%/%-%g'`"
-	PID=`ps a -o pid=,command= | grep 'mount.davfs' | grep "${BASE_REMOTE}" | awk '{print $1}'`
+	PID=`ps ax -o pid=,command= | grep 'mount.davfs' | grep "${BASE_REMOTE}" | awk '{print $1}'`
 	if [ -n "${PID}" ] && [ $PID -gt 1 ]; then
 		echo 'Resetting WebDAV mount' 1>&2
 
