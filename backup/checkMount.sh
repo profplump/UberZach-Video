@@ -33,9 +33,16 @@ if [ $FAILED -gt 0 ]; then
 	DASH_NAME="`echo "${BASE_REMOTE}" | cut -d '/' -f 2- | sed 's%/%-%g'`"
 	PID=`ps a -o pid=,command= | grep 'mount.davfs' | grep "${BASE_REMOTE}" | awk '{print $1}'`
 	if [ -n "${PID}" ] && [ $PID -gt 1 ]; then
+		echo 'Resetting WebDAV mount' 1>&2
+
 		${SUDO} kill -9 $PID
 		${SUDO} umount "${BASE_REMOTE}"
 		${SUDO} rm "/var/run/mount.davfs/${DASH_NAME}.pid"
 		${SUDO} mount "${BASE_REMOTE}"
+
+		exit 1
 	fi
 fi
+
+# Always exit cleanly
+exit 0
