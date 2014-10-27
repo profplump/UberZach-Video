@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Config
-SYNC_BIN="${HOME}/bin/video/backup/sync.sh"
+VIDEO_DIR="${HOME}/bin/video"
 
 # Bail silently if ~/.archive_disable exists
 if [ -e ~/.archive_disable ]; then
@@ -29,16 +29,19 @@ else
 	echo $$ > "${PID_FILE}"
 fi
 
+# Ensure the drive is available
+"${VIDEO_DIR}/backup/checkMount.sh"
+
 # Fast updates for previously-synced paths
-"${SYNC_BIN}" iTunes/iTunes\ Music 100
-"${SYNC_BIN}" DMX 100
-"${SYNC_BIN}" School 100
-"${SYNC_BIN}" YouTube 50
+"${VIDEO_DIR}/backup/sync.sh" iTunes/iTunes\ Music 100
+"${VIDEO_DIR}/backup/sync.sh" DMX 100
+"${VIDEO_DIR}/backup/sync.sh" School 100
+"${VIDEO_DIR}/backup/sync.sh" YouTube 50
 
 # Slower updates for recently added paths
-"${SYNC_BIN}" Backups 5
-"${SYNC_BIN}" Movies 5
-"${SYNC_BIN}" TV 5
+"${VIDEO_DIR}/backup/sync.sh" Backups 5
+"${VIDEO_DIR}/backup/sync.sh" Movies 5
+"${VIDEO_DIR}/backup/sync.sh" TV 5
 
 # Always exit cleanly
 rm -f "${PID_FILE}"
