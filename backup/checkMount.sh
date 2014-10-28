@@ -42,7 +42,7 @@ if [ $FAILED -gt 0 ]; then
 
 	echo 'Resetting WebDAV mount' 1>&2
 
-	if [ -n "${PID}" ] && [ $PID -gt 1 ]; then
+	if [ -n "${PID}" ]; then
 		${SUDO} kill -9 $PID
 	fi
 
