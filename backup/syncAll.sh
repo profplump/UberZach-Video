@@ -8,6 +8,9 @@ if [ -e ~/.archive_disable ]; then
 	exit 0
 fi
 
+# Ensure the remote drive is available
+"${VIDEO_DIR}/backup/checkMount.sh"
+
 # Ensure we have a valid TMPDIR
 if [ ! -d "${TMPDIR}" ]; then
         TMPDIR="`getconf DARWIN_USER_TEMP_DIR 2>/dev/null`"
@@ -28,9 +31,6 @@ if [ -n "${SYNC_PID}" ] && ps -A -o pid | grep -q "${SYNC_PID}"; then
 else
 	echo $$ > "${PID_FILE}"
 fi
-
-# Ensure the remote drive is available
-"${VIDEO_DIR}/backup/checkMount.sh"
 
 # Fast updates for previously-synced paths
 "${VIDEO_DIR}/backup/sync.sh" iTunes/iTunes\ Music 100
