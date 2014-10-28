@@ -66,7 +66,7 @@ fi
 
 # Create the named subdirectory if it does not exist on the remote drive
 if [ ! -d "${BASE_REMOTE}/${SUB_DIR}" ]; then
-	mkdir -p "${BASE_REMOTE}/${SUB_DIR}"
+	timeout "${TIMEOUT}" mkdir -p "${BASE_REMOTE}/${SUB_DIR}"
 fi
 
 # Grab and sort the local file list
@@ -79,7 +79,7 @@ cat "${TMP_LOCAL2}" | sort > "${TMP_LOCAL}"
 
 # Grab and sort the remote file list
 TMP_REMOTE="`mktemp -t sync.remote.XXXXXXXX`"
-(cd "${BASE_REMOTE}" && find "${SUB_DIR}" | sort > "${TMP_REMOTE}")
+(timeout "${TIMEOUT}" cd "${BASE_REMOTE}" && timeout "$(( $TIMEOUT * 10 ))" find "${SUB_DIR}" | sort > "${TMP_REMOTE}")
 
 # Diff to find the first mis-matched file, then drop out temp files
 TMP_DIFF="`mktemp -t sync.diff.XXXXXXXX`"
