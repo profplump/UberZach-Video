@@ -9,10 +9,15 @@ fi
 if [ -z "${BASE_REMOTE}" ]; then
 	BASE_REMOTE="`"${VIDEO_DIR}/backup/remoteDir.sh"`"
 fi
-WC="${BASE_REMOTE}/.live_check"
 
 # State
 FAILED=0
+
+# Command-line options
+WC="${BASE_REMOTE}/.live_check"
+if [ -n "${1}" ]; then
+	WC="${BASE_REMOTE}/${1}/.write_check"
+fi
 
 # Stat check
 if [ $FAILED -lt 1 ]; then
@@ -61,9 +66,13 @@ if [ $FAILED -gt 0 ]; then
 			${SUDO} kill -9 $PID
 		fi
 
+		if [ "`mount | awk '$3 == "'"${BASE_REMOTE}"'" { print $3 }'`" == "${BASE_REMOTE}" ]; then
+			${SUDO} umount "${BASE_REMOTE}"
+		fi
+
 		DASH_NAME="`echo "${BASE_REMOTE}" | cut -d '/' -f 2- | sed 's%/%-%g'`"
-		${SUDO} umount "${BASE_REMOTE}"
 		${SUDO} rm -f "/var/run/mount.davfs/${DASH_NAME}.pid"
+
 		${SUDO} mount "${BASE_REMOTE}"
 	fi
 

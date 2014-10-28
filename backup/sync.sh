@@ -52,21 +52,16 @@ if [ ! -d "${BASE_REMOTE}" ]; then
 fi
 
 # Ensure we can actually write to the remote drive
-WC="${BASE_REMOTE}/.write_check"
-timeout "${TIMEOUT}" touch "${WC}" >/dev/null 2>&1
-if [ ! -e "${WC}" ]; then
-	echo "Remote drive not writable" 1>&2
-	exit 1
-fi
-timeout "${TIMEOUT}" rm -f "${WC}" >/dev/null 2>&1
-if [ -e "${WC}" ]; then
-	echo "Remote drive not writable" 1>&2
+if ! "${VIDEO_DIR}/backup/checkMount.sh"; then
 	exit 1
 fi
 
 # Create the named subdirectory if it does not exist on the remote drive
 if [ ! -d "${BASE_REMOTE}/${SUB_DIR}" ]; then
-	timeout "${TIMEOUT}" mkdir -p "${BASE_REMOTE}/${SUB_DIR}"
+	timeout "${TIMEOUT}" mkdir -p "${BASE_REMOTE}/${SUB_DIR}" >/dev/null 2>&1
+	"${VIDEO_DIR}/backup/checkMount.sh" > /dev/null 2>&1 &
+	echo "Remote drive not in-sync" 1>&2
+	exit 1
 fi
 
 # Grab and sort the local file list
@@ -79,7 +74,16 @@ cat "${TMP_LOCAL2}" | sort > "${TMP_LOCAL}"
 
 # Grab and sort the remote file list
 TMP_REMOTE="`mktemp -t sync.remote.XXXXXXXX`"
-(timeout "${TIMEOUT}" cd "${BASE_REMOTE}" && timeout "$(( $TIMEOUT * 10 ))" find "${SUB_DIR}" | sort > "${TMP_REMOTE}")
+timeout $(( $TIMEOUT * 10 )) bash -c "
+	cd \"${BASE_REMOTE}\" && \
+	find \"${SUB_DIR}\" | \
+	sort > \"${TMP_REMOTE}\" \
+" 2>/dev/null
+if [ ! -s "${TMP_REMOTE}" ]; then
+	"${VIDEO_DIR}/backup/checkMount.sh" "${SUB_DIR}" > /dev/null 2>&1 &
+	echo "Remote drive not readable" 1>&2
+	exit 1
+fi
 
 # Diff to find the first mis-matched file, then drop out temp files
 TMP_DIFF="`mktemp -t sync.diff.XXXXXXXX`"
