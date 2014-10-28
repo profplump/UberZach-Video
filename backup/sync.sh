@@ -135,7 +135,11 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 			timeout "${TIMEOUT}" mkdir "${PATH_REMOTE}"
 		elif [ -f "${PATH_LOCAL}" ] && [ -r "${PATH_LOCAL}" ]; then
 			echo "Copying: ${FILE}"
-			cp "${BASE_LOCAL}/${FILE}" "${BASE_REMOTE}/${FILE}"
+			if ! cp "${BASE_LOCAL}/${FILE}" "${BASE_REMOTE}/${FILE}"; then
+				echo "Copy failed" 1>&2
+				timeout "${TIMEOUT}" rm -f "${BASE_REMOTE}/${FILE}"
+				exit 2
+			fi
 		else
 			echo "Unable to copy file: ${FILE}" 1>&2
 			exit 2
