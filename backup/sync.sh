@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Config
+TIMEOUT=20
 if [ -z "${VIDEO_DIR}" ]; then
 	VIDEO_DIR="${HOME}/bin/video"
 fi
@@ -52,12 +53,12 @@ fi
 
 # Ensure we can actually write to the remote drive
 WC="${BASE_REMOTE}/.write_check"
-touch "${WC}" >/dev/null 2>&1
+timeout "${TIMEOUT}" touch "${WC}" >/dev/null 2>&1
 if [ ! -e "${WC}" ]; then
 	echo "Remote drive not writable" 1>&2
 	exit 1
 fi
-rm -f "${WC}" >/dev/null 2>&1
+timeout "${TIMEOUT}" rm -f "${WC}" >/dev/null 2>&1
 if [ -e "${WC}" ]; then
 	echo "Remote drive not writable" 1>&2
 	exit 1
@@ -115,10 +116,10 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 			true
 		elif [ -d "${PATH_REMOTE}" ]; then
 			echo "Removing directory: ${FILE}"
-			rmdir "${PATH_REMOTE}"
+			timeout "${TIMEOUT}" rmdir "${PATH_REMOTE}"
 		elif [ -f "${PATH_REMOTE}" ]; then
 			echo "Deleting file: ${FILE}"
-			rm "${PATH_REMOTE}"
+			timeout "${TIMEOUT}" rm "${PATH_REMOTE}"
 		else
 			echo "Unable to delete file: ${FILE}" 1>&2
 			exit 2
@@ -131,7 +132,7 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 			exit 2
 		elif [ -d "${PATH_LOCAL}" ]; then
 			echo "Creating directory: ${FILE}"
-			mkdir "${PATH_REMOTE}"
+			timeout "${TIMEOUT}" mkdir "${PATH_REMOTE}"
 		elif [ -f "${PATH_LOCAL}" ] && [ -r "${PATH_LOCAL}" ]; then
 			echo "Copying: ${FILE}"
 			cp "${BASE_LOCAL}/${FILE}" "${BASE_REMOTE}/${FILE}"
