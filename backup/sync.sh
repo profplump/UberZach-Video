@@ -59,7 +59,7 @@ fi
 # Create the named subdirectory if it does not exist on the remote drive
 if [ ! -d "${BASE_REMOTE}/${SUB_DIR}" ]; then
 	timeout "${TIMEOUT}" mkdir -p "${BASE_REMOTE}/${SUB_DIR}" >/dev/null 2>&1
-	"${VIDEO_DIR}/backup/checkMount.sh" > /dev/null 2>&1 &
+	"${VIDEO_DIR}/backup/checkMount.sh" "${SUB_DIR}" > /dev/null 2>&1 &
 	echo "Remote drive not in-sync" 1>&2
 	exit 1
 fi
@@ -120,10 +120,10 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 			true
 		elif [ -d "${PATH_REMOTE}" ]; then
 			echo "Removing directory: ${FILE}"
-			timeout "${TIMEOUT}" rmdir "${PATH_REMOTE}"
+			timeout "${TIMEOUT}" rmdir "${PATH_REMOTE}" >/dev/null 2>&1
 		elif [ -f "${PATH_REMOTE}" ]; then
 			echo "Deleting file: ${FILE}"
-			timeout "${TIMEOUT}" rm "${PATH_REMOTE}"
+			timeout "${TIMEOUT}" rm "${PATH_REMOTE}" >/dev/null 2>&1
 		else
 			echo "Unable to delete file: ${FILE}" 1>&2
 			exit 2
@@ -136,12 +136,12 @@ for (( i=1; i<=${NUM_FILES}; i++ )); do
 			exit 2
 		elif [ -d "${PATH_LOCAL}" ]; then
 			echo "Creating directory: ${FILE}"
-			timeout "${TIMEOUT}" mkdir "${PATH_REMOTE}"
+			timeout "${TIMEOUT}" mkdir "${PATH_REMOTE}" >/dev/null 2>&1
 		elif [ -f "${PATH_LOCAL}" ] && [ -r "${PATH_LOCAL}" ]; then
 			echo "Copying: ${FILE}"
 			if ! cp "${BASE_LOCAL}/${FILE}" "${BASE_REMOTE}/${FILE}"; then
 				echo "Copy failed" 1>&2
-				timeout "${TIMEOUT}" rm -f "${BASE_REMOTE}/${FILE}"
+				timeout "${TIMEOUT}" rm -f "${BASE_REMOTE}/${FILE}" >/dev/null 2>&1
 				exit 2
 			fi
 		else
