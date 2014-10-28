@@ -8,7 +8,7 @@ if [ -z "${BASE_LOCAL}" ]; then
 	BASE_LOCAL="`${VIDEO_DIR}/mediaPath`"
 fi
 if [ -z "${BASE_REMOTE}" ]; then
-	BASE_REMOTE="/mnt/remote/opendrive"
+	BASE_REMOTE="`"${VIDEO_DIR}/backup/remoteDir.sh"`"
 fi
 
 # Command-line arguments

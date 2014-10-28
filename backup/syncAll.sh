@@ -29,7 +29,7 @@ else
 	echo $$ > "${PID_FILE}"
 fi
 
-# Ensure the drive is available
+# Ensure the remote drive is available
 "${VIDEO_DIR}/backup/checkMount.sh"
 
 # Fast updates for previously-synced paths
