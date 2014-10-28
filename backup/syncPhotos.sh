@@ -1,13 +1,12 @@
 #!/bin/bash
 
-# User config
+# Config
 export BASE_LOCAL="/Volumes/iPhoto"
 SOURCE_LOCAL="/mnt/media/Pictures/iPhoto.sparsebundle"
-SOURCE_REMOTE="https://webdav.opendrive.com"
 TARGET="Shared.photolibrary"
-
-# App config
-SYNC_BIN="${HOME}/bin/video/backup/sync.sh"
+if [ -z "${VIDEO_DIR}" ]; then
+	VIDEO_DIR="${HOME}/bin/video"
+fi
 
 # Ensure the remote drive is available
 "${VIDEO_DIR}/backup/checkMount.sh"
@@ -21,7 +20,7 @@ fi
 
 # Backup if all went well
 if [ -d "${BASE_LOCAL}" ]; then
-	"${SYNC_BIN}" "${TARGET}" 1000
+	"${VIDEO_DIR}/backup/sync.sh" "${TARGET}" 1000
 fi
 
 # Detach the local drive if we mounted it
