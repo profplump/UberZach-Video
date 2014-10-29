@@ -66,7 +66,7 @@ if [ $FAILED -gt 0 ]; then
 			${SUDO} kill -9 $PID
 		fi
 
-		if [ "`mount | awk '$3 == "'"${BASE_REMOTE}"'" { print $3 }'`" == "${BASE_REMOTE}" ]; then
+		if mount | awk '$3 == "'"${BASE_REMOTE}"'" { print $3 }' | grep -q "${BASE_REMOTE}"; then
 			${SUDO} umount "${BASE_REMOTE}"
 		fi
 
