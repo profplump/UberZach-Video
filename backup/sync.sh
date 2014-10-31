@@ -31,6 +31,11 @@ if [ -z "${SUB_DIR}" ] || [ $NUM_FILES -lt 1 ] || [ $DELAY_DAYS -lt 1 ]; then
 	exit 1
 fi
 
+# Ensure we can actually write to the remote drive
+if ! "${VIDEO_DIR}/backup/checkMount.sh" >/dev/null 2>&1; then
+	exit 0
+fi
+
 # Bail if the load is high
 if ! "${VIDEO_DIR}/checkLoad.sh"; then
 	exit 0
@@ -48,11 +53,6 @@ if [ ! -d "${BASE_LOCAL}/${SUB_DIR}" ]; then
 fi
 if [ ! -d "${BASE_REMOTE}" ]; then
 	echo "Remote drive not mounted" 1>&2
-	exit 1
-fi
-
-# Ensure we can actually write to the remote drive
-if ! "${VIDEO_DIR}/backup/checkMount.sh"; then
 	exit 1
 fi
 
