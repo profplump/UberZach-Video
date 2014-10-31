@@ -78,7 +78,7 @@ if [ $FAILED -gt 0 ]; then
 		# Clear the cache
 		CACHE_DIR="`${SUDO} find "${CACHE_BASE}" -maxdepth 1 -type d -name "*+${DASH_NAME}+${USER}"`"
 		if [ `echo "${CACHE_DIR}" | wc -l` -eq 1 ] && echo "${CACHE_DIR}" | grep -q "^${CACHE_BASE}"; then
-			${SUDO} rm -rf "${CACHE_DIR}"
+			${SUDO} rm -rf "${CACHE_DIR}" >/dev/null 2>&1
 		fi
 
 		# Re-mount
