@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Config
+TIMEOUT=20
 export BASE_LOCAL="/Volumes/iPhoto"
 SOURCE_LOCAL="/mnt/media/Pictures/iPhoto.sparsebundle"
 TARGET="Shared.photolibrary"
@@ -27,6 +28,9 @@ fi
 if [ -d "${BASE_LOCAL}" ] && [ $MOUNTED_LOCAL -gt 0 ]; then
 	hdiutil detach "${BASE_LOCAL}" >/dev/null 2>&1
 fi
+
+# Always ask the remote drive to detach. There is no other use.
+timeout "${TIMEOUT}" osascript -e 'tell application "OpenDrive" to quit' >/dev/null 2>&1
 
 # Always exit cleanly
 exit 0
