@@ -33,15 +33,15 @@ else
 fi
 
 # Fast updates for previously-synced paths
-"${VIDEO_DIR}/backup/sync.sh" iTunes/iTunes\ Music 100
-"${VIDEO_DIR}/backup/sync.sh" DMX 100
-"${VIDEO_DIR}/backup/sync.sh" School 100
-"${VIDEO_DIR}/backup/sync.sh" YouTube 50
 
 # Slower updates for recently added paths
-"${VIDEO_DIR}/backup/sync.sh" Backups 5
-"${VIDEO_DIR}/backup/sync.sh" Movies 5
-"${VIDEO_DIR}/backup/sync.sh" TV 5
+"${VIDEO_DIR}/backup/sync.sh" iTunes/iTunes\ Music 10
+"${VIDEO_DIR}/backup/sync.sh" DMX 10
+"${VIDEO_DIR}/backup/sync.sh" School 1
+"${VIDEO_DIR}/backup/sync.sh" YouTube 4
+"${VIDEO_DIR}/backup/sync.sh" Backups 1
+"${VIDEO_DIR}/backup/sync.sh" Movies 1
+"${VIDEO_DIR}/backup/sync.sh" TV 1
 
 # Always exit cleanly
 rm -f "${PID_FILE}"
