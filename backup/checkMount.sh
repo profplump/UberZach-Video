@@ -2,6 +2,7 @@
 
 # Config
 TIMEOUT=20
+CACHE_BASE="/var/cache/davfs2"
 DARWIN_APP="/Applications/Zach/Internet/OpenDrive.app"
 if [ -z "${VIDEO_DIR}" ]; then
 	VIDEO_DIR="${HOME}/bin/video"
@@ -50,29 +51,37 @@ if [ $FAILED -gt 0 ]; then
 		fi
 
 		open "${DARWIN_APP}"
-
-		# WebDAV mount
-		#SOURCE_REMOTE="https://webdav.opendrive.com"
-		#mount_webdav -s "${SOURCE_REMOTE}" "${BASE_REMOTE}"
-
 	else
+		# Determine if we need sudo
 		SUOD=""
 		if [ $UID -gt 0 ]; then
 			SUDO="sudo"
 		fi
 
+		# Kill the daemon, if running
 		PID=`ps ax -o pid=,command= | grep -v grep | grep 'mount.davfs' | grep "${BASE_REMOTE}" | awk '{print $1}'`
 		if [ -n "${PID}" ]; then
-			${SUDO} kill -9 $PID
+			${SUDO} kill $PID
+			sleep 5
+			${SUDO} kill -9 $PID >/dev/null 2>&1
 		fi
 
+		# Umount, if mounted
 		if mount | awk '$3 == "'"${BASE_REMOTE}"'" { print $3 }' | grep -q "${BASE_REMOTE}"; then
 			${SUDO} umount "${BASE_REMOTE}"
 		fi
 
+		# Drop the PID file
 		DASH_NAME="`echo "${BASE_REMOTE}" | cut -d '/' -f 2- | sed 's%/%-%g'`"
 		${SUDO} rm -f "/var/run/mount.davfs/${DASH_NAME}.pid"
 
+		# Clear the cache
+		CACHE_DIR="`${SUDO} find "${CACHE_BASE}" -maxdepth 1 -type d -name "*+${DASH_NAME}+${USER}"`"
+		if [ `echo "${CACHE_DIR}" | wc -l` -eq 1 ] && echo "${CACHE_DIR}" | grep -q "^${CACHE_BASE}"; then
+			${SUDO} rm -rf "${CACHE_DIR}"
+		fi
+
+		# Re-mount
 		${SUDO} mount "${BASE_REMOTE}"
 	fi
 
