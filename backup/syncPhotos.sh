@@ -30,7 +30,7 @@ if [ -d "${BASE_LOCAL}" ] && [ $MOUNTED_LOCAL -gt 0 ]; then
 fi
 
 # Always ask the remote drive to detach. There is no other use.
-timeout "${TIMEOUT}" osascript -e 'tell application "OpenDrive" to quit' >/dev/null 2>&1
+timeout "${TIMEOUT}" osascript -e 'tell application "OpenDrive" to quit'
 
 # Always exit cleanly
 exit 0
