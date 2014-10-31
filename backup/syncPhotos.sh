@@ -10,7 +10,7 @@ if [ -z "${VIDEO_DIR}" ]; then
 fi
 
 # Ensure the remote drive is available
-"${VIDEO_DIR}/backup/checkMount.sh"
+"${VIDEO_DIR}/backup/checkMount.sh" >/dev/null 2>&1
 
 # Mount the local drive if needed
 MOUNTED_LOCAL=0
