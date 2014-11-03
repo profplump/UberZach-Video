@@ -88,46 +88,41 @@ foreach ($FILES as $FILE) {
 		unset($PARTS);
 
 		$TYPE = 'other';
-		if (is_dir($PATH)) {
+		if (preg_match('/\/\.git(\/.*)?$/', $PATH)) {
+			$TYPE = 'ignored';
+		} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
+			$TYPE = 'ignored';
+		} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'DS_Store' || 
+			preg_match('/^\.smbdelete/', $NAME)) {
+				$TYPE = 'ignored';
+		} else if (is_dir($PATH)) {
 			$TYPE = 'folder';
-			if ($EXT == 'git') {
-				$TYPE = 'ignored';
-			}
-		} else {
-			if (preg_match('/\/\.git\//', $PATH)) {
-				$TYPE = 'ignored';
-			} else if ($EXT == 'm4v' || $EXT == 'mkv' || $EXT == 'mp4' || $EXT == 'mov' ||
-				$EXT == 'vob' || $EXT == 'iso' || $EXT == 'avi') {
-					$TYPE = 'video';
-			} else if ($EXT == 'mp3' || $EXT == 'aac' || $EXT == 'm4a' || $EXT == 'm4b' ||
-				$EXT == 'm4p' || $EXT == 'wav') {
-					$TYPE = 'audio';
-			} else if ($EXT == 'epub' || $EXT == 'pdf') {
-				$TYPE = 'book';
-			} else if ($EXT == 'jpg' || $EXT == 'png') {
-				$TYPE = 'image';
-			} else if ($EXT == 'gz' || $EXT == 'zip' || $EXT == 'xz') {
-				$TYPE = 'archive';
-			} else if ($EXT == 'itc' || $EXT == 'itl' || $EXT == 'strings' || $EXT == 'itdb' ||
-				$EXT == 'plist' || $EXT == 'ipa' || $EXT == 'ini') {
-					$TYPE = 'database';
-			} else if ($EXT == 'clip' || $EXT == 'riff' || $EXT == 'nfo') {
+		} else if ($EXT == 'm4v' || $EXT == 'mkv' || $EXT == 'mp4' || $EXT == 'mov' ||
+			$EXT == 'vob' || $EXT == 'iso' || $EXT == 'avi') {
+				$TYPE = 'video';
+		} else if ($EXT == 'mp3' || $EXT == 'aac' || $EXT == 'm4a' || $EXT == 'm4b' ||
+			$EXT == 'm4p' || $EXT == 'wav') {
+				$TYPE = 'audio';
+		} else if ($EXT == 'epub' || $EXT == 'pdf') {
+			$TYPE = 'book';
+		} else if ($EXT == 'jpg' || $EXT == 'png') {
+			$TYPE = 'image';
+		} else if ($EXT == 'gz' || $EXT == 'zip' || $EXT == 'xz') {
+			$TYPE = 'archive';
+		} else if ($EXT == 'itc' || $EXT == 'itl' || $EXT == 'strings' || $EXT == 'itdb' ||
+			$EXT == 'plist' || $EXT == 'ipa' || $EXT == 'ini') {
+				$TYPE = 'database';
+		} else if ($EXT == 'clip' || $EXT == 'riff' || $EXT == 'nfo') {
+			$TYPE = 'metadata';
+		} else if ($EXT == 'webloc' || $NAME == 'skip' || $NAME == 'season_done' || 
+			$NAME == 'more_number_formats' || $NAME == 'no_quality_checks' ||
+			$NAME == 'filler' || $NAME == 'search_name' || $EXT == 'disabled' ||
+			$NAME == 'must_match' || $EXT == 'fakeshow' || $EXT == 'filler' ||
+			$NAME == 'excludes' || $NAME == 'search_by_date' || $EXT == 'twopart') { 
 				$TYPE = 'metadata';
-			} else if ($EXT == 'webloc' || $NAME == 'skip' || $NAME == 'season_done' || 
-				$NAME == 'more_number_formats' || $NAME == 'no_quality_checks' ||
-				$NAME == 'filler' || $NAME == 'search_name' || $EXT == 'disabled' ||
-				$NAME == 'must_match' || $EXT == 'fakeshow' || $EXT == 'filler' ||
-				$NAME == 'excludes' || $NAME == 'search_by_date' || $EXT == 'twopart') { 
-					$TYPE = 'metadata';
-			} else if ($EXT == 'fake' || $EXT == 'txt' || $EXT == 'json' ||
-				$EXT == 'bup' || $EXT == 'ifo') {
-					$TYPE = 'metadata';
-			} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
-				$TYPE = 'ignored';
-			} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'DS_Store' || 
-				preg_match('/^\.smbdelete/', $NAME)) {
-					$TYPE = 'ignored';
-			}
+		} else if ($EXT == 'fake' || $EXT == 'txt' || $EXT == 'json' ||
+			$EXT == 'bup' || $EXT == 'ifo') {
+				$TYPE = 'metadata';
 		}
 		if ($TYPE == 'other') {
 			die('Unknown file type: ' . $PATH . ': ' . $NAME . '^' . $EXT . "\n");
