@@ -34,20 +34,20 @@ function curlPost($url, $data) {
 	# Setup cURL
 	$ch = curl_init($API_BASE . $url);
 	curl_setopt_array($ch, array(
-	    CURLOPT_CAINFO => $CA_PATH,
-	    CURLOPT_POST => TRUE,
-	    CURLOPT_RETURNTRANSFER => TRUE,
-	    CURLOPT_HTTPHEADER => array(
-	        'Content-Type: application/json'
-	    ),
-	    CURLOPT_POSTFIELDS => json_encode($data)
+		CURLOPT_CAINFO => $CA_PATH,
+		CURLOPT_POST => true,
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_HTTPHEADER => array(
+			'Content-Type: application/json'
+		),
+		CURLOPT_POSTFIELDS => json_encode($data)
 	));
 
 	# Send the request
 	$response = curl_exec($ch);
 
 	# Check for errors
-	if($response === FALSE){
+	if ($response === FALSE){
 	    die(curl_error($ch));
 	}
 
@@ -61,8 +61,6 @@ function login() {
 	global $API_VERSION;
 	global $OD_USER;
 	global $OD_PASSWD;
-
-	# POST
 	$data = array(
 		'username' 	=> $OD_USER,
 		'passwd'	=> $OD_PASSWD,
@@ -79,14 +77,13 @@ function login() {
 
 # Logout of OpenDrive
 function logout($session) {
-	# POST
 	$data = array(
 		'session_id'	=> $session
 	);
 	$response = curlPost('/session/logout.json', $data);
 
 	# Check the result
-	if ($response['result'] == "true") {
+	if ($response['result'] == 'true') {
 		return true;
 	}
 	return false;
