@@ -26,6 +26,23 @@ function dbOpen() {
 	return $dbh;
 }
 
+# Cleanup a path for better matching at OpenDrive
+function pathCleanup($path) {
+	$path = preg_replace('/\/+$/', '', $path);
+	$path = preg_replace('/^\/+/', '', $path);
+	return $path;
+}
+
+# Return the clean parent path of a provided path
+function parentPath($path) {
+	return dirname(pathCleanup($path));
+}
+
+# Return the clean base name of a provided path
+function basePath($path) {
+	return basename(pathCleanup($path));
+}
+
 # POST the provided data to OpenDrive
 function curlPost($url, $data) {
 	global $API_BASE;
@@ -133,25 +150,32 @@ function folderID($session, $path) {
 	return false;
 }
 
-# Create a folder
-function mkFolder($session, $path) {
-	# Find the parent ID (if any)
-	$path = preg_replace('/\/+$/', '', $path);
-	$path = preg_replace('/^\/+/', '', $path);
-	$folder = basename($path);
-	$parent = dirname($path);
+# Find the parent ID for a given path
+function parentID($session, $path) {
+	$parent = parentPath($path);
+
 	$parentID = 0;
 	if ($parent != '.') {
 		$parentID = folderID($session, $parent);
-		if ($parentID === false) {
-			return false;
-		}
+	}
+	if ($parentID === false) {
+		return false;
+	}
+	return $parentID;
+}
+
+# Create a folder
+function mkFolder($session, $path) {
+	# Find the parent ID (if any)
+	$parentID = parentID($session, $path);
+	if ($parentID === false) {
+		return false;
 	}
 
 	# POST
 	$data = array(
 		'session_id'		=> $session,
-		'folder_name'		=> $folder,
+		'folder_name'		=> basePath($path),
 		'folder_sub_parent'	=> $parentID,
 		'folder_is_public'	=> 1
 	);
@@ -214,6 +238,16 @@ function fileInfo($session, $path) {
 		return($response);
 	}
 	return false;
+}
+
+# Upload the provided file to the given path
+function fileUpload($session, $path, $file) {
+	$data = array(
+		'session_id'	=> $session,
+		'folder_id'	=> $folderID,
+		'file_name'	=> $name,
+		'file_size'	=> $size
+	);
 }
 
 ?>
