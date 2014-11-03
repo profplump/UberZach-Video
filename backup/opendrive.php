@@ -30,10 +30,12 @@ function dbOpen() {
 function curlPost($url, $data) {
 	global $API_BASE;
 	global $CA_PATH;
+	global $DEBUG;
 
 	# Setup cURL
 	$ch = curl_init($API_BASE . $url);
 	curl_setopt_array($ch, array(
+		CURLOPT_VERBOSE => $DEBUG,
 		CURLOPT_CAINFO => $CA_PATH,
 		CURLOPT_POST => true,
 		CURLOPT_RETURNTRANSFER => true,
@@ -41,6 +43,33 @@ function curlPost($url, $data) {
 			'Content-Type: application/json'
 		),
 		CURLOPT_POSTFIELDS => json_encode($data)
+	));
+
+	# Send the request
+	$response = curl_exec($ch);
+
+	# Check for errors
+	if ($response === FALSE){
+	    die(curl_error($ch));
+	}
+
+	# Return
+	$responseData = json_decode($response, TRUE);
+	return($responseData);
+}
+
+# GET from OpenDrive
+function curlGet($url) {
+	global $API_BASE;
+	global $CA_PATH;
+	global $DEBUG;
+
+	# Setup cURL
+	$ch = curl_init($API_BASE . $url);
+	curl_setopt_array($ch, array(
+		CURLOPT_VERBOSE => $DEBUG,
+		CURLOPT_CAINFO => $CA_PATH,
+		CURLOPT_RETURNTRANSFER => true
 	));
 
 	# Send the request
@@ -89,7 +118,7 @@ function logout($session) {
 	return false;
 }
 
-# Return the ID of a folder path
+# Return the ID of a folder
 function folderID($session, $path) {
 	$data = array(
 		'session_id'	=> $session,
@@ -135,6 +164,7 @@ function mkFolder($session, $path) {
 	return false;
 }
 
+# Trash a folder
 function rmFolder($session, $path) {
 	$id = folderID($session, $path);
 	if (!$id) {
@@ -150,6 +180,38 @@ function rmFolder($session, $path) {
 	# Check the result
 	if ($response['DirUpdateTime']) {
 		return true;
+	}
+	return false;
+}
+
+# Return the ID of a file
+function fileID($session, $path) {
+	$data = array(
+		'session_id'	=> $session,
+		'path'		=> $path
+	);
+	$response = curlPost('/file/idbypath.json', $data);
+
+	# Check the result
+	if ($response['FileId']) {
+		return($response['FileId']);
+	}
+	return false;
+}
+
+# Return all file metadata
+function fileInfo($session, $path) {
+	$id = fileID($session, $path);
+	if (!$id) {
+		return false;
+	}
+
+	# GET
+	$response = curlGet('/file/info.json/' . $session . '/' . $id);
+
+	# Check the result
+	if ($response['FileId']) {
+		return($response);
 	}
 	return false;
 }
