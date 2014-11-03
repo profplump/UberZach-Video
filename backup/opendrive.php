@@ -360,13 +360,17 @@ function fileUpload($session, $path, $file) {
 		'file_size'	=> $stat['size']
 	);
 	$response = curlPost('/upload/close_file_upload.json', $data);
+
+	# Ignore 500 errors on close. It works anyway.
 	if ($response && !$response['DirUpdateTime']) {
 		if ($DEBUG) {
 			echo 'Unable to close: ' . $path . "\n";
 		}
 		return false;
 	}
-	return true;
+
+	# Return the file size on success
+	return $stat['size'];
 }
 
 ?>
