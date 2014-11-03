@@ -64,12 +64,12 @@ unlink($FIND);
 unset($FIND);
 
 # Prepare statements
-$select = $dbh->prepare('SELECT base, path, type, mtime, hash, hash_time FROM local WHERE base = :base AND path = :path');
-$insert = $dbh->prepare('INSERT INTO local (base, path, type, mtime) VALUES (:base, :path, :type, now())');
-$mtime = $dbh->prepare('SELECT EXTRACT(EPOCH FROM mtime) AS mtime FROM local WHERE base = :base AND path = :path');
-$set_mtime = $dbh->prepare('UPDATE local SET mtime = now() WHERE base = :base AND path = :path');
-$hash_time_check = $dbh->prepare('SELECT hash, EXTRACT(EPOCH FROM hash_time) AS hash_time FROM local WHERE base = :base AND path = :path AND (hash_time IS NULL OR EXTRACT(EPOCH FROM hash_time) < :mtime)');
-$set_hash = $dbh->prepare('UPDATE local SET hash = :hash, hash_time = now() WHERE base = :base AND path = :path');
+$select = $dbh->prepare('SELECT base, path, type, mtime, hash, hash_time FROM files WHERE base = :base AND path = :path');
+$insert = $dbh->prepare('INSERT INTO files (base, path, type, mtime) VALUES (:base, :path, :type, now())');
+$mtime = $dbh->prepare('SELECT EXTRACT(EPOCH FROM mtime) AS mtime FROM files WHERE base = :base AND path = :path');
+$set_mtime = $dbh->prepare('UPDATE files SET mtime = now() WHERE base = :base AND path = :path');
+$hash_time_check = $dbh->prepare('SELECT hash, EXTRACT(EPOCH FROM hash_time) AS hash_time FROM files WHERE base = :base AND path = :path AND (hash_time IS NULL OR EXTRACT(EPOCH FROM hash_time) < :mtime)');
+$set_hash = $dbh->prepare('UPDATE files SET hash = :hash, hash_time = now() WHERE base = :base AND path = :path');
 
 # Loop through all the files
 foreach ($FILES as $FILE) {
@@ -89,6 +89,8 @@ foreach ($FILES as $FILE) {
 
 		$TYPE = 'other';
 		if (preg_match('/\/\.git(\/.*)?$/', $PATH)) {
+			$TYPE = 'ignored';
+		} else if (preg_match('/\/\._/', $PATH)) {
 			$TYPE = 'ignored';
 		} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
 			$TYPE = 'ignored';
