@@ -33,6 +33,9 @@ fi
 "${VIDEO_DIR}/backup/scanLocal.php" TV
 "${VIDEO_DIR}/backup/scanLocal.php" YouTube
 
+# Set priorities
+"${VIDEO_DIR}/backup/priority.php"
+
 # Always exit cleanly
 rm -f "${PID_FILE}"
 exit 0

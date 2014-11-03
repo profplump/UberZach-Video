@@ -51,7 +51,7 @@ $folders = $dbh->prepare('SELECT base, path FROM files WHERE ' .
 $files = $dbh->prepare('SELECT base, path FROM files WHERE ' .
 	"(type != 'ignored' AND type != 'folder') AND " .
 	'(remote_mtime IS NULL OR remote_mtime < mtime) ' .
-	'ORDER BY base, path'
+	'ORDER BY priority, path'
 );
 $update = $dbh->prepare('UPDATE files SET remote_mtime = now() WHERE base = :base AND path = :path');
 
