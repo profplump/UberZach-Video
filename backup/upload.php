@@ -15,7 +15,7 @@ global $argc;
 global $argv;
 $BYTES = 1 * 1024 * 1024 * 1024;
 if (($argc > 1) && (strlen($argv[1]) > 0)) {
-	$BYTES = intval($argv[1]);
+	$BYTES = intval($argv[1]) * 1024 * 1024;
 }
 
 # Open the DB connection
