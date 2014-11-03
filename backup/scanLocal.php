@@ -1,6 +1,18 @@
 #!/usr/local/bin/php
 <?php
 
+# Debug
+$DEBUG = false;
+if ($_ENV['DEBUG']) {
+	$DEBUG = true;
+}
+
+# On-disk config
+require_once '.secrets';
+global $DSN;
+global $USER;
+global $PASSWD;
+
 # Command-line parameters
 global $argc;
 global $argv;
@@ -41,15 +53,17 @@ if (!file_exists($LOCAL) || !is_dir($LOCAL)) {
 
 # Open the DB connection
 try {
-	$dbh = new PDO('pgsql:dbname=backup', $_ENV{'USER'});
+	$dbh = new PDO($DSN, $USER, $PASSWD);
 } catch (PDOException $e) {
 	die('DB error: ' . $e->getMessage() . "\n");
 }
 
 # Grab the file list -- limit files by mtime, but include all directories
 $FIND=tempnam(sys_get_temp_dir(), 'scanLocal-find');
-exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR) . ' -type f -mtime +' . escapeshellarg($DELAY_DAYS) . ' > ' . escapeshellarg($FIND));
-exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR) . ' -type d >> ' . escapeshellarg($FIND));
+exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR) .
+	' -type f -mtime +' . escapeshellarg($DELAY_DAYS) . ' > ' . escapeshellarg($FIND));
+exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR) .
+	' -type d >> ' . escapeshellarg($FIND));
 
 # Sort
 $SORT=tempnam(sys_get_temp_dir(), 'scanLocal-sort');
@@ -168,7 +182,9 @@ foreach ($FILES as $FILE) {
 				die('Invalid hash (' . $HASH . ') for file: ' . $PATH . "\n");
 			}
 		} else {
-			echo 'Hash is up-to-date: ' . $PATH . "\n";
+			if ($DEBUG) {
+				echo 'Hash is up-to-date: ' . $PATH . "\n";
+			}
 		}
 	}
 }

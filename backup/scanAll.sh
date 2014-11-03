@@ -25,15 +25,15 @@ else
 fi
 
 # Scan all our local directories
-"${VIDEO_DIR}/backup/scanLocal.sh" Backups
-"${VIDEO_DIR}/backup/scanLocal.sh" DMX
-"${VIDEO_DIR}/backup/scanLocal.sh" iTunes
-"${VIDEO_DIR}/backup/scanLocal.sh" Movies
-"${VIDEO_DIR}/backup/scanLocal.sh" School
-"${VIDEO_DIR}/backup/scanLocal.sh" TV
-"${VIDEO_DIR}/backup/scanLocal.sh" YouTube
+"${VIDEO_DIR}/backup/scanLocal.php" Backups
+"${VIDEO_DIR}/backup/scanLocal.php" DMX
+"${VIDEO_DIR}/backup/scanLocal.php" iTunes
+"${VIDEO_DIR}/backup/scanLocal.php" Movies
+"${VIDEO_DIR}/backup/scanLocal.php" School
+"${VIDEO_DIR}/backup/scanLocal.php" TV
+"${VIDEO_DIR}/backup/scanLocal.php" YouTube
 
 # Always exit cleanly
 rm -f "${PID_FILE}"
 exit 0
-
+Ã
