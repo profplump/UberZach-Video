@@ -1,9 +1,12 @@
 <?php
 
 # Debug
-$DEBUG = false;
+$DEBUG = 0;
 if ($_ENV['DEBUG']) {
-	$DEBUG = true;
+	$DEBUG = intval($_ENV['DEBUG']);
+	if (!$DEBUG) {
+		$DEBUG = 1;
+	}
 }
 
 # On-disk config
@@ -12,6 +15,15 @@ require_once '.secrets';
 # Config
 $API_BASE = 'https://dev.opendrive.com/api/v1';
 $API_VERSION = 10;
+
+# PHP version support
+if (!function_exists('curl_file_create')) {
+	function curl_file_create($filename, $mimetype = '', $postname = '') {
+		return '@' . $filename . ';filename=' .
+		($postname ?: basename($filename)) .
+		($mimetype ? ';type=' . $mimetype : '');
+	}
+}
 
 # Open the DB connection
 function dbOpen() {
@@ -43,8 +55,7 @@ function basePath($path) {
 	return basename(pathCleanup($path));
 }
 
-# POST the provided data to OpenDrive
-function curlPost($url, $data) {
+function curlPostRaw($url, $data, $header = NULL) {
 	global $API_BASE;
 	global $CA_PATH;
 	global $DEBUG;
@@ -52,17 +63,27 @@ function curlPost($url, $data) {
 	# Setup cURL
 	$ch = curl_init($API_BASE . $url);
 	curl_setopt_array($ch, array(
-		CURLOPT_VERBOSE => $DEBUG,
 		CURLOPT_CAINFO => $CA_PATH,
 		CURLOPT_POST => true,
 		CURLOPT_RETURNTRANSFER => true,
-		CURLOPT_HTTPHEADER => array(
-			'Content-Type: application/json'
-		),
-		CURLOPT_POSTFIELDS => json_encode($data)
+		CURLOPT_POSTFIELDS => $data
 	));
+	if ($DEBUG >= 3) {
+		curl_setopt($ch, CURLOPT_VERBOSE, true);
+	}
+	if ($header != NULL) {
+		if (!is_array($header)) {
+			$header = array($header);
+		}
+		curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+	}
 
 	# Send the request
+	if ($DEBUG >= 2) {
+		echo "Request: \n";
+		print_r($data);
+		echo "\n";
+	}
 	$response = curl_exec($ch);
 
 	# Check for errors
@@ -71,7 +92,14 @@ function curlPost($url, $data) {
 	}
 
 	# Return
-	$responseData = json_decode($response, TRUE);
+	return($response);
+}
+
+# POST the provided data to OpenDrive
+function curlPost($url, $data) {
+	$data = json_encode($data);
+	$response = curlPostRaw($url, $data, 'Content-Type: application/json');
+	$responseData = json_decode($response, true);
 	return($responseData);
 }
 
@@ -84,12 +112,19 @@ function curlGet($url) {
 	# Setup cURL
 	$ch = curl_init($API_BASE . $url);
 	curl_setopt_array($ch, array(
-		CURLOPT_VERBOSE => $DEBUG,
 		CURLOPT_CAINFO => $CA_PATH,
 		CURLOPT_RETURNTRANSFER => true
 	));
+	if ($DEBUG >= 3) {
+		curl_setopt($ch, CURLOPT_VERBOSE, true);
+	}
 
 	# Send the request
+	if ($DEBUG >= 2) {
+		echo "Request: \n";
+		print_r($data);
+		echo "\n";
+	}
 	$response = curl_exec($ch);
 
 	# Check for errors
@@ -98,7 +133,7 @@ function curlGet($url) {
 	}
 
 	# Return
-	$responseData = json_decode($response, TRUE);
+	$responseData = json_decode($response, true);
 	return($responseData);
 }
 
@@ -158,17 +193,19 @@ function parentID($session, $path) {
 	if ($parent != '.') {
 		$parentID = folderID($session, $parent);
 	}
-	if ($parentID === false) {
-		return false;
-	}
 	return $parentID;
 }
 
 # Create a folder
 function mkFolder($session, $path) {
+	global $DEBUG;
+
 	# Find the parent ID (if any)
 	$parentID = parentID($session, $path);
 	if ($parentID === false) {
+		if ($DEBUG) {
+			echo 'Invalid parent for path: ' . $path . "\n";
+		}
 		return false;
 	}
 
@@ -242,12 +279,94 @@ function fileInfo($session, $path) {
 
 # Upload the provided file to the given path
 function fileUpload($session, $path, $file) {
+	global $DEBUG;
+
+	# Find the local file
+	$stat = @stat($file);
+	if ($stat === false) {
+		if ($DEBUG) {
+			echo 'Unable to stat: ' . $file . "\n";
+		}
+		return false;
+	}
+
+	# Find the parent ID
+	$parentID = parentID($session, $path);
+	if ($parentID === false) {
+		if ($DEBUG) {
+			echo 'No parent for path: ' . $path . "\n";
+		}
+		return false;
+	}
+
+	# Allocate
 	$data = array(
 		'session_id'	=> $session,
-		'folder_id'	=> $folderID,
-		'file_name'	=> $name,
-		'file_size'	=> $size
+		'folder_id'	=> $parentID,
+		'file_name'	=> basePath($path),
+		'file_size'	=> $stat['size']
 	);
+	$response = curlPost('/upload/create_file.json', $data);
+	$id = $response['FileId'];
+	if (!$id) {
+		if ($DEBUG) {
+			echo 'Unable to allocate: ' . $path . "\n";
+		}
+		return false;
+	}
+
+	# Open
+	$data = array(
+		'session_id'	=> $session,
+		'file_id'	=> $id,
+		'file_size'	=> $stat['size']
+	);
+	$response = curlPost('/upload/open_file_upload.json', $data);
+	$tmpPath = $response['TempLocation'];
+	if (!$tmpPath) {
+		if ($DEBUG) {
+			echo 'Unable to open: ' . $path . "\n";
+		}
+		return false;
+	}
+
+	# Upload
+	$cfile = curl_file_create($file, 'application/octet-stream', basePath($file));
+	$data = array(
+		'session_id'	=> $session,
+		'file_id'	=> $id,
+		'temp_location'	=> $tmpPath,
+		'chunk_offset'	=> 0,
+		'chunk_size'	=> $stat['size'],
+		'file_data'	=> $cfile
+	);
+	$response = curlPostRaw('/upload/upload_file_chunk.json', $data, 'Expect:');
+	if ($response) {
+		$response = json_decode($response, true);
+	}
+	if (!$response || $response['TotalWritten'] != $stat['size']) {
+		if ($DEBUG) {
+			echo 'Unable to upload: ' . $path . "\n";
+		}
+		return false;
+	}
+
+	# Close
+	$data = array(
+		'session_id'	=> $session,
+		'file_id'	=> $id,
+		'temp_location'	=> $tmpPath,
+		'file_time'	=> $stat['mtime'],
+		'file_size'	=> $stat['size']
+	);
+	$response = curlPost('/upload/close_file_upload.json', $data);
+	if ($response && !$response['DirUpdateTime']) {
+		if ($DEBUG) {
+			echo 'Unable to close: ' . $path . "\n";
+		}
+		return false;
+	}
+	return true;
 }
 
 ?>
