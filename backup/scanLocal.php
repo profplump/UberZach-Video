@@ -94,7 +94,7 @@ foreach ($FILES as $FILE) {
 			$TYPE = 'ignored';
 		} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
 			$TYPE = 'ignored';
-		} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'DS_Store' || 
+		} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'ds_store' || 
 			preg_match('/^\.smbdelete/', $NAME)) {
 				$TYPE = 'ignored';
 		} else if (is_dir($PATH)) {
