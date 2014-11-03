@@ -7,11 +7,8 @@ if ($_ENV['DEBUG']) {
 	$DEBUG = true;
 }
 
-# On-disk config
-require_once '.secrets';
-global $DSN;
-global $USER;
-global $PASSWD;
+# Includes
+require_once 'opendrive.php';
 
 # Command-line parameters
 global $argc;
@@ -52,11 +49,7 @@ if (!file_exists($LOCAL) || !is_dir($LOCAL)) {
 }
 
 # Open the DB connection
-try {
-	$dbh = new PDO($DSN, $USER, $PASSWD);
-} catch (PDOException $e) {
-	die('DB error: ' . $e->getMessage() . "\n");
-}
+$dbh = dbOpen();
 
 # Grab the file list -- limit files by mtime, but include all directories
 $FIND=tempnam(sys_get_temp_dir(), 'scanLocal-find');
