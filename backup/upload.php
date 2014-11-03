@@ -18,6 +18,22 @@ if (($argc > 1) && (strlen($argv[1]) > 0)) {
 	$BYTES = intval($argv[1]) * 1024 * 1024;
 }
 
+# Run serially
+$PID_FILE = sys_get_temp_dir() . '/upload.pid';
+if (file_exists($PID_FILE)) {
+	$OLD_PID = trim(@file_get_contents($PID_FILE));
+	if ($OLD_PID && posix_kill($OLD_PID, 0)) {
+
+		# Already running
+		if ($DEBUG) {
+			echo 'Already running: ' . $OLD_PID . "\n";
+		}
+		exit(0);
+	}
+}
+file_put_contents($PID_FILE, posix_getpid());
+unset($PID_FILE);
+
 # Open the DB connection
 $dbh = dbOpen();
 
@@ -57,7 +73,7 @@ while ($row = $folders->fetch()) {
 	if ($DEBUG) {
 		echo 'Creating folder: ' . $row['path'] . "\n";
 	}
-	if (folderID($session, 'Test/' . $row['path']) || mkFolder($session, 'Test/' . $row['path'])) {
+	if (folderID($session, $row['path']) || mkFolder($session, $row['path'])) {
 		$update->execute(array(':base' => $row['base'], ':path' => $row['path']));
 	}
 }
@@ -82,7 +98,7 @@ while ($row = $files->fetch()) {
 	if ($DEBUG) {
 		echo 'Uploading file (' . $stat['size'] . ' bytes): ' . $row['path'] . "\n";
 	}
-	$result = fileUpload($session, 'Test/' . $row['path'], $file);
+	$result = fileUpload($session, $row['path'], $file);
 	if ($result !== false && $result == $stat['size']) {
 		$uploaded += $result;
 		$update->execute(array(':base' => $row['base'], ':path' => $row['path']));
