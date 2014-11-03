@@ -36,4 +36,3 @@ fi
 # Always exit cleanly
 rm -f "${PID_FILE}"
 exit 0
-Ã
