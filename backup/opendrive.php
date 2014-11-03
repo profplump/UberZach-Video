@@ -89,4 +89,69 @@ function logout($session) {
 	return false;
 }
 
+# Return the ID of a folder path
+function folderID($session, $path) {
+	$data = array(
+		'session_id'	=> $session,
+		'path'		=> $path
+	);
+	$response = curlPost('/folder/idbypath.json', $data);
+
+	# Check the result
+	if ($response['FolderId']) {
+		return($response['FolderId']);
+	}
+	return false;
+}
+
+# Create a folder
+function mkFolder($session, $path) {
+	# Find the parent ID (if any)
+	$path = preg_replace('/\/+$/', '', $path);
+	$path = preg_replace('/^\/+/', '', $path);
+	$folder = basename($path);
+	$parent = dirname($path);
+	$parentID = 0;
+	if ($parent != '.') {
+		$parentID = folderID($session, $parent);
+		if ($parentID === false) {
+			return false;
+		}
+	}
+
+	# POST
+	$data = array(
+		'session_id'		=> $session,
+		'folder_name'		=> $folder,
+		'folder_sub_parent'	=> $parentID,
+		'folder_is_public'	=> 1
+	);
+	$response = curlPost('/folder.json', $data);
+
+	# Check the result
+	if ($response['FolderId']) {
+		return($response['FolderId']);
+	}
+	return false;
+}
+
+function rmFolder($session, $path) {
+	$id = folderID($session, $path);
+	if (!$id) {
+		return false;
+	}
+
+	$data = array(
+		'session_id'	=> $session,
+		'folder_id'	=> $id
+	);
+	$response = curlPost('/folder/trash.json', $data);
+
+	# Check the result
+	if ($response['DirUpdateTime']) {
+		return true;
+	}
+	return false;
+}
+
 ?>
