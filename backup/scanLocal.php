@@ -59,17 +59,9 @@ exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR
 	' -type d >> ' . escapeshellarg($FIND));
 
 # Sort
-$SORT=tempnam(sys_get_temp_dir(), 'scanLocal-sort');
-exec('cat ' . escapeshellarg($FIND) . ' | sort > ' . escapeshellarg($SORT));
+exec('cat ' . escapeshellarg($FIND) . ' | sort ', $FILES);
 unlink($FIND);
 unset($FIND);
-
-# Filter junk
-exec('grep -v "\/\._" ' . escapeshellarg($SORT) .
-	' | grep -v "\/\.DS_Store\$" | grep -v "\/\.git\/"',
-	$FILES);
-unlink($SORT);
-unset($SORT);
 
 # Prepare statements
 $select = $dbh->prepare('SELECT base, path, type, mtime, hash, hash_time FROM local WHERE base = :base AND path = :path');
@@ -98,11 +90,13 @@ foreach ($FILES as $FILE) {
 		$TYPE = 'other';
 		if (is_dir($PATH)) {
 			$TYPE = 'folder';
-			if ($NAME == '.git') {
+			if ($EXT == 'git') {
 				$TYPE = 'ignored';
 			}
 		} else {
-			if ($EXT == 'm4v' || $EXT == 'mkv' || $EXT == 'mp4' || $EXT == 'mov' ||
+			if (preg_match('/\/\.git\//', $PATH)) {
+				$TYPE = 'ignored';
+			} else if ($EXT == 'm4v' || $EXT == 'mkv' || $EXT == 'mp4' || $EXT == 'mov' ||
 				$EXT == 'vob' || $EXT == 'iso' || $EXT == 'avi') {
 					$TYPE = 'video';
 			} else if ($EXT == 'mp3' || $EXT == 'aac' || $EXT == 'm4a' || $EXT == 'm4b' ||
@@ -130,8 +124,9 @@ foreach ($FILES as $FILE) {
 					$TYPE = 'metadata';
 			} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
 				$TYPE = 'ignored';
-			} else if ($EXT == 'tmp' || $EXT == 'gitignore' || preg_match('/^\.smbdelete/', $NAME)) {
-				$TYPE = 'ignored';
+			} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'DS_Store' || 
+				preg_match('/^\.smbdelete/', $NAME)) {
+					$TYPE = 'ignored';
 			}
 		}
 		if ($TYPE == 'other') {
