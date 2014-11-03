@@ -186,6 +186,10 @@ foreach ($FILES as $FILE) {
 				echo 'Hash is up-to-date: ' . $PATH . "\n";
 			}
 		}
+	} else {
+		if ($DEBUG) {
+			echo 'No hash for folder: ' . $PATH . "\n";
+		}
 	}
 }
 unset($FILES);
