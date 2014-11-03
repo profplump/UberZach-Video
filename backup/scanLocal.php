@@ -17,10 +17,20 @@ $SUB_DIR = '';
 if (($argc > 1) && (strlen($argv[1]) > 0)) {
 	$SUB_DIR = trim($argv[1]);
 }
-$DELAY_DAYS=30;
+
+# Wait DELAY_DAYS before considering a file
+$DELAY_DAYS = 30;
 if (isset($_ENV['DELAY_DAYS'])) {
 	$DELAY_DAYS = $_ENV['DELAY_DAYS'];
 }
+
+# Delete only if specified
+$DELETE = false;
+if ($_ENV['DELETE']) {
+	$DELETE = true;
+}
+
+# Build our local base path
 $VIDEO_DIR=$_ENV['HOME'] . '/bin/video';
 if (isset($_ENV['VIDEO_DIR'])) {
 	$VIDEO_DIR = $_ENV['VIDEO_DIR'];
@@ -51,6 +61,46 @@ if (!file_exists($LOCAL) || !is_dir($LOCAL)) {
 # Open the DB connection
 $dbh = dbOpen();
 
+# Look for files in the DB that no longer exist or have changed types
+$delete = $dbh->prepare('DELETE FROM files WHERE base = :base AND path = :path');
+$missing = $dbh->prepare('SELECT base, path, type FROM files');
+$missing->execute();
+while ($row = $missing->fetch()) {
+	$trigger = false;
+	$file = $row['base'] . '/' . $row['path'];
+
+	if ($row['type'] == 'folder') {
+		# Ensure the path exists and is a folder
+		if (!is_dir($file)) {
+			echo 'Missing/changed folder: ' . $file . "\n";
+			$trigger = true;
+		}
+	} else if ($row['type'] == 'ignored') {
+		# Silently delete missing ignored files of any type
+		if (!file_exists($file)) {
+			if ($DEBUG) {
+				echo 'Missing ignored file: ' . $file . "\n";
+			}
+			$trigger = true;
+		}
+	} else {
+		# Ensure the path exists and is a regular file
+		if (!is_file($file)) {
+			echo 'Missing file: ' . $file . "\n";
+			$trigger = true;
+		}
+	}
+
+	# Delete if global DELETE is enabled
+	if ($DELETE && $trigger) {
+		$delete->execute(array(':base' => $row['base'], ':path' => $row['path']));
+	}
+
+	unset($trigger);
+	unset($file);
+}
+unset($delete);
+
 # Grab the file list -- limit files by mtime, but include all directories
 $FIND=tempnam(sys_get_temp_dir(), 'scanLocal-find');
 exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR) .
@@ -58,46 +108,43 @@ exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR
 exec('cd ' . escapeshellarg($BASE_LOCAL) . ' && find ' . escapeshellarg($SUB_DIR) .
 	' -type d >> ' . escapeshellarg($FIND));
 
-# Sort
+# Sort and injest
 exec('cat ' . escapeshellarg($FIND) . ' | sort ', $FILES);
 unlink($FIND);
 unset($FIND);
 
-# Prepare statements
+# Loop through all the files we found
 $select = $dbh->prepare('SELECT base, path, type, mtime, hash, hash_time FROM files WHERE base = :base AND path = :path');
 $insert = $dbh->prepare('INSERT INTO files (base, path, type, mtime) VALUES (:base, :path, :type, now())');
-$mtime = $dbh->prepare('SELECT EXTRACT(EPOCH FROM mtime) AS mtime FROM files WHERE base = :base AND path = :path');
+$check_mtime = $dbh->prepare('SELECT EXTRACT(EPOCH FROM mtime) AS mtime FROM files WHERE base = :base AND path = :path');
 $set_mtime = $dbh->prepare('UPDATE files SET mtime = now() WHERE base = :base AND path = :path');
 $hash_time_check = $dbh->prepare('SELECT hash, EXTRACT(EPOCH FROM hash_time) AS hash_time FROM files WHERE base = :base AND path = :path AND (hash_time IS NULL OR EXTRACT(EPOCH FROM hash_time) < :mtime)');
 $set_hash = $dbh->prepare('UPDATE files SET hash = :hash, hash_time = now() WHERE base = :base AND path = :path');
-
-# Loop through all the files
-foreach ($FILES as $FILE) {
+foreach ($FILES as $file) {
 
 	# Construct the absolute path
-	$PATH = $BASE_LOCAL . '/' . $FILE;
+	$path = $BASE_LOCAL . '/' . $file;
 
-	# Does the path exist
-	$EXISTS = false;
-	$select->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE));
+	# Is the path in the DB
+	$select->execute(array(':base' => $BASE_LOCAL, ':path' => $file));
 	$result = $select->fetch();
 	if (!$result) {
-		$PARTS = pathinfo($PATH);
-		$EXT = strtolower($PARTS['extension']);
-		$NAME = strtolower($PARTS['filename']);
-		unset($PARTS);
+		$parts = pathinfo($path);
+		$EXT = strtolower($parts['extension']);
+		$NAME = strtolower($parts['filename']);
+		unset($parts);
 
 		$TYPE = 'other';
-		if (preg_match('/\/\.git(\/.*)?$/', $PATH)) {
+		if (preg_match('/\/\.git(\/.*)?$/', $path)) {
 			$TYPE = 'ignored';
-		} else if (preg_match('/\/\._/', $PATH)) {
+		} else if (preg_match('/\/\._/', $path)) {
 			$TYPE = 'ignored';
 		} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
 			$TYPE = 'ignored';
 		} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'ds_store' || 
 			preg_match('/^\.smbdelete/', $NAME)) {
 				$TYPE = 'ignored';
-		} else if (is_dir($PATH)) {
+		} else if (is_dir($path)) {
 			$TYPE = 'folder';
 		} else if ($EXT == 'm4v' || $EXT == 'mkv' || $EXT == 'mp4' || $EXT == 'mov' ||
 			$EXT == 'vob' || $EXT == 'iso' || $EXT == 'avi') {
@@ -127,15 +174,15 @@ foreach ($FILES as $FILE) {
 				$TYPE = 'metadata';
 		}
 		if ($TYPE == 'other') {
-			die('Unknown file type: ' . $PATH . ': ' . $NAME . '^' . $EXT . "\n");
+			die('Unknown file type: ' . $path . ': ' . $NAME . '^' . $EXT . "\n");
 		}
 		if ($DEBUG) {
-			echo 'Adding: ' . $PATH . ': ' . $TYPE . "\n";
+			echo 'Adding: ' . $path . ': ' . $TYPE . "\n";
 		}
-		$insert->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE, ':type' => $TYPE));
+		$insert->execute(array(':base' => $BASE_LOCAL, ':path' => $file, ':type' => $TYPE));
 		if ($insert->rowCount() != 1) {
 			print_r($insert->errorInfo());
-			die('Unable to insert: ' . $PATH . "\n");
+			die('Unable to insert: ' . $path . "\n");
 		}
 	} else {
 		$TYPE = $result['type'];
@@ -147,41 +194,53 @@ foreach ($FILES as $FILE) {
 	}
 
 	# Update the mtime as needed
-	$MTIME = trim(shell_exec('stat -c "%Y" ' . escapeshellarg($PATH)));
-	$mtime->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE));
-	$result = $mtime->fetch(PDO::FETCH_ASSOC);
-	if (!$result && !$result['mtime'] || !$MTIME) {
-		die('Unable to find mtime for: ' . $PATH . "\n");
-	} else if ($result['mtime'] < $MTIME) {
-		$set_mtime->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE));
+	$mtime = trim(shell_exec('stat -c "%Y" ' . escapeshellarg($path)));
+	$check_mtime->execute(array(':base' => $BASE_LOCAL, ':path' => $file));
+	$result = $check_mtime->fetch(PDO::FETCH_ASSOC);
+	if (!$result && !$result['mtime'] || !$mtime) {
+		die('Unable to find mtime for: ' . $path . "\n");
+	} else if ($result['mtime'] < $mtime) {
+		$set_mtime->execute(array(':base' => $BASE_LOCAL, ':path' => $file));
 	}
 
 	# Update hashes as needed
 	if ($TYPE != 'folder') {
-		$hash_time_check->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE, ':mtime' => $MTIME));
+		$hash_time_check->execute(array(':base' => $BASE_LOCAL, ':path' => $file, ':mtime' => $mtime));
 		$result = $hash_time_check->fetch(PDO::FETCH_ASSOC);
 		if ($result) {
 			if ($DEBUG) {
-				echo 'Adding hash: ' . $PATH . "\n";
+				echo 'Adding hash: ' . $path . "\n";
 			}
-			$HASH = trim(shell_exec('md5sum ' . escapeshellarg($PATH) . ' | cut -d " " -f 1'));
-			if (strlen($HASH) == 32) {
-				$set_hash->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE, ':hash' => $HASH));
+			$hash = trim(shell_exec('md5sum ' . escapeshellarg($path) . ' | cut -d " " -f 1'));
+			if (strlen($hash) == 32) {
+				$set_hash->execute(array(':base' => $BASE_LOCAL, ':path' => $file, ':hash' => $hash));
 			} else {
-				die('Invalid hash (' . $HASH . ') for file: ' . $PATH . "\n");
+				die('Invalid hash (' . $hash . ') for file: ' . $path . "\n");
 			}
+			unset($hash);
 		} else {
 			if ($DEBUG) {
-				echo 'Hash is up-to-date: ' . $PATH . "\n";
+				echo 'Hash is up-to-date: ' . $path . "\n";
 			}
 		}
 	} else {
 		if ($DEBUG) {
-			echo 'No hash for folder: ' . $PATH . "\n";
+			echo 'No hash for folder: ' . $path . "\n";
 		}
 	}
+
+	unset($mtime);
+	unset($NAME);
+	unset($EXT);
+	unset($path);
 }
 unset($FILES);
+unset($select);
+unset($insert);
+unset($check_mtime);
+unset($set_mtime);
+unset($hash_time_check);
+unset($set_hash);
 
 # Update priorities
 $priority = $dbh->prepare('UPDATE files SET priority = :priority WHERE path LIKE :path');
@@ -189,5 +248,9 @@ $priority->execute(array(':priority' => 100,	':path' => 'Movies/%'));
 $priority->execute(array(':priority' => 50,	':path' => 'iTunes/%'));
 $priority->execute(array(':priority' => -50,	':path' => 'Backups/%'));
 $priority->execute(array(':priority' => -100,	':path' => 'TV/%'));
+unset($priority);
+
+# Cleanup
+unset($dbh);
 
 ?>
