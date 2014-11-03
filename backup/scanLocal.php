@@ -129,7 +129,9 @@ foreach ($FILES as $FILE) {
 		if ($TYPE == 'other') {
 			die('Unknown file type: ' . $PATH . ': ' . $NAME . '^' . $EXT . "\n");
 		}
-		echo 'Adding: ' . $PATH . ': ' . $TYPE . "\n";
+		if ($DEBUG) {
+			echo 'Adding: ' . $PATH . ': ' . $TYPE . "\n";
+		}
 		$insert->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE, ':type' => $TYPE));
 		if ($insert->rowCount() != 1) {
 			print_r($insert->errorInfo());
@@ -159,7 +161,9 @@ foreach ($FILES as $FILE) {
 		$hash_time_check->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE, ':mtime' => $MTIME));
 		$result = $hash_time_check->fetch(PDO::FETCH_ASSOC);
 		if ($result) {
-			echo 'Adding hash: ' . $PATH . "\n";
+			if ($DEBUG) {
+				echo 'Adding hash: ' . $PATH . "\n";
+			}
 			$HASH = trim(shell_exec('md5sum ' . escapeshellarg($PATH) . ' | cut -d " " -f 1'));
 			if (strlen($HASH) == 32) {
 				$set_hash->execute(array(':base' => $BASE_LOCAL, ':path' => $FILE, ':hash' => $HASH));
