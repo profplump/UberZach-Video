@@ -214,7 +214,7 @@ function mkFolder($session, $path) {
 		'session_id'		=> $session,
 		'folder_name'		=> basePath($path),
 		'folder_sub_parent'	=> $parentID,
-		'folder_is_public'	=> 2
+		'folder_is_public'	=> 0
 	);
 	$response = curlPost('/folder.json', $data);
 
