@@ -151,8 +151,10 @@ foreach ($FILES as $file) {
 	} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
 		$TYPE = 'ignored';
 	} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'ds_store' ||
-		preg_match('/^\.smbdelete/', $NAME) || preg_match('/\.mkv\.\w+$/', $path)) {
+		preg_match('/^\.smbdelete/', $NAME) || preg_match('/\.mkv\.\w+$/', $file)) {
 			$TYPE = 'ignored';
+	} else if (preg_match('/^iTunes\/Album Artwork\/Cache/', $file)) {
+		$TYPE = 'ignored';		
 	} else if (is_dir($path)) {
 		$TYPE = 'folder';
 		if ($EXT == '' && $NAME == 'cmd') {
