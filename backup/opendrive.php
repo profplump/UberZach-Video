@@ -13,6 +13,8 @@ if ($_ENV['DEBUG']) {
 require_once '.secrets';
 
 # Config
+global $API_BASE;
+global $API_VERSION;
 $API_BASE = 'https://dev.opendrive.com/api/v1';
 $API_VERSION = 10;
 
@@ -80,7 +82,7 @@ function curlPostRaw($url, $data, $header = NULL) {
 
 	# Send the request
 	if ($DEBUG >= 2) {
-		echo "Request: \n";
+		echo 'Request: ' . $url . "\n";
 		print_r($data);
 		echo "\n";
 	}
@@ -121,7 +123,7 @@ function curlGet($url) {
 
 	# Send the request
 	if ($DEBUG >= 2) {
-		echo "Request: \n";
+		echo 'Request: ' . $url . "\n";
 		print_r($data);
 		echo "\n";
 	}
