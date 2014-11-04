@@ -15,8 +15,10 @@ require_once '.secrets';
 # Config
 global $API_BASE;
 global $API_VERSION;
+global $API_CHUNK_SIZE;
 $API_BASE = 'https://dev.opendrive.com/api/v1';
 $API_VERSION = 10;
+$API_CHUNK_SIZE = 100 * 1024 * 1024;
 
 # PHP version support
 if (!function_exists('curl_file_create')) {
@@ -94,6 +96,10 @@ function curlPostRaw($url, $data, $header = NULL) {
 	}
 
 	# Return
+	if ($DEBUG >= 4) {
+		echo "Response:\n";
+		print_r($response);
+	}
 	return($response);
 }
 
@@ -102,6 +108,10 @@ function curlPost($url, $data) {
 	$data = json_encode($data);
 	$response = curlPostRaw($url, $data, 'Content-Type: application/json');
 	$responseData = json_decode($response, true);
+	if ($DEBUG >= 3) {
+		echo "Response Data:\n";
+		print_r($responseData);
+	}
 	return($responseData);
 }
 
@@ -282,6 +292,7 @@ function fileInfo($session, $path) {
 # Upload the provided file to the given path
 function fileUpload($session, $path, $file) {
 	global $DEBUG;
+	global $API_CHUNK_SIZE;
 
 	# Find the local file
 	$stat = @stat($file);
@@ -332,26 +343,100 @@ function fileUpload($session, $path, $file) {
 		return false;
 	}
 
-	# Upload
-	$cfile = curl_file_create($file, 'application/octet-stream', basePath($file));
-	$data = array(
-		'session_id'	=> $session,
-		'file_id'	=> $id,
-		'temp_location'	=> $tmpPath,
-		'chunk_offset'	=> 0,
-		'chunk_size'	=> $stat['size'],
-		'file_data'	=> $cfile
-	);
-	$response = curlPostRaw('/upload/upload_file_chunk.json', $data, 'Expect:');
-	if ($response) {
-		$response = json_decode($response, true);
-	}
-	if (!$response || $response['TotalWritten'] != $stat['size']) {
+	# Split if needed
+	$tempDir = false;
+	$files = array();
+	if ($stat['size'] > $API_CHUNK_SIZE) {
 		if ($DEBUG) {
-			echo 'Unable to upload: ' . $path . "\n";
+			echo 'Splitting file: ' . $file . ' (' . $API_CHUNK_SIZE . '/' . $stat['size'] . ")\n";
 		}
-		return false;
+
+		# Create a temporary directory
+		$tempDir = trim(shell_exec('mktemp -d'));
+		if (!is_dir($tempDir)) {
+			echo "Unable to create temp directory\n";
+			return false;
+		}
+
+		# Split into chunk-sized parts
+		shell_exec('cd ' . escapeshellarg($tempDir) .
+			' && split -b ' . escapeshellarg($API_CHUNK_SIZE) . ' ' . escapeshellarg($file));
+
+		# Find all their paths
+		$fh = opendir($tempDir);
+		if (!$fh) {
+			echo 'Unable to open temp directory: ' . $tempDir . "\n";
+			return false;
+		}
+		while (($chunk = readdir($fh)) !== false) {
+			if (preg_match('/^x\w+$/', $chunk)) {
+				$files[] = $tempDir . '/' . $chunk;
+			}
+		}
+		unset($chunk);
+
+		# Cleanup
+		closedir($fh);
+		unset($fh);
+	} else {
+		$files[] = $file;
 	}
+
+	# Sort the list to ensure the chunks are uploaded in order
+	sort($files);
+
+	# Upload
+	$offset = 0;
+	foreach ($files as $chunk) {
+		if ($DEBUG > 1) {
+			echo 'Uploading chunk: ' . $chunk . "\n";
+		}
+
+		# Find the chunk size
+		$chunkStat = @stat($chunk);
+		if ($chunkStat === false) {
+			echo 'Unable to stat chunk: ' . $chunk . "\n";
+			return false;
+		}
+
+		# Setup cURL
+		$cfile = curl_file_create($chunk, 'application/octet-stream', basePath($file));
+		$data = array(
+			'session_id'	=> $session,
+			'file_id'	=> $id,
+			'temp_location'	=> $tmpPath,
+			'chunk_offset'	=> $offset,
+			'chunk_size'	=> $chunkStat['size'],
+			'file_data'	=> $cfile
+		);
+
+		# Upload
+		$response = curlPostRaw('/upload/upload_file_chunk.json', $data, 'Expect:');
+		if ($response) {
+			$response = json_decode($response, true);
+		}
+		if (!$response || $response['TotalWritten'] != $chunkStat['size']) {
+			echo 'Unable to upload: ' . $chunk . "\n";
+			return false;
+		}
+
+		# Remove chunks as we use them
+		if ($tempDir) {
+			unlink($chunk);
+		}
+
+		# Increment the offset
+		$offset += $chunkStat['size'];
+		unset($chunkStat);
+		unset($response);
+	}
+	unset($offset);
+
+	# Remove the temporary directory, if it exists
+	if ($tempDir && is_dir($tempDir)) {
+		rmdir($tempDir);
+	}
+	unset($tempDir);
 
 	# Close
 	$data = array(
