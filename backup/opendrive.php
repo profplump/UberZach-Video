@@ -145,7 +145,7 @@ function login() {
 	$data = array(
 		'username' 	=> $OD_USER,
 		'passwd'	=> $OD_PASSWD,
-		'version'	=> $API_VERISON
+		'version'	=> $API_VERSION
 	);
 	$response = curlPost('/session/login.json', $data);
 
