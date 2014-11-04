@@ -151,10 +151,13 @@ foreach ($FILES as $file) {
 	} else if ($EXT == 'lastfindrecode' || $NAME == 'placeholder' || $EXT == 'plexignore') {
 		$TYPE = 'ignored';
 	} else if ($EXT == 'tmp' || $EXT == 'gitignore' || $EXT == 'ds_store' ||
-		($EXT == '' && $NAME == 'cmd') || preg_match('/^\.smbdelete/', $NAME)) {
+		preg_match('/^\.smbdelete/', $NAME) || preg_match('/\.mkv\.\w+$/', $path)) {
 			$TYPE = 'ignored';
 	} else if (is_dir($path)) {
 		$TYPE = 'folder';
+		if ($EXT == '' && $NAME == 'cmd') {
+			$TYPE = 'ignored';
+		}
 	} else if ($EXT == 'm4v' || $EXT == 'mkv' || $EXT == 'mp4' || $EXT == 'mov' ||
 		$EXT == 'vob' || $EXT == 'iso' || $EXT == 'avi') {
 			$TYPE = 'video';
