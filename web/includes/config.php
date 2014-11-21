@@ -1,5 +1,8 @@
 <?
 
+# Set locale to make basename() and others work reasonably
+setlocale(LC_ALL, "en_US.UTF8");
+
 ### Config
 $TV_PATH    = '/mnt/media/TV';	# Root path for all TV series
 $MAX_AGE    = 86400 * 90;		# Consider a series "old" if it has not been updated for this many seconds

@@ -2,7 +2,7 @@
 
 # Cleanup the provided series name
 # This does NOT provide comprehensively safe output,
-# it merely attempts to make names compatible with the filesystem and local convetions
+# it merely attempts to make names compatible with the filesystem and local conventions
 function cleanSeries($series) {
 	# Clearly unreasonable characters
 	$series = preg_replace('/[\0\n\r]/', ' ', $series);
