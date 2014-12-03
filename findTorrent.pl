@@ -85,7 +85,7 @@ if ($ENABLE_SOURCE{'TPB'}) {
 	# Available TPB proxies, in order of preference
 	my @TPBs = ('thepiratebay.se/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
 
-	# Automatically select a TPB proxy that returns a search page
+	# Automatically select a proxy that returns a search page
 	my $search_url = '';
 	foreach my $url (@TPBs) {
 		my ($host) = $url =~ /^([^\/]+)/;
@@ -114,9 +114,9 @@ if ($ENABLE_SOURCE{'TPB'}) {
 if ($ENABLE_SOURCE{'ISO'}) {
 
 	# Available ISOhunt proxies, in order of preference
-	my @ISOs = ('isohunt.com/js/json.php?rows=10&start=1&ihq=');
+	my @ISOs = ('isohunt.to/torrents/?ihq=');
 
-	# Automatically select a TPB proxy that returns the non-US page
+	# Automatically select a proxy that returns the non-US page
 	my $search_url = '';
 	foreach my $url (@ISOs) {
 		my ($host) = $url =~ /^([^\/]+)/;
@@ -132,7 +132,7 @@ if ($ENABLE_SOURCE{'ISO'}) {
 	# Only add ISOhunt if one of the proxies is up
 	if ($search_url) {
 		my %tmp = (
-			'search_url'    => 'isohunt.com/js/json.php?rows=10&start=1&ihq=',
+			'search_url'    => $search_url,
 			'search_suffix' => '',
 			'weight'        => 0.30,
 			'quote'         => 1
