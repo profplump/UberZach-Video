@@ -554,7 +554,6 @@ foreach my $content (@html_content) {
 
 		# Find TR elements from TPB
 		my @trs = splitTRs($content);
-		undef($content);
 		foreach my $tr (@trs) {
 
 			# Find the show title
@@ -624,7 +623,6 @@ foreach my $content (@html_content) {
 
 		# Find each TR element from ISOHunt
 		my @trs = splitTRs($content);
-		undef($content);
 		foreach my $tr (@trs) {
 
 			# Split each TD element from the row
@@ -635,8 +633,8 @@ foreach my $content (@html_content) {
 			}
 			
 			# Skip sponsored results
-			if ($tds[2] =~ /Sponsored\<\/td\>/i) {
-				if ($DEBUG) {
+			if ($tds[1] =~ /Sponsored\<\/td\>/i) {
+				if ($DEBUG > 1) {
 					print STDERR "Skipping sponsored result\n";
 				}
 				next;
@@ -646,7 +644,7 @@ foreach my $content (@html_content) {
 			my ($id, $title) = $tds[2] =~ /\<a(?:\s+[^\>]*)?href=\"\/torrent_details\/(\d+)\/[^\"]*\"\>\<span\>([^\>]+)\<\/span\>/i;
 			if (!defined($id) || length($id) < 1 || !defined($title) || length($title) < 1) {
 				if ($DEBUG) {
-					print STDERR "Unable to find show ID or title in TD:\n\t" . $tds[1] . "\n";
+					print STDERR "Unable to find show ID or title in TD:\n\t" . $tds[2] . "\n";
 				}
 				next;
 			}
@@ -928,11 +926,9 @@ exit(0);
 sub splitTRs($) {
 	my ($content) = @_;
 
-	# Find each TR element from ISOHunt
+	# Find each TR element
 	my @trs = ();
 	my @rawTRs = split(/\<tr(?:\s+[^\>]*)?\>/i, $content);
-	undef($content);
-
 	foreach my $tr (@rawTRs) {
 
 		# Trim trailing tags and skip things that aren't complete TRs
