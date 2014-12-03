@@ -427,10 +427,12 @@ if (scalar(@urls) < 1) {
 	my $safeShow = $show;
 	$safeShow =~ s/\s+\&\s+/ and /i;
 	$safeShow =~ s/^\s*The\b//i;
-	$safeShow =~ s/\'//g;
+	$safeShow =~ s/\s+\-\s+/ /g;
+	$safeShow =~ s/[\'\:]//g;
 	$safeShow =~ s/[^\w\"\-]+/ /g;
 	$safeShow =~ s/^\s+//;
 	$safeShow =~ s/\s+$//;
+	$safeShow =~ s/\s\s+/ /g;
 	$safeShow =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
 	$safeShow =~ s/\%20/\+/g;
 
