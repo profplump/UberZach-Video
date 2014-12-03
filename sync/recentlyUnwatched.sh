@@ -52,7 +52,7 @@ SERIES_COUNT=0
 IFS=$'\n'
 for i in $SERIES; do
 	SERIES_COUNT=$(( $SERIES_COUNT + 1 ))
-	FILES="`curl ${CURL_OPTS[@]} "${HOST}/library/metadata/${i}/${URL2_POST}" | \
+	FILES="`curl ${CURL_OPTS[@]} "${HOST}/library/metadata/${i}/${URL2_POST}" 2>/dev/null | \
 		grep '<Part ' | \
 		head -n "${MAX_RESULTS}" | \
 		sed 's%^.*file="\([^\"]*\)".*$%\1%' | \
