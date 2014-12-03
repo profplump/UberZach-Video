@@ -16,7 +16,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'http';
-my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 0);
+my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -42,6 +42,7 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub splitTRs($);
 sub findSE($);
 
 # Command line
@@ -86,9 +87,10 @@ if ($ENABLE_SOURCE{'TPB'}) {
 	my @TPBs = ('thepiratebay.se/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
 
 	# Automatically select a proxy that returns a search page
+	my $host       = '';
 	my $search_url = '';
 	foreach my $url (@TPBs) {
-		my ($host) = $url =~ /^([^\/]+)/;
+		($host) = $url =~ /^([^\/]+)/;
 		$fetch->url($PROTOCOL . '://' . $host);
 		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /\bSearch\b/i) {
 			$search_url = $url;
@@ -101,6 +103,7 @@ if ($ENABLE_SOURCE{'TPB'}) {
 	# Only add TPB if one of the proxies is up
 	if ($search_url) {
 		my %tmp = (
+			'host'          => $host,
 			'search_url'    => $search_url,
 			'search_suffix' => '/0/7/0',
 			'weight'        => 1.5,
@@ -117,9 +120,10 @@ if ($ENABLE_SOURCE{'ISO'}) {
 	my @ISOs = ('isohunt.to/torrents/?ihq=');
 
 	# Automatically select a proxy that returns the non-US page
+	my $host       = '';
 	my $search_url = '';
 	foreach my $url (@ISOs) {
-		my ($host) = $url =~ /^([^\/]+)/;
+		($host) = $url =~ /^([^\/]+)/;
 		$fetch->url($PROTOCOL . '://' . $host);
 		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Last\s+\d+\s+files\s+indexed/i) {
 			$search_url = $url;
@@ -132,6 +136,7 @@ if ($ENABLE_SOURCE{'ISO'}) {
 	# Only add ISOhunt if one of the proxies is up
 	if ($search_url) {
 		my %tmp = (
+			'host'          => $host,
 			'search_url'    => $search_url,
 			'search_suffix' => '',
 			'weight'        => 0.30,
@@ -506,7 +511,7 @@ if (scalar(@urls) < 1) {
 	}
 }
 
-my $content      = '';
+my @html_content = ();
 my @json_content = ();
 foreach my $url (@urls) {
 
@@ -524,7 +529,7 @@ foreach my $url (@urls) {
 		print STDERR 'Error fetching URL: ' . $url . "\n";
 	}
 
-	# Save and compact the content
+	# Save the content, discriminating by data type
 	if ($DEBUG) {
 		print STDERR 'Fetched ' . length($fetch->content()) . " bytes\n";
 	}
@@ -536,137 +541,188 @@ foreach my $url (@urls) {
 			print STDERR 'JSON parsing failure on: ' . $fetch->content() . "\n";
 		}
 	} else {
-		$content .= ' ' . $fetch->content();
-		$content =~ s/\s+/ /g;
+		push(@html_content, scalar($fetch->content()));
 	}
 }
 
-# Find each TR element in TPB content
+# We need someplace to store parsed torrent data from the various sources
 my @tors = ();
-my @trs = split(/\<tr(?:\s+[^\>]*)?\>/i, $content);
-if ($DEBUG) {
-	print STDERR 'TR count: ' . scalar(@trs) . "\n";
+
+# Handle HTML content
+foreach my $content (@html_content) {
+	if ($content =~ /\<title\>The Pirate Bay/i) {
+
+		# Find TR elements from TPB
+		my @trs = splitTRs($content);
+		undef($content);
+		foreach my $tr (@trs) {
+
+			# Find the show title
+			my ($title) = $tr =~ /title\=\"Details\s+for\s+([^\"]*)\"/i;
+			if (!defined($title) || length($title) < 1) {
+				if ($DEBUG) {
+					print STDERR "Unable to find show title in TR\n\t" . $tr . "\n";
+				}
+				next;
+			}
+			$title =~ s/^\s+//;
+
+			# Extract the season and episode numbers
+			my ($fileSeason, $episode) = findSE($title);
+
+			# Extract the URL
+			my ($url) = $tr =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
+			if (!defined($url) || length($url) < 1) {
+				if ($DEBUG) {
+					print STDERR "Skipping TR with no magnet URL\n";
+				}
+				next;
+			}
+
+			# Count the sum of seeders and leachers
+			my $seeds   = 0;
+			my $leaches = 0;
+			if ($tr =~ /\<td(?:\s+[^\>]*)?\>(\d+)\<\/td\>\s*\<td(?:\s+[^\>]*)?\>(\d+)\<\/td\>\s*$/i) {
+				$seeds   = $1;
+				$leaches = $2;
+			}
+
+			# Extract the size (from separate column or inline)
+			my $size = 0;
+			my $unit = 'M';
+			if ($tr =~ m/Size (\d+(?:\.\d+)?)\&nbsp\;(G|M)iB/) {
+				$size = $1;
+				$unit = $2;
+			} elsif ($tr =~ m/(\d+(?:\.\d+)?)\&nbsp\;(G|M)iB\<\/[tT][dD]\>/) {
+				$size = $1;
+				$unit = $2;
+			}
+			if ($unit eq 'G') {
+				$size *= 1024;
+			}
+			$size = int($size);
+
+			if ($DEBUG) {
+				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+			}
+
+			# Save the extracted data
+			my %tor = (
+				'title'   => $title,
+				'season'  => $fileSeason,
+				'episode' => $episode,
+				'seeds'   => $seeds,
+				'leaches' => $leaches,
+				'size'    => $size,
+				'url'     => $url,
+				'source'  => 'TPB'
+			);
+			push(@tors, \%tor);
+		}
+
+	} elsif ($content =~ /Isohunt Torrent Search Engine\<\/title\>/i) {
+
+		# Find each TR element from ISOHunt
+		my @trs = splitTRs($content);
+		undef($content);
+		foreach my $tr (@trs) {
+
+			# Split each TD element from the row
+			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
+			if (scalar(@tds) != 10) {
+				print STDERR 'Invalid ISO TR: ' . $tr . "\n";
+				next;
+			}
+			
+			# Skip sponsored results
+			if ($tds[2] =~ /Sponsored\<\/td\>/i) {
+				if ($DEBUG) {
+					print STDERR "Skipping sponsored result\n";
+				}
+				next;
+			}
+
+			# Find the torrent ID and show title
+			my ($id, $title) = $tds[2] =~ /\<a(?:\s+[^\>]*)?href=\"\/torrent_details\/(\d+)\/[^\"]*\"\>\<span\>([^\>]+)\<\/span\>/i;
+			if (!defined($id) || length($id) < 1 || !defined($title) || length($title) < 1) {
+				if ($DEBUG) {
+					print STDERR "Unable to find show ID or title in TD:\n\t" . $tds[1] . "\n";
+				}
+				next;
+			}
+			$title =~ s/^\s+//;
+
+			# Extract the season and episode numbers
+			my ($fileSeason, $episode) = findSE($title);
+
+			# Extract the size
+			my $size = 0;
+			my $unit = 'M';
+			if ($tds[6] =~ m/(\d+(?:\.\d+)?) (G|M)B<\/td\>/i) {
+				$size = $1;
+				$unit = $2;
+			}
+			if ($unit eq 'G') {
+				$size *= 1024;
+			}
+			$size = int($size);
+
+			# Count the sum of seeders and leachers
+			my $seeds = 0;
+			if ($tds[7] =~ /(\d+)\<\/td\>/i) {
+				$seeds = $1;
+			}
+			my $leaches = 0;
+			if ($tds[8] =~ /(\d+)\<\/td\>/i) {
+				$leaches = $1;
+			}
+
+			# Fetch the detail page for the URL from the detail page
+			my $detail_url = $PROTOCOL . '://' . $SOURCES{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
+			if ($DEBUG) {
+				print STDERR 'Secondary fetch with URL: ' . $detail_url . "\n";
+				$fetch->file('/tmp/findTorrent-secondary.html');
+			}
+			sleep($DELAY * (rand(2) + 0.5));
+			$fetch->url($detail_url);
+			$fetch->fetch();
+			if ($fetch->status_code() != 200) {
+				print STDERR 'Error fetching secondary URL: ' . $detail_url . "\n";
+			}
+			my ($url) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
+			if (!defined($url) || length($url) < 1) {
+				if ($DEBUG) {
+					print STDERR "Skipping TR with no magnet URL\n";
+				}
+				next;
+			}
+
+			if ($DEBUG) {
+				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+			}
+
+			# Save the extracted data
+			my %tor = (
+				'title'   => $title,
+				'season'  => $fileSeason,
+				'episode' => $episode,
+				'seeds'   => $seeds,
+				'leaches' => $leaches,
+				'size'    => $size,
+				'url'     => $url,
+				'source'  => 'ISO'
+			);
+			push(@tors, \%tor);
+		}
+
+	} else {
+		print STDERR "Unknown HTML content:\n" . $content . "\n\n";
+	}
 }
-foreach my $tr (@trs) {
 
-	# Trim trailing tags
-	if (!($tr =~ s/\<\/tr\>.*$//is)) {
-
-		# Skip things that aren't compelete TRs
-		if ($DEBUG > 1) {
-			print STDERR 'Skipping non-TR line: ' . $tr . "\n\n";
-		}
-		next;
-	}
-
-	# Find the show title
-	my ($title) = $tr =~ /title\=\"Details\s+for\s+([^\"]*)\"/i;
-	if (!defined($title) || length($title) < 1) {
-		if ($DEBUG) {
-			print STDERR "Unable to find show title in TR\n";
-		}
-		next;
-	}
-	$title =~ s/^\s+//;
-
-	# Extract the season and episode numbers
-	my ($fileSeason, $episode) = findSE($title);
-
-	# Extract the URL
-	my ($url) = $tr =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
-	if (!defined($url) || length($url) < 1) {
-		if ($DEBUG) {
-			print STDERR "Skipping TR with no magnet URL\n";
-		}
-		next;
-	}
-
-	# Count the sum of seeders and leachers
-	my $seeds   = 0;
-	my $leaches = 0;
-	if ($tr =~ /\<td(?:\s+[^\>]*)?\>(\d+)\<\/td\>\s*\<td(?:\s+[^\>]*)?\>(\d+)\<\/td\>\s*$/i) {
-		$seeds   = $1;
-		$leaches = $2;
-	}
-
-	# Extract the size (from separate column or inline)
-	my $size = 0;
-	my $unit = 'M';
-	if ($tr =~ m/Size (\d+(?:\.\d+)?)\&nbsp\;(G|M)iB/) {
-		$size = $1;
-		$unit = $2;
-	} elsif ($tr =~ m/(\d+(?:\.\d+)?)\&nbsp\;(G|M)iB\<\/[tT][dD]\>/) {
-		$size = $1;
-		$unit = $2;
-	}
-	if ($unit eq 'G') {
-		$size *= 1024;
-	}
-	$size = int($size);
-
-	if ($DEBUG) {
-		print STDERR 'Found file (' . $title . '): ' . $url . "\n";
-	}
-
-	# Save the extracted data
-	my %tor = (
-		'title'   => $title,
-		'season'  => $fileSeason,
-		'episode' => $episode,
-		'seeds'   => $seeds,
-		'leaches' => $leaches,
-		'size'    => $size,
-		'url'     => $url,
-		'source'  => 'TPB'
-	);
-	push(@tors, \%tor);
-}
-
-# Find each discrete torrent from ISOhunt
-foreach my $json (@json_content) {
-	foreach my $tor (@{$json}) {
-
-		# Extract the title
-		my $title = $tor->{'title'};
-		$title =~ s/\<\/?b\>//gi;
-		$title =~ s/^\s+//;
-
-		# Extract the season and episode numbers
-		my ($fileSeason, $episode) = findSE($tor->{'title'});
-
-		# Count the sum of seeders and leachers
-		my $seeds   = 0;
-		my $leaches = 0;
-		if (defined($tor->{'Seeds'}) && length($tor->{'Seeds'}) > 0) {
-			$seeds = $tor->{'Seeds'};
-		}
-		if (defined($tor->{'leechers'}) && length($tor->{'leechers'}) > 0) {
-			$leaches = $tor->{'leechers'};
-		}
-
-		# Extract the size
-		my $size = 0;
-		if (defined($tor->{'length'}) && length($tor->{'length'}) > 0) {
-			$size = int($tor->{'length'} / 1048576);
-		}
-
-		if ($DEBUG) {
-			print STDERR 'Found file (' . $title . '): ' . $tor->{'enclosure_url'} . "\n";
-		}
-
-		# Save the extracted data
-		my %tmp = (
-			'title'   => $title,
-			'season'  => $fileSeason,
-			'episode' => $episode,
-			'seeds'   => $seeds,
-			'leaches' => $leaches,
-			'size'    => $size,
-			'url'     => $tor->{'enclosure_url'},
-			'source'  => 'ISO'
-		);
-		push(@tors, \%tmp);
-	}
+# Handle JSON content
+foreach my $content (@json_content) {
+	print STDERR "Unknown JSON content:\n" . $content . "\n\n";
 }
 
 # Filter for size/count/etc.
@@ -868,6 +924,39 @@ foreach my $episode (keys(%tors)) {
 # Cleanup
 unlink($cookies);
 exit(0);
+
+sub splitTRs($) {
+	my ($content) = @_;
+
+	# Find each TR element from ISOHunt
+	my @trs = ();
+	my @rawTRs = split(/\<tr(?:\s+[^\>]*)?\>/i, $content);
+	undef($content);
+
+	foreach my $tr (@rawTRs) {
+
+		# Trim trailing tags and skip things that aren't complete TRs
+		if (!($tr =~ s/\<\/tr\>.*$//is)) {
+			if ($DEBUG > 1) {
+				print STDERR 'Skipping non-TR line: ' . $tr . "\n\n";
+			}
+			next;
+		}
+
+		# Skip header rows
+		if ($tr =~ /<th(?:\s+[^\>]*)?\>/i) {
+			if ($DEBUG > 2) {
+				print STDERR 'Skipping header TR line: ' . $tr . "\n\n";
+			}
+			next;
+		}
+
+		# Save good TRs
+		push(@trs, $tr);
+	}
+
+	return @trs;
+}
 
 # Extract season
 sub findSE($) {
