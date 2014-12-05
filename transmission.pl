@@ -534,15 +534,19 @@ sub processFile($$) {
 	my $ext = &guessExt($file);
 	my $filename = basename($file);
 
-	# Delete WMV files -- mostly viruses
+	# Delete WMV files -- mostly viruses/fake
 	if ($ext =~ /wmv/i) {
-		print STDERR 'Declining to save WMV file: ' . $filename . "\n";
+		if ($DEBUG) {
+			print STDERR 'Declining to save WMV file: ' . $filename . "\n";
+		}
 		return -1;
 	}
 
 	# Delete ZIP files -- mostly fake
 	if ($ext =~ /zip/i) {
-		print STDERR 'Declining to save ZIP file: ' . $filename . "\n";
+		if ($DEBUG) {
+			print STDERR 'Declining to save ZIP file: ' . $filename . "\n";
+		}
 		return -1;
 	}
 
