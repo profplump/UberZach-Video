@@ -42,6 +42,7 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub resolveSecondary($);
 sub splitTRs($);
 sub findSE($);
 
@@ -675,25 +676,8 @@ foreach my $content (@html_content) {
 				$leaches = $1;
 			}
 
-			# Fetch the detail page for the URL from the detail page
-			my $detail_url = $PROTOCOL . '://' . $SOURCES{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
-			if ($DEBUG) {
-				print STDERR 'Secondary fetch with URL: ' . $detail_url . "\n";
-				$fetch->file('/tmp/findTorrent-secondary.html');
-			}
-			sleep($DELAY * (rand(2) + 0.5));
-			$fetch->url($detail_url);
-			$fetch->fetch();
-			if ($fetch->status_code() != 200) {
-				print STDERR 'Error fetching secondary URL: ' . $detail_url . "\n";
-			}
-			my ($url) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
-			if (!defined($url) || length($url) < 1) {
-				if ($DEBUG) {
-					print STDERR "Skipping TR with no magnet URL\n";
-				}
-				next;
-			}
+			# Fetch the detail page for the URL
+			my $url = $PROTOCOL . '://' . $SOURCES{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
@@ -893,16 +877,18 @@ foreach my $episode (keys(%tors)) {
 # Pick the best-adjusted-count torrent for each episode
 my %urls = ();
 foreach my $episode (keys(%tors)) {
+	my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $tors{$episode} };
 	my $max = undef();
-	foreach my $tor (@{ $tors{$episode} }) {
+	foreach my $tor (@sorted) {
 		if (!defined($max) || $tor->{'adj_count'} > $max) {
-			$urls{$episode} = $tor->{'url'};
-			$max = $tor->{'adj_count'};
+			if ($urls{$episode} = resolveSecondary($tor)) {
+				$max = $tor->{'adj_count'};
+			}
 			if ($DEBUG) {
-				print STDERR 'New semi-final URL (adjusted count: ' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
+				print STDERR 'Semi-final URL (adjusted count: ' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
 			}
 		} elsif ($DEBUG) {
-			print STDERR 'Skipping for non-max adjusted count (' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
+			print STDERR 'Skipping for lesser adjusted count (' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
 		}
 	}
 }
@@ -922,6 +908,35 @@ foreach my $episode (keys(%tors)) {
 # Cleanup
 unlink($cookies);
 exit(0);
+
+# Resolve secondary URLs
+sub resolveSecondary($) {
+	my ($tor) = @_;
+	my $url = $tor->{'url'};
+
+	if ($tor->{'source'} eq 'ISO') {
+		if ($DEBUG) {
+			print STDERR 'Secondary fetch with URL: ' . $tor->{'url'} . "\n";
+			$fetch->file('/tmp/findTorrent-secondary.html');
+		}
+		sleep($DELAY * (rand(2) + 0.5));
+		$fetch->url($tor->{'url'});
+		$fetch->fetch();
+		if ($fetch->status_code() != 200) {
+			print STDERR 'Error fetching secondary URL: ' . $tor->{'url'} . "\n";
+			return undef();
+		}
+		($url) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
+		if (!defined($url) || length($url) < 1) {
+			if ($DEBUG) {
+				print STDERR 'No secondary URL available from: ' . $tor->{'url'} . "\n";
+			}
+			return undef();
+		}
+	}
+
+	return $url;
+}
 
 sub splitTRs($) {
 	my ($content) = @_;
