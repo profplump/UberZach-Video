@@ -20,7 +20,7 @@ my $USER_ID         = 'kj-Ob6eYHvzo-P0UWfnQzA';
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $CURL_BIN        = 'curl';
-my @CURL_ARGS       = ('-4', '--insecure', '-C', '-', '--connect-timeout', '10', '--max-time', '1800');
+my @CURL_ARGS       = ('-4', '--insecure', '-H', 'Accept-Encoding: gzip', '-C', '-', '--connect-timeout', '10', '--max-time', '1800');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 5000;
 my $DRIFT_TOLERANCE = 2;
@@ -611,7 +611,7 @@ sub saveSubscriptions($$) {
 	# Check for YT subscriptions missing locally
 	foreach my $sub (keys(%{$subs})) {
 		if (!exists($locals{$sub})) {
-			print STDERR 'Adding local subscription: ' . $sub . "\n";
+			print STDERR 'Missing local subscription for: ' . $sub . "\n";
 		}
 	}
 }
