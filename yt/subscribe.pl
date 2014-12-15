@@ -16,6 +16,7 @@ use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
+my $USER_ID         = 'kj-Ob6eYHvzo-P0UWfnQzA';
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $CURL_BIN        = 'curl';
@@ -35,6 +36,17 @@ my %API             = (
 			'strict'      => 1,
 			'v'           => 2,
 			'alt'         => 'jsonc',
+		},
+	},
+	'subscriptions' => {
+		'prefix' => $API_URL . 'users/',
+		'suffix' => '/subscriptions',
+		'params' => {
+			'start-index' => 1,
+			'max-results' => 1,
+			'strict'      => 1,
+			'v'           => 2,
+			'alt'         => 'json',
 		},
 	},
 	'video' => {
@@ -64,6 +76,9 @@ sub findVideo($);
 sub ytURL($);
 sub buildNFO($);
 sub buildSeriesNFO($);
+sub getSubscriptions($);
+sub saveSubscriptions($$);
+sub saveChannel($$);
 sub getChannel($);
 sub fetchParse($$);
 sub saveString($$);
@@ -72,7 +87,6 @@ sub readExtras($);
 sub parseVideoData($);
 sub dropExcludes($$);
 sub addExtras($$);
-sub saveChannel($$);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -141,9 +155,20 @@ if ($ENV{'BATCH_SIZE'} && $ENV{'BATCH_SIZE'} =~ /(\d+)/) {
 }
 
 # Construct globals
-$API{'search'}{'params'}{'max-results'} = $BATCH_SIZE;
+foreach my $key (keys(%API)) {
+	if (exists($API{$key}{'params'}{'max-results'})) {
+		$API{$key}{'params'}{'max-results'} = $BATCH_SIZE;
+	}
+}
 if (!$DEBUG) {
 	push(@CURL_ARGS, '--silent');
+}
+
+# Allow use as a subscription manager
+if ($0 =~ /subscription/i) {
+	my $subs = getSubscriptions($USER_ID);
+	saveSubscriptions($dir, $subs);
+	exit(0);
 }
 
 # Grab the channel data
@@ -484,6 +509,112 @@ sub fetchParse($$) {
 	}
 
 	return $data;
+}
+
+sub getSubscriptions($) {
+	my ($user) = @_;
+
+	my $index     = 1;
+	my $itemCount = undef();
+	my %subs      = ();
+	SUBS_LOOP:
+	{
+		# Build, fetch, parse
+		$API{'subscriptions'}{'params'}{'start-index'} = $index;
+		my $data = fetchParse('subscriptions', $user);
+
+		# It's all in the feed
+		if (!exists($data->{'feed'}) || ref($data->{'feed'}) ne 'HASH') {
+			die("Invalid subscription data\n");
+		}
+		$data = $data->{'feed'};
+
+		# Grab the total count, so we know when to stop
+		if (!defined($itemCount)) {
+			if (
+				!exists($data->{'openSearch$totalResults'}) ||
+				ref($data->{'openSearch$totalResults'}) ne 'HASH' ||
+				!exists($data->{'openSearch$totalResults'}->{'$t'})
+			) {
+				die("Invalid subscription feed metadata\n");
+			}
+
+			$itemCount = $data->{'openSearch$totalResults'}->{'$t'};
+		}
+
+		# Process each item
+		if (!exists($data->{'entry'}) || ref($data->{'entry'}) ne 'ARRAY') {
+			die("Invalid subscription entries\n");
+		}
+		my $items = $data->{'entry'};
+		foreach my $item (@{ $items }) {
+			if (
+				ref($item) ne 'HASH' ||
+				!exists($item->{'yt$username'}) ||
+				ref($item->{'yt$username'}) ne 'HASH' ||
+				!exists($item->{'yt$username'}->{'$t'})
+			) {
+				next;
+			}
+			if ($DEBUG) {
+				print STDERR prettyPrint($item->{'yt$username'}, "\t") . "\n";
+			}
+			$subs{ $item->{'yt$username'}->{'$t'} } = 1;
+		}
+
+		# Loop if there are results left to fetch
+		$index += $BATCH_SIZE;
+		if (defined($itemCount) && $itemCount >= $index) {
+			# But don't go past the max supported index
+			if ($index <= $MAX_INDEX) {
+				redo SUBS_LOOP;
+			}
+		}
+	}
+
+	# Return the list of subscribed usernames
+	return \%subs;
+}
+
+sub saveSubscriptions($$) {
+	my ($folder, $subs) = @_;
+
+	# Check for local subscriptions missing from YT
+	my %locals = ();
+	my $fh = undef();
+	opendir($fh, $folder)
+	  or die('Unable to open subscriptions directory: ' . $! . "\n");
+	while (my $file = readdir($fh)) {
+
+		# Skip dotfiles
+		if ($file =~ /^\./) {
+			next
+		}
+
+		# Skip non-directories
+		if (!-d $folder . '/' . $file) {
+			next;
+		}
+
+		# YT has case issues
+		$file = lc($file);
+
+		# Anything else should be in the list
+		if (!$subs->{$file}) {
+			print STDERR 'Missing YT subscription for: ' . $file . "\n";
+		}
+
+		# Note local subscriptions
+		$locals{$file} = 1;
+	}
+	closedir($fh);
+
+	# Check for YT subscriptions missing locally
+	foreach my $sub (keys(%{ $subs })) {
+		if (!exists($locals{$sub})) {
+			print STDERR 'Adding local subscription: ' . $sub . "\n";
+		}
+	}
 }
 
 sub saveChannel($$) {
