@@ -220,7 +220,7 @@ foreach my $id (keys(%{$videos})) {
 			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
 			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
 			rename($files->{$id}->{'nfo'},  $nfo);
-			
+
 			# This is a hack, but it fits nicely in one line
 			system('sed', '-i', 's%<episode>[0-9]*</episode>%<episode>' . $videos->{$id}->{'number'} . '</episode>%', $nfo);
 		} else {
@@ -531,11 +531,10 @@ sub getSubscriptions($) {
 
 		# Grab the total count, so we know when to stop
 		if (!defined($itemCount)) {
-			if (
-				!exists($data->{'openSearch$totalResults'}) ||
-				ref($data->{'openSearch$totalResults'}) ne 'HASH' ||
-				!exists($data->{'openSearch$totalResults'}->{'$t'})
-			) {
+			if (  !exists($data->{'openSearch$totalResults'})
+				|| ref($data->{'openSearch$totalResults'}) ne 'HASH'
+				|| !exists($data->{'openSearch$totalResults'}->{'$t'}))
+			{
 				die("Invalid subscription feed metadata\n");
 			}
 
@@ -547,13 +546,12 @@ sub getSubscriptions($) {
 			die("Invalid subscription entries\n");
 		}
 		my $items = $data->{'entry'};
-		foreach my $item (@{ $items }) {
-			if (
-				ref($item) ne 'HASH' ||
-				!exists($item->{'yt$username'}) ||
-				ref($item->{'yt$username'}) ne 'HASH' ||
-				!exists($item->{'yt$username'}->{'$t'})
-			) {
+		foreach my $item (@{$items}) {
+			if (   ref($item) ne 'HASH'
+				|| !exists($item->{'yt$username'})
+				|| ref($item->{'yt$username'}) ne 'HASH'
+				|| !exists($item->{'yt$username'}->{'$t'}))
+			{
 				next;
 			}
 			if ($DEBUG) {
@@ -565,6 +563,7 @@ sub getSubscriptions($) {
 		# Loop if there are results left to fetch
 		$index += $BATCH_SIZE;
 		if (defined($itemCount) && $itemCount >= $index) {
+
 			# But don't go past the max supported index
 			if ($index <= $MAX_INDEX) {
 				redo SUBS_LOOP;
@@ -581,14 +580,14 @@ sub saveSubscriptions($$) {
 
 	# Check for local subscriptions missing from YT
 	my %locals = ();
-	my $fh = undef();
+	my $fh     = undef();
 	opendir($fh, $folder)
 	  or die('Unable to open subscriptions directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
 
 		# Skip dotfiles
 		if ($file =~ /^\./) {
-			next
+			next;
 		}
 
 		# Skip non-directories
@@ -610,7 +609,7 @@ sub saveSubscriptions($$) {
 	closedir($fh);
 
 	# Check for YT subscriptions missing locally
-	foreach my $sub (keys(%{ $subs })) {
+	foreach my $sub (keys(%{$subs})) {
 		if (!exists($locals{$sub})) {
 			print STDERR 'Adding local subscription: ' . $sub . "\n";
 		}
