@@ -186,7 +186,9 @@ foreach my $tor (@{$torrents}) {
 				print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
 			}
 		} elsif (defined($result) && $result == -1) {
-			print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
+			if ($DEBUG) {
+				print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
+			}
 			last;
 		} else {
 			print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
@@ -465,10 +467,10 @@ sub delTor($) {
 
 sub guessExt($) {
 	my ($file) = @_;
+	my $ext = '';
 
 	# Believe most non-avi file extensions without checking
 	# It's mostly "avi" that lies, and the checks are expensive
-	my $ext = '';
 	{
 		my $orig_ext = basename($file);
 		$orig_ext =~ s/^.*\.(\w{2,3})$/$1/;
@@ -476,6 +478,11 @@ sub guessExt($) {
 		if ($orig_ext eq 'mkv' || $orig_ext eq 'ts') {
 			$ext = $orig_ext;
 		}
+	}
+
+	# Deal with the weird case of text files labeled as .txt.mp4
+	if ($file =~ /\.txt\.mp4$/i) {
+		$ext = 'txt';
 	}
 
 	# Ask movInfo.pl about the demuxer
@@ -529,22 +536,26 @@ sub processFile($$) {
 	my $ext = &guessExt($file);
 	my $filename = basename($file);
 
-	# Delete WMV files -- mostly viruses
+	# Delete WMV files -- mostly viruses/fake
 	if ($ext =~ /wmv/i) {
-		print STDERR 'Declining to save WMV file: ' . $filename . "\n";
+		if ($DEBUG) {
+			print STDERR 'Declining to save WMV file: ' . $filename . "\n";
+		}
 		return -1;
 	}
 
 	# Delete ZIP files -- mostly fake
 	if ($ext =~ /zip/i) {
-		print STDERR 'Declining to save ZIP file: ' . $filename . "\n";
+		if ($DEBUG) {
+			print STDERR 'Declining to save ZIP file: ' . $filename . "\n";
+		}
 		return -1;
 	}
 
-	# Skip RARBG.com files with success code -- always extra but not a problem
-	if ($filename =~ /RARBG\.com/i) {
+	# Skip known packaging files files with success code
+	if ($ext =~ /txt/i || $filename =~ /RARBG\.com/i) {
 		if ($DEBUG) {
-			print STDERR 'Declining to save RARBG.com file: ' . $filename . "\n";
+			print STDERR 'Declining to save extra file: ' . $filename . "\n";
 		}
 		return 1;
 	}

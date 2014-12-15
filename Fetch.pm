@@ -655,6 +655,7 @@ sub save() {
 	if (!open(OUT, '>', $self->Fetch::file())) {
 		die('Fetch::save: Unable to open output file: ' . $self->Fetch::file() . ': ' . $! . "\n");
 	}
+	binmode OUT, ':encoding(UTF-8)';
 
 	# Print out the URL, the post content (if any)
 	if (defined($self->{'print_comments'}) && $self->{'print_comments'}) {
