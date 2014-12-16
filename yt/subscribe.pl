@@ -611,7 +611,8 @@ sub saveSubscriptions($$) {
 	# Check for YT subscriptions missing locally
 	foreach my $sub (keys(%{$subs})) {
 		if (!exists($locals{$sub})) {
-			print STDERR 'Missing local subscription for: ' . $sub . "\n";
+			print STDERR 'Adding local subscription for: ' . $sub . "\n";
+			mkdir($folder . '/' . $sub);
 		}
 	}
 }
