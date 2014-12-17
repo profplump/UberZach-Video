@@ -628,7 +628,8 @@ foreach my $content (@html_content) {
 
 			# Split each TD element from the row
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
-			if (scalar(@tds) != 10) {
+			my $numCols = scalar(@tds) - 1;
+			if ($numCols > 9 && $numCols < 8) {
 				print STDERR 'Invalid ISO TR: ' . $tr . "\n";
 				next;
 			}
