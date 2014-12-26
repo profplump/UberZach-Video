@@ -16,7 +16,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'http';
-my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1);
+my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -144,6 +144,39 @@ if ($ENABLE_SOURCE{'ISO'}) {
 			'quote'         => 1
 		);
 		$SOURCES{'ISO'} = \%tmp;
+	}
+}
+
+# Kickass
+if ($ENABLE_SOURCE{'KICK'}) {
+
+	# Available Kickass proxies, in order of preference
+	my @KICKs = ('kickass.so/usearch/');
+
+	# Automatically select a proxy that returns the non-US page
+	my $host       = '';
+	my $search_url = '';
+	foreach my $url (@KICKs) {
+		($host) = $url =~ /^([^\/]+)/;
+		$fetch->url($PROTOCOL . '://' . $host);
+		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /torrent name\<\/th\>/i) {
+			$search_url = $url;
+			last;
+		} elsif ($DEBUG) {
+			print STDERR 'Kickass proxy not available: ' . $host . "\n";
+		}
+	}
+
+	# Only add Kickass if one of the proxies is up
+	if ($search_url) {
+		my %tmp = (
+			'host'          => $host,
+			'search_url'    => $search_url,
+			'search_suffix' => '/',
+			'weight'        => 0.30,
+			'quote'         => 1
+		);
+		$SOURCES{'KICK'} = \%tmp;
 	}
 }
 
@@ -633,7 +666,7 @@ foreach my $content (@html_content) {
 				print STDERR 'Invalid ISO TR: ' . $tr . "\n";
 				next;
 			}
-			
+
 			# Skip sponsored results
 			if ($tds[1] =~ /Sponsored\<\/td\>/i) {
 				if ($DEBUG > 1) {
@@ -694,6 +727,82 @@ foreach my $content (@html_content) {
 				'size'    => $size,
 				'url'     => $url,
 				'source'  => 'ISO'
+			);
+			push(@tors, \%tor);
+		}
+
+	} elsif ($content =~ /KickassTorrents\<\/title\>/i) {
+
+		# Find each TR element from Kickass
+		my @trs = splitTRs($content);
+		foreach my $tr (@trs) {
+
+			# Split each TD element from the row
+			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
+			my $numCols = scalar(@tds) - 1;
+			if ($numCols > 9 && $numCols < 8) {
+				print STDERR 'Invalid KICK TR: ' . $tr . "\n";
+				next;
+			}
+
+			# Find the torrent title
+			my ($title) = $tds[1] =~ /\<a(?:\s+[^\>]*)?href\=\"[^\"]+\?title\=\[[^\]\"]+\]([^\"]+)\"/i;
+			if (!defined($title) || length($title) < 1) {
+				if ($DEBUG) {
+					print STDERR "Unable to find torrent title in TD:\n\t" . $tds[1] . "\n";
+				}
+				next;
+			}
+			$title =~ s/^\s+//;
+
+			# Find the torrent URL
+			my ($url) = $tds[1] =~ /\<a(?:\s+[^\>]*)?href=\"(magnet:[^\"]+)\"/i;
+			if (!defined($url) || length($url) < 1) {
+				if ($DEBUG) {
+					print STDERR "Unable to find torrent URL in TD:\n\t" . $tds[1] . "\n";
+				}
+				next;
+			}
+
+			# Extract the season and episode numbers
+			my ($fileSeason, $episode) = findSE($title);
+
+			# Extract the size
+			my $size = 0;
+			my $unit = 'M';
+			if ($tds[2] =~ m/(\d+(?:\.\d+)?)\s+\<span\>(G|M)B\<\/span\>\<\/td\>/i) {
+				$size = $1;
+				$unit = $2;
+			}
+			if ($unit eq 'G') {
+				$size *= 1024;
+			}
+			$size = int($size);
+
+			# Count the sum of seeders and leachers
+			my $seeds = 0;
+			if ($tds[5] =~ /(\d+)\<\/td\>/i) {
+				$seeds = $1;
+			}
+			my $leaches = 0;
+			if ($tds[6] =~ /(\d+)\<\/td\>/i) {
+				$leaches = $1;
+			}
+
+			if ($DEBUG) {
+				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+			}
+
+			# Save the extracted data
+			my %tor = (
+				'title'   => $title,
+				'season'  => $fileSeason,
+				'episode' => $episode,
+				'seeds'   => $seeds,
+				'leaches' => $leaches,
+				'size'    => $size,
+				'url'     => $url,
+				'source'  => 'KICK'
 			);
 			push(@tors, \%tor);
 		}
