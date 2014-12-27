@@ -7,9 +7,10 @@ function findEpisodes($series, $season) {
 	$retval = array();
 
 	$season_path = seasonPath($series, $season);
-	$dir = opendir($season_path);
+	$dir = @opendir($season_path);
 	if ($dir === FALSE) {
-		die('Unable to opendir(): ' . htmlspecialchars($season_path) . "\n");
+		echo 'Unable to opendir(): ' . htmlspecialchars($season_path) . "\n";
+		return false;
 	}
 	while (false !== ($episode = readdir($dir))) {
 
