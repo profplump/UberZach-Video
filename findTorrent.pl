@@ -865,10 +865,17 @@ foreach my $tor (@tors) {
 		}
 		next;
 
-		# Skip german files
+		# Skip German files
 	} elsif ($tor->{'title'} =~ /german/i) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'title'} . "\n";
+		}
+		next;
+
+		# Skip French files
+	} elsif ($tor->{'title'} =~ /french/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "french": ' . $tor->{'title'} . "\n";
 		}
 		next;
 
