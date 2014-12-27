@@ -30,7 +30,7 @@ my $SEED_RATIO_COUNT = 10;
 # App config
 my $DELAY   = 4;
 my $TIMEOUT = 15;
-my $UA      = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9) AppleWebKit/537.71 (KHTML, like Gecko) Version/7.0 Safari/537.71';
+my $UA      = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
 
 # Includes
 use JSON;
@@ -556,11 +556,20 @@ foreach my $url (@urls) {
 	}
 	sleep($DELAY * (rand(2) + 0.5));
 	$fetch->url($url);
-	$fetch->fetch();
+	$fetch->fetch('nocheck' => 1);
+
+	# Check for useful errors
+	if ($fetch->status_code() == 404) {
+		if ($DEBUG) {
+			print STDERR "Skipping content from 404 response\n";
+		}
+		next;
+	}
 
 	# Check for errors
 	if ($fetch->status_code() != 200) {
 		print STDERR 'Error fetching URL: ' . $url . "\n";
+		next;
 	}
 
 	# Save the content, discriminating by data type
