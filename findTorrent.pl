@@ -118,7 +118,7 @@ if ($ENABLE_SOURCE{'TPB'}) {
 if ($ENABLE_SOURCE{'ISO'}) {
 
 	# Available ISOhunt proxies, in order of preference
-	my @ISOs = ('isohunt.to/torrents/?ihq=', 'isohunters.net/torrents/?ihq=');
+	my @ISOs = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
 
 	# Automatically select a proxy that returns the non-US page
 	my $host       = '';
