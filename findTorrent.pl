@@ -568,7 +568,7 @@ foreach my $url (@urls) {
 
 	# Check for errors
 	if ($fetch->status_code() != 200) {
-		print STDERR 'Error fetching URL: ' . $url . "\n";
+		print STDERR 'Error fetching URL (' . $fetch->status_code() . '): ' . $url . "\n";
 		next;
 	}
 
