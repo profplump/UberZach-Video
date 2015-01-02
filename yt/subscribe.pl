@@ -16,7 +16,7 @@ use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
-my %USERS           = ( 'profplump' => 'kj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA' );
+my %USERS           = ('profplump' => 'kj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $CURL_BIN        = 'curl';
@@ -168,8 +168,8 @@ if (!$DEBUG) {
 if ($0 =~ /subscription/i) {
 	my %subs = ();
 	foreach my $user (keys(%USERS)) {
-		my $tmp = getSubscriptions($user, $USERS{ $user });
-		foreach my $sub (keys(%{ $tmp })) {
+		my $tmp = getSubscriptions($user, $USERS{$user});
+		foreach my $sub (keys(%{$tmp})) {
 			if (exists($subs{$sub})) {
 				$subs{$sub} .= ', ' . $tmp->{$sub};
 			} else {
