@@ -16,7 +16,7 @@ use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
-my $USER_ID         = 'kj-Ob6eYHvzo-P0UWfnQzA';
+my %USERS           = ( 'profplump' => 'kj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA' );
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $CURL_BIN        = 'curl';
@@ -76,7 +76,7 @@ sub findVideo($);
 sub ytURL($);
 sub buildNFO($);
 sub buildSeriesNFO($);
-sub getSubscriptions($);
+sub getSubscriptions($$);
 sub saveSubscriptions($$);
 sub saveChannel($$);
 sub getChannel($);
@@ -166,8 +166,18 @@ if (!$DEBUG) {
 
 # Allow use as a subscription manager
 if ($0 =~ /subscription/i) {
-	my $subs = getSubscriptions($USER_ID);
-	saveSubscriptions($dir, $subs);
+	my %subs = ();
+	foreach my $user (keys(%USERS)) {
+		my $tmp = getSubscriptions($user, $USERS{ $user });
+		foreach my $sub (keys(%{ $tmp })) {
+			if (exists($subs{$sub})) {
+				$subs{$sub} .= ', ' . $tmp->{$sub};
+			} else {
+				$subs{$sub} = $tmp->{$sub};
+			}
+		}
+	}
+	saveSubscriptions($dir, \%subs);
 	exit(0);
 }
 
@@ -511,8 +521,8 @@ sub fetchParse($$) {
 	return $data;
 }
 
-sub getSubscriptions($) {
-	my ($user) = @_;
+sub getSubscriptions($$) {
+	my ($user, $id) = @_;
 
 	my $index     = 1;
 	my $itemCount = undef();
@@ -521,7 +531,7 @@ sub getSubscriptions($) {
 	{
 		# Build, fetch, parse
 		$API{'subscriptions'}{'params'}{'start-index'} = $index;
-		my $data = fetchParse('subscriptions', $user);
+		my $data = fetchParse('subscriptions', $id);
 
 		# It's all in the feed
 		if (!exists($data->{'feed'}) || ref($data->{'feed'}) ne 'HASH') {
@@ -557,7 +567,7 @@ sub getSubscriptions($) {
 			if ($DEBUG) {
 				print STDERR prettyPrint($item->{'yt$username'}, "\t") . "\n";
 			}
-			$subs{ $item->{'yt$username'}->{'$t'} } = 1;
+			$subs{ $item->{'yt$username'}->{'$t'} } = $user;
 		}
 
 		# Loop if there are results left to fetch
@@ -611,7 +621,7 @@ sub saveSubscriptions($$) {
 	# Check for YT subscriptions missing locally
 	foreach my $sub (keys(%{$subs})) {
 		if (!exists($locals{$sub})) {
-			print STDERR 'Adding local subscription for: ' . $sub . "\n";
+			print STDERR 'Adding local subscription for: ' . $sub . ' (' . $subs->{$sub} . ")\n";
 			mkdir($folder . '/' . $sub);
 		}
 	}
