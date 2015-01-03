@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use URI::Encode qw(uri_encode);
 
 # Defaults
 my $DEBUG               = 0;
@@ -16,7 +15,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'http';
-my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1);
+my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1, 'Z' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -32,7 +31,13 @@ my $DELAY   = 4;
 my $TIMEOUT = 15;
 my $UA      = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
 
+# Static trackers for building magnet URIs
+# Eventually this should be dynamic but for now a fixed list will work
+my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'http://bigfoot1942.sektori.org:6969/announce', 'http://www.eddie4.nl:6969/announce', 'http://tracker.nwps.ws:6969/announce', 'http://tracker.best-torrents.net:6969/announce', 'http://tracker.dler.org:6969/announce', 'http://tracker1.wasabii.com.tw:6969/announce', 'http://bt.careland.com.cn:6969/announce');
+
 # Includes
+use URI::Encode qw(uri_encode);
+use HTML::Strip;
 use JSON;
 use File::Temp;
 use File::Spec;
@@ -43,7 +48,7 @@ use Fetch;
 
 # Prototypes
 sub resolveSecondary($);
-sub splitTRs($);
+sub splitTags($$$);
 sub findSE($);
 
 # Command line
@@ -118,12 +123,12 @@ if ($ENABLE_SOURCE{'TPB'}) {
 if ($ENABLE_SOURCE{'ISO'}) {
 
 	# Available ISOhunt proxies, in order of preference
-	my @ISOs = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
+	my @proxies = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
 
 	# Automatically select a proxy that returns the non-US page
 	my $host       = '';
 	my $search_url = '';
-	foreach my $url (@ISOs) {
+	foreach my $url (@proxies) {
 		($host) = $url =~ /^([^\/]+)/;
 		$fetch->url($PROTOCOL . '://' . $host);
 		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Last\s+\d+\s+files\s+indexed/i) {
@@ -151,12 +156,12 @@ if ($ENABLE_SOURCE{'ISO'}) {
 if ($ENABLE_SOURCE{'KICK'}) {
 
 	# Available Kickass proxies, in order of preference
-	my @KICKs = ('kickass.so/usearch/');
+	my @proxies = ('kickass.so/usearch/');
 
 	# Automatically select a proxy that returns the non-US page
 	my $host       = '';
 	my $search_url = '';
-	foreach my $url (@KICKs) {
+	foreach my $url (@proxies) {
 		($host) = $url =~ /^([^\/]+)/;
 		$fetch->url($PROTOCOL . '://' . $host);
 		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /torrent name\<\/th\>/i) {
@@ -177,6 +182,39 @@ if ($ENABLE_SOURCE{'KICK'}) {
 			'quote'         => 1
 		);
 		$SOURCES{'KICK'} = \%tmp;
+	}
+}
+
+# Torrentz
+if ($ENABLE_SOURCE{'Z'}) {
+
+	# Available Torrentz proxies, in order of preference
+	my @proxies = ('torrentz.eu/search?q=');
+
+	# Automatically select a proxy that returns the non-US page
+	my $host       = '';
+	my $search_url = '';
+	foreach my $url (@proxies) {
+		($host) = $url =~ /^([^\/]+)/;
+		$fetch->url($PROTOCOL . '://' . $host);
+		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Indexing [\d\,]+ active torrents/i) {
+			$search_url = $url;
+			last;
+		} elsif ($DEBUG) {
+			print STDERR 'Torrentz proxy not available: ' . $host . "\n";
+		}
+	}
+
+	# Only add Torrentz if one of the proxies is up
+	if ($search_url) {
+		my %tmp = (
+			'host'          => $host,
+			'search_url'    => $search_url,
+			'search_suffix' => '/',
+			'weight'        => 0.30,
+			'quote'         => 1
+		);
+		$SOURCES{'Z'} = \%tmp;
 	}
 }
 
@@ -596,7 +634,7 @@ foreach my $content (@html_content) {
 	if ($content =~ /\<title\>The Pirate Bay/i) {
 
 		# Find TR elements from TPB
-		my @trs = splitTRs($content);
+		my @trs = splitTags($content, 'TR', 'TH');
 		foreach my $tr (@trs) {
 
 			# Find the show title
@@ -665,7 +703,7 @@ foreach my $content (@html_content) {
 	} elsif ($content =~ /Isohunt Torrent Search Engine\<\/title\>/i) {
 
 		# Find each TR element from ISOHunt
-		my @trs = splitTRs($content);
+		my @trs = splitTags($content, 'TR', 'TH');
 		foreach my $tr (@trs) {
 
 			# Split each TD element from the row
@@ -743,7 +781,7 @@ foreach my $content (@html_content) {
 	} elsif ($content =~ /KickassTorrents\<\/title\>/i) {
 
 		# Find each TR element from Kickass
-		my @trs = splitTRs($content);
+		my @trs = splitTags($content, 'TR', 'TH');
 		foreach my $tr (@trs) {
 
 			# Split each TD element from the row
@@ -812,6 +850,76 @@ foreach my $content (@html_content) {
 				'size'    => $size,
 				'url'     => $url,
 				'source'  => 'KICK'
+			);
+			push(@tors, \%tor);
+		}
+
+	} elsif ($content =~ /\<a(?:\s+[^\>]*)?\>Torrentz\<\/a\>/i) {
+
+		# We'll need to strip HTML
+		my $hs = HTML::Strip->new();
+
+		# Find each DL element from Torrentz
+		my @dls = splitTags($content, 'DL', undef());
+		foreach my $dl (@dls) {
+
+			# Skip ads
+			if ($dl =~ /\s+rel\=\"nofollow/i) {
+				next;
+			}
+
+			# Find the torrent title
+			my ($hash, $title) = $dl =~ /\<a href\=\"\/(\w+)\">(.*)\<\/a\>/i;
+			if (!defined($hash) || length($hash) < 1 || !defined($title) || length($title) < 1) {
+				if ($DEBUG) {
+					print STDERR "Unable to find torrent title in DL:\n\t" . $dl . "\n";
+				}
+				next;
+			}
+			$title = $hs->parse($title);
+			$hs->eof;
+			$title =~ s/^\s+//;
+
+			# Extract the season and episode numbers
+			my ($fileSeason, $episode) = findSE($title);
+
+			# Extract the size
+			my ($size, $unit) = $dl =~ /\<span class\=\"s\">(\d+(?:\.\d+)?) (G|M)B\<\/span\>/i;
+			if ($unit eq 'G') {
+				$size *= 1024;
+			}
+			$size = int($size);
+
+			# Count the sum of seeders and leachers
+			my $seeds = 0;
+			if ($dl =~ /<span class\=\"u\">(\d+)\<\/span\>/i) {
+				$seeds = $1;
+			}
+			my $leaches = 0;
+			if ($dl =~ /<span class\=\"d\">(\d+)\<\/span\>/i) {
+				$leaches = $1;
+			}
+
+			# Construct a magnet URL from the hash
+			my $url = 'magnet:?xt=urn:btih:' . $hash;
+			foreach my $tracker (@TRACKERS) {
+				$url .= '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
+			}
+
+			if ($DEBUG) {
+				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+			}
+
+			# Save the extracted data
+			my %tor = (
+				'title'   => $title,
+				'season'  => $fileSeason,
+				'episode' => $episode,
+				'seeds'   => $seeds,
+				'leaches' => $leaches,
+				'size'    => $size,
+				'url'     => $url,
+				'source'  => 'Z'
 			);
 			push(@tors, \%tor);
 		}
@@ -1061,38 +1169,42 @@ sub resolveSecondary($) {
 		}
 	}
 
+	# We could fetch to get a dynamic tracker list from TorrentZ
+
+	# We could built our own magent URL given a static or dynamic tracker list and BT hash
+
 	return $url;
 }
 
-sub splitTRs($) {
-	my ($content) = @_;
+sub splitTags($$$) {
+	my ($content, $tag, $header) = @_;
 
-	# Find each TR element
-	my @trs = ();
-	my @rawTRs = split(/\<tr(?:\s+[^\>]*)?\>/i, $content);
-	foreach my $tr (@rawTRs) {
+	# Find each tag element
+	my @out = ();
+	my @parts = split(/\<${tag}(?:\s+[^\>]*)?\>/i, $content);
+	foreach my $part (@parts) {
 
-		# Trim trailing tags and skip things that aren't complete TRs
-		if (!($tr =~ s/\<\/tr\>.*$//is)) {
+		# Trim trailing tags and skip things that aren't complete tags
+		if (!($part =~ s/\<\/${tag}\>.*$//is)) {
 			if ($DEBUG > 1) {
-				print STDERR 'Skipping non-TR line: ' . $tr . "\n\n";
+				print STDERR 'Skipping non-tag line: ' . $part . "\n\n";
 			}
 			next;
 		}
 
-		# Skip header rows
-		if ($tr =~ /<th(?:\s+[^\>]*)?\>/i) {
+		# Skip headers
+		if (defined($header) && $part =~ /<${header}(?:\s+[^\>]*)?\>/i) {
 			if ($DEBUG > 2) {
-				print STDERR 'Skipping header TR line: ' . $tr . "\n\n";
+				print STDERR 'Skipping header line: ' . $part . "\n\n";
 			}
 			next;
 		}
 
-		# Save good TRs
-		push(@trs, $tr);
+		# Save good tags
+		push(@out, $part);
 	}
 
-	return @trs;
+	return @out;
 }
 
 # Extract season
