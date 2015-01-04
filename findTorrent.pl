@@ -25,15 +25,15 @@ my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
+my $TRACKER_LOOKUP   = 0;
 
 # App config
 my $DELAY   = 4;
 my $TIMEOUT = 15;
 my $UA      = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
 
-# Static trackers for building magnet URIs
-# Eventually this should be dynamic but for now a fixed list will work
-my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'http://bigfoot1942.sektori.org:6969/announce', 'http://www.eddie4.nl:6969/announce', 'http://tracker.nwps.ws:6969/announce', 'http://tracker.best-torrents.net:6969/announce', 'http://tracker.dler.org:6969/announce', 'http://tracker1.wasabii.com.tw:6969/announce', 'http://bt.careland.com.cn:6969/announce');
+# Static tracker list, appended to all magnet URIs
+my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce');
 
 # Includes
 use URI::Encode qw(uri_encode);
@@ -48,6 +48,7 @@ use Fetch;
 
 # Prototypes
 sub resolveSecondary($);
+sub resolveTrackers($);
 sub splitTags($$$);
 sub findSE($);
 
@@ -189,7 +190,7 @@ if ($ENABLE_SOURCE{'KICK'}) {
 if ($ENABLE_SOURCE{'Z'}) {
 
 	# Available Torrentz proxies, in order of preference
-	my @proxies = ('torrentz.eu/search?q=');
+	my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
 
 	# Automatically select a proxy that returns the non-US page
 	my $host       = '';
@@ -210,18 +211,23 @@ if ($ENABLE_SOURCE{'Z'}) {
 		my %tmp = (
 			'host'          => $host,
 			'search_url'    => $search_url,
-			'search_suffix' => '/',
-			'weight'        => 0.30,
+			'search_suffix' => '+peer+%3E+' . $MIN_COUNT,
+			'weight'        => 1,
 			'quote'         => 1
 		);
 		$SOURCES{'Z'} = \%tmp;
 	}
 }
 
+my $SOURCE_COUNT = scalar(keys(%SOURCES));
+
 # Sanity check
-if (scalar(keys(%SOURCES)) < 1) {
+if ($SOURCE_COUNT < 1) {
 	die("No sources available\n");
 }
+
+# Adjust the inter-page delay with respect to the number of unique sources
+$DELAY /= $SOURCE_COUNT;
 
 # Environment
 #if ($DEBUG) {
@@ -901,10 +907,8 @@ foreach my $content (@html_content) {
 			}
 
 			# Construct a magnet URL from the hash
+			# Assume the seconary lookup will append a list of trackers
 			my $url = 'magnet:?xt=urn:btih:' . $hash;
-			foreach my $tracker (@TRACKERS) {
-				$url .= '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
-			}
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
@@ -1130,12 +1134,13 @@ foreach my $episode (keys(%tors)) {
 # Output
 foreach my $episode (keys(%tors)) {
 	if (defined($urls{$episode})) {
+		$urls{$episode} = resolveTrackers($urls{$episode});
 		print $urls{$episode} . "\n";
 		if ($DEBUG) {
 			print STDERR 'Final URL: ' . $urls{$episode} . "\n";
 		}
 	} elsif ($DEBUG) {
-		print STDERR 'No URL found for URL: ' . $episode . "\n";
+		print STDERR 'No URL for: ' . $episode . "\n";
 	}
 }
 
@@ -1169,11 +1174,75 @@ sub resolveSecondary($) {
 		}
 	}
 
-	# We could fetch to get a dynamic tracker list from TorrentZ
+	return $url;
+}
 
-	# We could built our own magent URL given a static or dynamic tracker list and BT hash
+sub resolveTrackers($) {
+	my ($url) = @_;
+
+	# Always append a few static trackers to the URI
+	if ($url =~ /^magnet\:/i) {
+		foreach my $tracker (@TRACKERS) {
+			$url .= '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
+		}
+	}
+
+	# Fetch a dynamic tracker list for any hashinfo from TorrentZ
+	if ($TRACKER_LOOKUP && defined($SOURCES{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
+		my $hash    = $1;
+		my $baseURL = $PROTOCOL . '://' . $SOURCES{'Z'}->{'host'};
+		my $hashURL = $baseURL . '/' . $hash;
+		if ($DEBUG) {
+			print STDERR 'Hashinfo fetch with URL: ' . $hashURL . "\n";
+			$fetch->file('/tmp/findTorrent-hashinfo.html');
+		}
+		sleep($DELAY * (rand(2) + 0.5));
+		$fetch->url($hashURL);
+		$fetch->fetch();
+		if ($fetch->status_code() != 200) {
+			print STDERR 'Error fetching hashinfo URL: ' . $hashURL . "\n";
+			return $url;
+		}
+
+		# Parse out and fetch the tracker list URL
+		my ($list) = $fetch->content() =~ /\<a rel\=\"nofollow\" href\=\"(\/announcelist_\d+)\"\>/;
+		if (!defined($list)) {
+			print STDERR "Unable to find tracker list link\n";
+			return $url;
+		}
+		my $listURL = $baseURL . $list;
+		if ($DEBUG) {
+			print STDERR 'Tracker list fetch with URL: ' . $listURL . "\n";
+			$fetch->file('/tmp/findTorrent-tracker.html');
+		}
+		sleep($DELAY * (rand(2) + 0.5));
+		$fetch->url($listURL);
+		$fetch->fetch();
+		if ($fetch->status_code() != 200) {
+			print STDERR 'Error fetching tracker list URL: ' . $listURL . "\n";
+			return $url;
+		}
+
+		# Parse the tracker list and append our URL
+		foreach my $line ($fetch->content()) {
+			if ($line =~ /^\s*$/) {
+				next;
+			}
+			$line =~ s/^\s+//;
+			$line =~ s/\s+$//;
+			if ($line =~ /^(?:http|udp)\:/i) {
+				if ($DEBUG) {
+					print STDERR 'Adding tracker: ' . $line . "\n";
+				}
+				$url .= '&tr=' . uri_encode($line, { 'encode_reserved' => 1 });
+			} else {
+				print STDERR 'Unknown tracker type: ' . $line . "\n";
+			}
+		}
+	}
 
 	return $url;
+
 }
 
 sub splitTags($$$) {
