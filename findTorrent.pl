@@ -893,11 +893,14 @@ foreach my $content (@html_content) {
 			my ($fileSeason, $episode) = findSE($title);
 
 			# Extract the size
-			my ($size, $unit) = $dl =~ /\<span class\=\"s\">(\d+(?:\.\d+)?) (G|M)B\<\/span\>/i;
-			if ($unit eq 'G') {
-				$size *= 1024;
+			my $size = 0;
+			if ($dl =~ /\<span class\=\"s\">(\d+(?:\.\d+)?) (G|M)B\<\/span\>/i) {
+				$size = $1;
+				if ($2 eq 'G') {
+					$size *= 1024;
+				}
+				$size = int($size);
 			}
-			$size = int($size);
 
 			# Count the sum of seeders and leachers
 			my $seeds = 0;
