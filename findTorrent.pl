@@ -445,6 +445,9 @@ if (scalar(@urls) < 1) {
 					$url = $prefix . '+' . $season . 'x' . $episode_long . $exclude;
 					push(@urls, $url);
 
+					# Season X
+					$url = $prefix . '+Season+' . $season . $exclude;
+					push(@urls, $url);
 				}
 			}
 		}
@@ -874,8 +877,10 @@ foreach my $tor (@tors) {
 			}
 			next;
 
-			# Skip files that don't contain the episode number
-		} elsif ((!defined($tor->{'episode'}) || !$need{ $tor->{'episode'} })) {
+			# Skip files that don't contain the episode number, unless MORE_NUMBER_FORMATS is set
+		} elsif ((!defined($tor->{'episode'}) || !$need{ $tor->{'episode'} })
+			&& !($MORE_NUMBER_FORMATS && defined($tor->{'episode'}) && $tor->{'episode'} == 0))
+		{
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
 			}
