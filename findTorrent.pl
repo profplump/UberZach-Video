@@ -211,10 +211,13 @@ if ($ENABLE_SOURCE{'Z'}) {
 		my %tmp = (
 			'host'          => $host,
 			'search_url'    => $search_url,
-			'search_suffix' => '+peer+%3E+' . $MIN_COUNT,
+			'search_suffix' => '',
 			'weight'        => 1,
 			'quote'         => 1
 		);
+		if (!$NO_QUALITY_CHECKS) {
+			$tmp{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,
+		}
 		$SOURCES{'Z'} = \%tmp;
 	}
 }
