@@ -216,7 +216,7 @@ if ($ENABLE_SOURCE{'Z'}) {
 			'quote'         => 1
 		);
 		if (!$NO_QUALITY_CHECKS) {
-			$tmp{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,
+			$tmp{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
 		}
 		$SOURCES{'Z'} = \%tmp;
 	}
