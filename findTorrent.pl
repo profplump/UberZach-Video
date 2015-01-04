@@ -25,7 +25,7 @@ my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
-my $TRACKER_LOOKUP   = 0;
+my $TRACKER_LOOKUP   = 1;
 
 # App config
 my $DELAY   = 4;
@@ -1183,7 +1183,11 @@ sub resolveTrackers($) {
 	# Always append a few static trackers to the URI
 	if ($url =~ /^magnet\:/i) {
 		foreach my $tracker (@TRACKERS) {
-			$url .= '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
+			my $arg = '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
+			my $match = quotemeta($arg);
+			if (!($url =~ /${match}/)) {
+				$url .= $arg;
+			}
 		}
 	}
 
@@ -1231,10 +1235,14 @@ sub resolveTrackers($) {
 			$line =~ s/^\s+//;
 			$line =~ s/\s+$//;
 			if ($line =~ /^(?:http|udp)\:/i) {
-				if ($DEBUG) {
-					print STDERR 'Adding tracker: ' . $line . "\n";
+				my $arg = '&tr=' . uri_encode($line, { 'encode_reserved' => 1 });
+				my $match = quotemeta($arg);
+				if (!($url =~ /${match}/)) {
+					if ($DEBUG) {
+						print STDERR 'Adding tracker: ' . $line . "\n";
+					}
+					$url .= $arg;
 				}
-				$url .= '&tr=' . uri_encode($line, { 'encode_reserved' => 1 });
 			} else {
 				print STDERR 'Unknown tracker type: ' . $line . "\n";
 			}
