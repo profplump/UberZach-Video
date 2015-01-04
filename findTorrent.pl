@@ -51,6 +51,7 @@ sub resolveSecondary($);
 sub resolveTrackers($);
 sub splitTags($$$);
 sub findSE($);
+sub initSources();
 
 # Command line
 my ($dir, $search) = @ARGV;
@@ -76,161 +77,13 @@ if (defined($ENV{'NEXT_EPISODES'})) {
 	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
 }
 
-# New fetch object
+# Fetch object
 my $cookies = mktemp('/tmp/findTorrent.cookies.XXXXXXXX');
 my $fetch   = Fetch->new(
 	'cookiefile' => $cookies,
 	'timeout'    => $TIMEOUT,
 	'uas'        => $UA
 );
-
-# Search sources
-my %SOURCES = ();
-
-# The Pirate Bay
-if ($ENABLE_SOURCE{'TPB'}) {
-
-	# Available TPB proxies, in order of preference
-	my @TPBs = ('thepiratebay.se/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
-
-	# Automatically select a proxy that returns a search page
-	my $host       = '';
-	my $search_url = '';
-	foreach my $url (@TPBs) {
-		($host) = $url =~ /^([^\/]+)/;
-		$fetch->url($PROTOCOL . '://' . $host);
-		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /\bSearch\b/i) {
-			$search_url = $url;
-			last;
-		} elsif ($DEBUG) {
-			print STDERR 'TPB proxy not available: ' . $host . "\n";
-		}
-	}
-
-	# Only add TPB if one of the proxies is up
-	if ($search_url) {
-		my %tmp = (
-			'host'          => $host,
-			'search_url'    => $search_url,
-			'search_suffix' => '/0/7/0',
-			'weight'        => 1.5,
-			'quote'         => 0
-		);
-		$SOURCES{'TPB'} = \%tmp;
-	}
-}
-
-# ISOhunt
-if ($ENABLE_SOURCE{'ISO'}) {
-
-	# Available ISOhunt proxies, in order of preference
-	my @proxies = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
-
-	# Automatically select a proxy that returns the non-US page
-	my $host       = '';
-	my $search_url = '';
-	foreach my $url (@proxies) {
-		($host) = $url =~ /^([^\/]+)/;
-		$fetch->url($PROTOCOL . '://' . $host);
-		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Last\s+\d+\s+files\s+indexed/i) {
-			$search_url = $url;
-			last;
-		} elsif ($DEBUG) {
-			print STDERR 'ISOhunt proxy not available: ' . $host . "\n";
-		}
-	}
-
-	# Only add ISOhunt if one of the proxies is up
-	if ($search_url) {
-		my %tmp = (
-			'host'          => $host,
-			'search_url'    => $search_url,
-			'search_suffix' => '',
-			'weight'        => 0.30,
-			'quote'         => 1
-		);
-		$SOURCES{'ISO'} = \%tmp;
-	}
-}
-
-# Kickass
-if ($ENABLE_SOURCE{'KICK'}) {
-
-	# Available Kickass proxies, in order of preference
-	my @proxies = ('katproxy.com/usearch/', 'kickass.so/usearch/');
-
-	# Automatically select a proxy that returns the non-US page
-	my $host       = '';
-	my $search_url = '';
-	foreach my $url (@proxies) {
-		($host) = $url =~ /^([^\/]+)/;
-		$fetch->url($PROTOCOL . '://' . $host);
-		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /torrent name\<\/th\>/i) {
-			$search_url = $url;
-			last;
-		} elsif ($DEBUG) {
-			print STDERR 'Kickass proxy not available: ' . $host . "\n";
-		}
-	}
-
-	# Only add Kickass if one of the proxies is up
-	if ($search_url) {
-		my %tmp = (
-			'host'          => $host,
-			'search_url'    => $search_url,
-			'search_suffix' => '/',
-			'weight'        => 0.30,
-			'quote'         => 1
-		);
-		$SOURCES{'KICK'} = \%tmp;
-	}
-}
-
-# Torrentz
-if ($ENABLE_SOURCE{'Z'}) {
-
-	# Available Torrentz proxies, in order of preference
-	my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
-
-	# Automatically select a proxy that returns the non-US page
-	my $host       = '';
-	my $search_url = '';
-	foreach my $url (@proxies) {
-		($host) = $url =~ /^([^\/]+)/;
-		$fetch->url($PROTOCOL . '://' . $host);
-		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Indexing [\d\,]+ active torrents/i) {
-			$search_url = $url;
-			last;
-		} elsif ($DEBUG) {
-			print STDERR 'Torrentz proxy not available: ' . $host . "\n";
-		}
-	}
-
-	# Only add Torrentz if one of the proxies is up
-	if ($search_url) {
-		my %tmp = (
-			'host'          => $host,
-			'search_url'    => $search_url,
-			'search_suffix' => '',
-			'weight'        => 1,
-			'quote'         => 1
-		);
-		if (!$NO_QUALITY_CHECKS) {
-			$tmp{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
-		}
-		$SOURCES{'Z'} = \%tmp;
-	}
-}
-
-my $SOURCE_COUNT = scalar(keys(%SOURCES));
-
-# Sanity check
-if ($SOURCE_COUNT < 1) {
-	die("No sources available\n");
-}
-
-# Adjust the inter-page delay with respect to the number of unique sources
-$DELAY /= $SOURCE_COUNT;
 
 # Environment
 #if ($DEBUG) {
@@ -321,6 +174,12 @@ if (-e $dir . '/excludes') {
 	$exclude = uri_encode(' ' . $exclude);
 }
 
+# Setup our sources
+my $SOURCES = initSources();
+
+# Adjust the inter-page delay with respect to the number of unique sources
+$DELAY /= scalar(keys(%{$SOURCES}));
+
 # Handle custom searches
 if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 
@@ -331,8 +190,8 @@ if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 	}
 
 	# Create the relevent search strings
-	foreach my $key (keys(%SOURCES)) {
-		my $source = $SOURCES{$key};
+	foreach my $key (keys(%{$SOURCES})) {
+		my $source = $SOURCES->{$key};
 		push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search . $exclude . $source->{'search_suffix'});
 	}
 }
@@ -401,8 +260,8 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 		$search_str =~ s/%Y/${year}/g;
 		$search_str =~ s/%m/${month}/g;
 		$search_str =~ s/%d/${day}/g;
-		foreach my $key (keys(%SOURCES)) {
-			my $source = $SOURCES{$key};
+		foreach my $key (keys(%{$SOURCES})) {
+			my $source = $SOURCES->{$key};
 			push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search_str . $exclude . $source->{'search_suffix'});
 		}
 	}
@@ -542,7 +401,7 @@ if (scalar(@urls) < 1) {
 		foreach my $episode (@need) {
 			my $episode_long = sprintf('%02d', $episode);
 			my $season_long  = sprintf('%02d', $season);
-			foreach my $source (values(%SOURCES)) {
+			foreach my $source (values(%{$SOURCES})) {
 
 				# Use quotes around the show name if the source needs them
 				my $quote = '%22';
@@ -767,7 +626,7 @@ foreach my $content (@html_content) {
 			}
 
 			# Fetch the detail page for the URL
-			my $url = $PROTOCOL . '://' . $SOURCES{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
+			my $url = $PROTOCOL . '://' . $SOURCES->{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
@@ -1037,7 +896,7 @@ foreach my $tor (@tors) {
 	if (!$NO_QUALITY_CHECKS) {
 
 		# Skip torrents with too few seeders/leachers
-		if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES{ $tor->{'source'} }->{'weight'} < $MIN_COUNT) {
+		if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $MIN_COUNT) {
 			if ($DEBUG) {
 				print STDERR 'Skipping file: Insufficient seeder/leacher count (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'title'} . "\n";
 			}
@@ -1198,9 +1057,9 @@ sub resolveTrackers($) {
 	}
 
 	# Fetch a dynamic tracker list for any hashinfo from TorrentZ
-	if ($TRACKER_LOOKUP && defined($SOURCES{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
+	if ($TRACKER_LOOKUP && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
 		my $hash    = $1;
-		my $baseURL = $PROTOCOL . '://' . $SOURCES{'Z'}->{'host'};
+		my $baseURL = $PROTOCOL . '://' . $SOURCES->{'Z'}->{'host'};
 		my $hashURL = $baseURL . '/' . $hash;
 		if ($DEBUG) {
 			print STDERR 'Hashinfo fetch with URL: ' . $hashURL . "\n";
@@ -1310,4 +1169,151 @@ sub findSE($) {
 	$season  = int($season);
 	$episode = int($episode);
 	return ($season, $episode);
+}
+
+sub initSources() {
+
+	my %sources = ();
+
+	# The Pirate Bay
+	if ($ENABLE_SOURCE{'TPB'}) {
+
+		# Available TPB proxies, in order of preference
+		my @TPBs = ('thepiratebay.se/search/', 'pirateproxy.se/search/', 'tpb.unblocked.co/search/');
+
+		# Automatically select a proxy that returns a search page
+		my $host       = '';
+		my $search_url = '';
+		foreach my $url (@TPBs) {
+			($host) = $url =~ /^([^\/]+)/;
+			$fetch->url($PROTOCOL . '://' . $host);
+			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /\bSearch\b/i) {
+				$search_url = $url;
+				last;
+			} elsif ($DEBUG) {
+				print STDERR 'TPB proxy not available: ' . $host . "\n";
+			}
+		}
+
+		# Only add TPB if one of the proxies is up
+		if ($search_url) {
+			my %tmp = (
+				'host'          => $host,
+				'search_url'    => $search_url,
+				'search_suffix' => '/0/7/0',
+				'weight'        => 1.5,
+				'quote'         => 0
+			);
+			$sources{'TPB'} = \%tmp;
+		}
+	}
+
+	# ISOhunt
+	if ($ENABLE_SOURCE{'ISO'}) {
+
+		# Available ISOhunt proxies, in order of preference
+		my @proxies = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
+
+		# Automatically select a proxy that returns the non-US page
+		my $host       = '';
+		my $search_url = '';
+		foreach my $url (@proxies) {
+			($host) = $url =~ /^([^\/]+)/;
+			$fetch->url($PROTOCOL . '://' . $host);
+			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Last\s+\d+\s+files\s+indexed/i) {
+				$search_url = $url;
+				last;
+			} elsif ($DEBUG) {
+				print STDERR 'ISOhunt proxy not available: ' . $host . "\n";
+			}
+		}
+
+		# Only add ISOhunt if one of the proxies is up
+		if ($search_url) {
+			my %tmp = (
+				'host'          => $host,
+				'search_url'    => $search_url,
+				'search_suffix' => '',
+				'weight'        => 0.30,
+				'quote'         => 1
+			);
+			$sources{'ISO'} = \%tmp;
+		}
+	}
+
+	# Kickass
+	if ($ENABLE_SOURCE{'KICK'}) {
+
+		# Available Kickass proxies, in order of preference
+		my @proxies = ('katproxy.com/usearch/', 'kickass.so/usearch/');
+
+		# Automatically select a proxy that returns the non-US page
+		my $host       = '';
+		my $search_url = '';
+		foreach my $url (@proxies) {
+			($host) = $url =~ /^([^\/]+)/;
+			$fetch->url($PROTOCOL . '://' . $host);
+			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /torrent name\<\/th\>/i) {
+				$search_url = $url;
+				last;
+			} elsif ($DEBUG) {
+				print STDERR 'Kickass proxy not available: ' . $host . "\n";
+			}
+		}
+
+		# Only add Kickass if one of the proxies is up
+		if ($search_url) {
+			my %tmp = (
+				'host'          => $host,
+				'search_url'    => $search_url,
+				'search_suffix' => '/',
+				'weight'        => 0.30,
+				'quote'         => 1
+			);
+			$sources{'KICK'} = \%tmp;
+		}
+	}
+
+	# Torrentz
+	if ($ENABLE_SOURCE{'Z'}) {
+
+		# Available Torrentz proxies, in order of preference
+		my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
+
+		# Automatically select a proxy that returns the non-US page
+		my $host       = '';
+		my $search_url = '';
+		foreach my $url (@proxies) {
+			($host) = $url =~ /^([^\/]+)/;
+			$fetch->url($PROTOCOL . '://' . $host);
+			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Indexing [\d\,]+ active torrents/i) {
+				$search_url = $url;
+				last;
+			} elsif ($DEBUG) {
+				print STDERR 'Torrentz proxy not available: ' . $host . "\n";
+			}
+		}
+
+		# Only add Torrentz if one of the proxies is up
+		if ($search_url) {
+			my %tmp = (
+				'host'          => $host,
+				'search_url'    => $search_url,
+				'search_suffix' => '',
+				'weight'        => 1,
+				'quote'         => 1
+			);
+			if (!$NO_QUALITY_CHECKS) {
+				$tmp{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
+			}
+			$sources{'Z'} = \%tmp;
+		}
+	}
+
+	# Sanity check
+	if (scalar(keys(%sources)) < 1) {
+		die("No sources available\n");
+	}
+
+	return \%sources;
 }
