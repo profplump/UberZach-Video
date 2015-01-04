@@ -425,28 +425,28 @@ if (scalar(@urls) < 1) {
 
 					# SXEY
 					if ($season_long ne $season || $episode_long ne $episode) {
-						$url = $prefix . '+s' . $season . 'e' . $episode . $exclude;
+						$url = $prefix . '+s' . $season . 'e' . $episode . $exclude . $suffix;
 						push(@urls, $url);
 					}
 
 					# SXX EYY
-					$url = $prefix . '+s' . $season_long . '+e' . $episode_long . $exclude;
+					$url = $prefix . '+s' . $season_long . '+e' . $episode_long . $exclude . $suffix;
 					push(@urls, $url);
 
 					# Season XX Episode YY
-					$url = $prefix . '+season+' . $season_long . '+episode+' . $episode_long . $exclude;
+					$url = $prefix . '+season+' . $season_long . '+episode+' . $episode_long . $exclude . $suffix;
 					push(@urls, $url);
 
 					# Series X Episode Y
-					$url = $prefix . '+series+' . $season . '+episode+' . $episode . $exclude;
+					$url = $prefix . '+series+' . $season . '+episode+' . $episode . $exclude . $suffix;
 					push(@urls, $url);
 
 					# SxEE
-					$url = $prefix . '+' . $season . 'x' . $episode_long . $exclude;
+					$url = $prefix . '+' . $season . 'x' . $episode_long . $exclude . $suffix;
 					push(@urls, $url);
 
 					# Season X
-					$url = $prefix . '+Season+' . $season . $exclude;
+					$url = $prefix . '+Season+' . $season . $exclude . $suffix;
 					push(@urls, $url);
 				}
 			}
