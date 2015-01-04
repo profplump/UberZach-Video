@@ -157,7 +157,7 @@ if ($ENABLE_SOURCE{'ISO'}) {
 if ($ENABLE_SOURCE{'KICK'}) {
 
 	# Available Kickass proxies, in order of preference
-	my @proxies = ('kickass.so/usearch/');
+	my @proxies = ('katproxy.com/usearch/', 'kickass.so/usearch/');
 
 	# Automatically select a proxy that returns the non-US page
 	my $host       = '';
