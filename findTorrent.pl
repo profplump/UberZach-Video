@@ -778,7 +778,7 @@ foreach my $content (@html_content) {
 
 			# Construct a magnet URL from the hash
 			# Assume the seconary lookup will append a list of trackers
-			my $url = 'magnet:?xt=urn:btih:' . $hash;
+			my $url = 'magnet:?xt=urn:btih:' . $hash . '&dn=' . uri_encode($title, { 'encode_reserved' => 1 });
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
