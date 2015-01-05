@@ -14,7 +14,7 @@ my $NEXT_EPISODES       = 3;
 my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
-my $PROTOCOL = 'http';
+my $PROTOCOL = 'https';
 my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1, 'Z' => 1);
 
 # Selection parameters
