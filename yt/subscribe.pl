@@ -219,6 +219,13 @@ if (!$NO_FILES) {
 	$files = findFiles($dir);
 }
 
+# Whine about unknown videos
+foreach my $id (keys(%{$files})) {
+	if (!exists($videos->{$id})) {
+		print STDERR 'Local video not known to YT: ' . $id . "\n";
+	}
+}
+
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
 	my $basePath = $dir . '/S01E' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
