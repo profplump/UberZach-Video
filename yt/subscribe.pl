@@ -25,6 +25,7 @@ my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
 my $DRIFT_TOLERANCE = 2;
 my $DRIFT_FACTOR    = 100.0;
+my $DELAY           = 5;
 my $API_URL         = 'https://gdata.youtube.com/feeds/api/';
 my %API             = (
 	'search' => {
@@ -283,6 +284,7 @@ foreach my $id (keys(%{$videos})) {
 				if ($DEBUG > 1) {
 					print STDERR join(' ', @cmd) . "\n";
 				}
+				sleep($DELAY);
 				system(@cmd);
 			}
 		}
@@ -511,6 +513,7 @@ sub fetchParse($$) {
 	if ($DEBUG) {
 		print STDERR 'Fetching ' . $name . ' API URL: ' . $url . "\n";
 	}
+	sleep($DELAY);
 	my $content = get($url);
 	if (!defined($content) || length($content) < 10) {
 		die('Invalid content from URL: ' . $url . "\n");
