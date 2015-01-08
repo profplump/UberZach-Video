@@ -490,7 +490,7 @@ sub findFiles($) {
 	close($fh);
 
 	if ($DEBUG) {
-		print STDERR "\nFound " . scalar(keys(%files)) . " files:\n\t" . join(', ', keys(%files)) . "\n";
+		print STDERR 'Found ' . scalar(keys(%files)) . " local videos\n";
 		if ($DEBUG > 1) {
 			print STDERR prettyPrint(\%files, "\t") . "\n";
 		}
@@ -862,7 +862,7 @@ sub findVideos($) {
 	}
 
 	if ($DEBUG) {
-		print STDERR "\nFound " . scalar(keys(%videos)) . ' videos for YouTube user ' . $user . ":\n\t" . join(', ', keys(%videos)) . "\n";
+		print STDERR 'Found ' . scalar(keys(%videos)) . " remote videos\n";
 		if ($DEBUG > 1) {
 			print STDERR prettyPrint(\%videos, "\t") . "\n";
 		}
