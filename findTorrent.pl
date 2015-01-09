@@ -37,6 +37,7 @@ my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.
 
 # Includes
 use URI::Encode qw(uri_encode);
+use HTML::Entities;
 use HTML::Strip;
 use JSON;
 use File::Temp;
@@ -1044,6 +1045,7 @@ sub resolveSecondary($) {
 			}
 			return undef();
 		}
+		$url = decode_entities($url);
 	}
 
 	return $url;
