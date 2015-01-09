@@ -532,6 +532,7 @@ foreach my $content (@html_content) {
 				}
 				next;
 			}
+			$url = decode_entities($url);
 
 			# Count the sum of seeders and leachers
 			my $seeds   = 0;
@@ -684,6 +685,7 @@ foreach my $content (@html_content) {
 				}
 				next;
 			}
+			$url = decode_entities($url);
 
 			# Extract the season and episode numbers
 			my ($fileSeason, $episode) = findSE($title);
