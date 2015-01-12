@@ -238,7 +238,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 			my $season_dir = $dir . '/Season ' . $year;
 			my $prefix     = qr/${year}\-${month}\-${day}\s*\-\s*/;
 			opendir(SEASON, $season_dir)
-			  or die("Unable to open season directory: ${!}\n");
+			  or die('Unable to open season directory (' . $season_dir . '): ' . $! . "\n");
 			while (my $file = readdir(SEASON)) {
 				if ($file =~ $prefix) {
 					$exists = 1;
