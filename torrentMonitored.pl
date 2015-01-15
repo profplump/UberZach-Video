@@ -119,6 +119,11 @@ for my $BASE_DIR (@BASE_DIRS) {
 	close(BASE_DIR);
 }
 
+# Sort
+@done = sort(@done);
+@skipped = sort(@skipped);
+@monitored = sort(@monitored);
+
 # Print results
 if ($prg && $prg =~ /NULL/i) {
 	foreach my $show (@monitored) {
