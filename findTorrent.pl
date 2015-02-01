@@ -163,7 +163,7 @@ if (-e $dir . '/excludes') {
 	close(EX);
 
 	$ex =~ s/^\s+//;
-	$ex =~ s/^\s+//;
+	$ex =~ s/\s+$//;
 	my @excludes = split(/\s*,\s*/, $ex);
 
 	foreach my $ex (@excludes) {
