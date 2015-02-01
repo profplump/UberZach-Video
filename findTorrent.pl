@@ -193,7 +193,7 @@ if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 	# Create the relevent search strings
 	foreach my $key (keys(%{$SOURCES})) {
 		my $source = $SOURCES->{$key};
-		push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search . $exclude . $source->{'search_suffix'});
+		push(@urls, $source->{'protocol'} . '://' . $source->{'search_url'} . $search . $exclude . $source->{'search_suffix'});
 	}
 }
 
@@ -263,7 +263,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 		$search_str =~ s/%d/${day}/g;
 		foreach my $key (keys(%{$SOURCES})) {
 			my $source = $SOURCES->{$key};
-			push(@urls, $PROTOCOL . '://' . $source->{'search_url'} . $search_str . $exclude . $source->{'search_suffix'});
+			push(@urls, $source->{'protocol'} . '://' . $source->{'search_url'} . $search_str . $exclude . $source->{'search_suffix'});
 		}
 	}
 
@@ -411,7 +411,7 @@ if (scalar(@urls) < 1) {
 				}
 
 				# Calculate the compete search prefix and suffix to simplify later concatenations
-				my $prefix = $PROTOCOL . '://' . $source->{'search_url'} . $quote . $urlShow . $quote;
+				my $prefix = $source->{'protocol'} . '://' . $source->{'search_url'} . $quote . $urlShow . $quote;
 				my $suffix = $exclude;
 				if ($source->{'search_suffix'}) {
 					$suffix .= $source->{'search_suffix'};
@@ -633,7 +633,7 @@ foreach my $content (@html_content) {
 			}
 
 			# Fetch the detail page for the URL
-			my $url = $PROTOCOL . '://' . $SOURCES->{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
+			my $url = $SOURCES->{'ISO'}->{'protocol'} . '://' . $SOURCES->{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
@@ -1070,7 +1070,7 @@ sub resolveTrackers($) {
 	# Fetch a dynamic tracker list for any hashinfo from TorrentZ
 	if ($TRACKER_LOOKUP && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
 		my $hash    = $1;
-		my $baseURL = $PROTOCOL . '://' . $SOURCES->{'Z'}->{'host'};
+		my $baseURL = $SOURCES->{'Z'}->{'protocol'} . '://' . $SOURCES->{'Z'}->{'host'};
 		my $hashURL = $baseURL . '/' . $hash;
 		if ($DEBUG) {
 			print STDERR 'Hashinfo fetch with URL: ' . $hashURL . "\n";
@@ -1194,11 +1194,15 @@ sub initSources() {
 
 		# Automatically select a proxy that returns a search page
 		my $host       = '';
+		my $protocol   = '';
 		my $search_url = '';
 		foreach my $url (@TPBs) {
-			($host) = $url =~ /^([^\/]+)/;
-			$fetch->url($PROTOCOL . '://' . $host);
-			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /\bSearch\b/i) {
+			($protocol, $host) = $url =~ /^(?:(https?)\:\/\/)?([^\/]+)/i;
+			if (!$protocol) {
+				$protocol = $PROTOCOL;
+			}
+			$fetch->url($protocol . '://' . $host);
+			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /\bPirate Search\b/i) {
 				$search_url = $url;
 				last;
 			} elsif ($DEBUG) {
@@ -1212,8 +1216,9 @@ sub initSources() {
 				'host'          => $host,
 				'search_url'    => $search_url,
 				'search_suffix' => '/0/7/0',
-				'weight'        => 1.5,
-				'quote'         => 0
+				'weight'        => 1.0,
+				'quote'         => 0,
+				'protocol'      => $protocol
 			);
 			$sources{'TPB'} = \%tmp;
 		}
@@ -1223,14 +1228,18 @@ sub initSources() {
 	if ($ENABLE_SOURCE{'ISO'}) {
 
 		# Available ISOhunt proxies, in order of preference
-		my @proxies = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
+		my @proxies = ('http://isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
 
 		# Automatically select a proxy that returns the non-US page
 		my $host       = '';
+		my $protocol   = '';
 		my $search_url = '';
 		foreach my $url (@proxies) {
-			($host) = $url =~ /^([^\/]+)/;
-			$fetch->url($PROTOCOL . '://' . $host);
+			($protocol, $host) = $url =~ /^(?:(https?)\:\/\/)?([^\/]+)/i;
+			if (!$protocol) {
+				$protocol = $PROTOCOL;
+			}
+			$fetch->url($protocol . '://' . $host);
 			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Last\s+\d+\s+files\s+indexed/i) {
 				$search_url = $url;
 				last;
@@ -1246,7 +1255,8 @@ sub initSources() {
 				'search_url'    => $search_url,
 				'search_suffix' => '',
 				'weight'        => 0.30,
-				'quote'         => 1
+				'quote'         => 1,
+				'protocol'      => $protocol
 			);
 			$sources{'ISO'} = \%tmp;
 		}
@@ -1256,14 +1266,18 @@ sub initSources() {
 	if ($ENABLE_SOURCE{'KICK'}) {
 
 		# Available Kickass proxies, in order of preference
-		my @proxies = ('katproxy.com/usearch/', 'kickass.so/usearch/');
+		my @proxies = ('http://katproxy.com/usearch/', 'kickass.so/usearch/');
 
 		# Automatically select a proxy that returns the non-US page
 		my $host       = '';
+		my $protocol   = '';
 		my $search_url = '';
 		foreach my $url (@proxies) {
-			($host) = $url =~ /^([^\/]+)/;
-			$fetch->url($PROTOCOL . '://' . $host);
+			($protocol, $host) = $url =~ /^(?:(https?)\:\/\/)?([^\/]+)/i;
+			if (!$protocol) {
+				$protocol = $PROTOCOL;
+			}
+			$fetch->url($protocol . '://' . $host);
 			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /torrent name\<\/th\>/i) {
 				$search_url = $url;
 				last;
@@ -1279,7 +1293,8 @@ sub initSources() {
 				'search_url'    => $search_url,
 				'search_suffix' => '/',
 				'weight'        => 0.30,
-				'quote'         => 1
+				'quote'         => 1,
+				'protocol'      => $protocol
 			);
 			$sources{'KICK'} = \%tmp;
 		}
@@ -1293,10 +1308,14 @@ sub initSources() {
 
 		# Automatically select a proxy that returns the non-US page
 		my $host       = '';
+		my $protocol   = '';
 		my $search_url = '';
 		foreach my $url (@proxies) {
-			($host) = $url =~ /^([^\/]+)/;
-			$fetch->url($PROTOCOL . '://' . $host);
+			($protocol, $host) = $url =~ /^(?:(https?)\:\/\/)?([^\/]+)/i;
+			if (!$protocol) {
+				$protocol = $PROTOCOL;
+			}
+			$fetch->url($protocol . '://' . $host);
 			if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ /Indexing [\d\,]+ active torrents/i) {
 				$search_url = $url;
 				last;
@@ -1312,7 +1331,8 @@ sub initSources() {
 				'search_url'    => $search_url,
 				'search_suffix' => '',
 				'weight'        => 1,
-				'quote'         => 1
+				'quote'         => 1,
+				'protocol'      => $protocol
 			);
 			if (!$NO_QUALITY_CHECKS) {
 				$tmp{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
