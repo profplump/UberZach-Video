@@ -825,6 +825,10 @@ foreach my $content (@html_content) {
 		if ($DEBUG) {
 			print STDERR "Source down for maintenance\n";
 		}
+	} elsif ($content =~ /^\s*$/) {
+		if ($DEBUG) {
+			print STDERR "Source returned no content\n";
+		}
 	} else {
 		print STDERR "Unknown HTML content:\n" . $content . "\n\n";
 	}
