@@ -105,6 +105,9 @@ if (length($user) < 1 || !($user =~ /^\w+$/)) {
 	die('Invalid user: ' . $user . "\n");
 }
 
+# Move to the target directory so we can use relative paths later
+chdir($dir);
+
 # Environmental parameters (debug)
 my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
@@ -147,6 +150,10 @@ if ($ENV{'NO_EXCLUDES'}) {
 my $RENAME = 0;
 if ($ENV{'RENAME'}) {
 	$RENAME = 1;
+}
+my $SEASON_0 = 0;
+if ($ENV{'SEASON_0'}) {
+	$SEASON_0 = 1;
 }
 if ($ENV{'MAX_INDEX'} && $ENV{'MAX_INDEX'} =~ /(\d+)/) {
 	$MAX_INDEX = $1;
@@ -223,7 +230,10 @@ if (!$NO_FILES) {
 # Whine about unknown videos
 foreach my $id (keys(%{$files})) {
 	if (!exists($videos->{$id})) {
-		print STDERR 'Local video not known to YT: ' . $id . "\n";
+		print STDERR 'Local video not known to YT channel (' . $user . '): ' . $id . "\n";
+		if ($SEASON_0) {
+			system('ytS0', $id);
+		}
 	}
 }
 
