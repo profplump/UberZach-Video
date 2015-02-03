@@ -532,6 +532,14 @@ sub processFile($$) {
 		print STDERR 'Attempting to process file: ' . basename($file) . "\n";
 	}
 
+	# Skip known packaging files files with success code
+	if ($file =~ /\/RARBG\.com.mp4$/i || $file =~ /\/RARBG\.com\.txt\//i) {
+		if ($DEBUG) {
+			print STDERR 'Declining to save packaging file: ' . $file . "\n";
+		}
+		return 1;
+	}	
+
 	# Guess a file extension and basename
 	my $ext = &guessExt($file);
 	my $filename = basename($file);
@@ -550,14 +558,6 @@ sub processFile($$) {
 			print STDERR 'Declining to save ZIP file: ' . $filename . "\n";
 		}
 		return -1;
-	}
-
-	# Skip known packaging files files with success code
-	if ($ext =~ /txt/i || $filename =~ /RARBG\.com/i) {
-		if ($DEBUG) {
-			print STDERR 'Declining to save extra file: ' . $filename . "\n";
-		}
-		return 1;
 	}
 
 	# Allow multiple guesses at the series/season/episode
