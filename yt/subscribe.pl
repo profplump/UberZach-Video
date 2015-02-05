@@ -624,23 +624,23 @@ sub saveSubscriptions($$) {
 		if (!-d $folder . '/' . $file) {
 			next;
 		}
-
-		# YT has case issues
-		$file = lc($file);
-
+		
+		# YT has some trouble with case
+		my $lcFile = lc($file);
+		
 		# Anything else should be in the list
-		if (!$subs->{$file}) {
+		if (!$subs->{$file} && !$subs->{$lcFile}) {
 			print STDERR 'Missing YT subscription for: ' . $file . "\n";
 		}
 
 		# Note local subscriptions
-		$locals{$file} = 1;
+		$locals{$lcFile} = 1;
 	}
 	closedir($fh);
 
 	# Check for YT subscriptions missing locally
 	foreach my $sub (keys(%{$subs})) {
-		if (!exists($locals{$sub})) {
+		if (!exists($locals{lc($sub)})) {
 			print STDERR 'Adding local subscription for: ' . $sub . ' (' . $subs->{$sub} . ")\n";
 			mkdir($folder . '/' . $sub);
 		}
