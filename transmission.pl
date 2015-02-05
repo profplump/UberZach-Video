@@ -533,7 +533,7 @@ sub processFile($$) {
 	}
 
 	# Skip known packaging files files with success code
-	if ($file =~ /\/RARBG\.com.mp4$/i || $file =~ /\/RARBG\.com\.txt\//i) {
+	if ($file =~ /\/RARBG\.com.mp4$/i || $file =~ /\/RARBG\.com\.txt\//i || $file =~ /\.txt\.mp4$/) {
 		if ($DEBUG) {
 			print STDERR 'Declining to save packaging file: ' . $file . "\n";
 		}
