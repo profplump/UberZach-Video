@@ -687,6 +687,14 @@ foreach my $content (@html_content) {
 				next;
 			}
 
+			# Skip empty results
+			if ($tds[1] =~ /\<h2\>Nothing found\!\<\/h2\>/i) {
+				if ($DEBUG) {
+					print STDERR "Skipping empty TD\n";
+				}
+				next;
+			}
+
 			# Find the torrent title
 			my ($title) = $tds[1] =~ /\<a(?:\s+[^\>]*)?href\=\"[^\"]+\?title\=\[[^\]\"]+\]([^\"]+)\"/i;
 			if (!defined($title) || length($title) < 1) {
