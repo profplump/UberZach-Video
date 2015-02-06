@@ -688,7 +688,9 @@ foreach my $content (@html_content) {
 			}
 
 			# Skip empty results
-			if ($tds[1] =~ /\<h2\>Nothing found\!\<\/h2\>/i) {
+			if (   $tds[1] =~ /\<h2\>Nothing found\!\<\/h2\>/i
+				|| $tds[1] =~ /\<p\>\<strong\>Page not found\<\/strong\>\<\/p\>/i)
+			{
 				if ($DEBUG) {
 					print STDERR "Skipping empty TD\n";
 				}
