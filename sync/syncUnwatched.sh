@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters
-TARGET="Heady"
+TARGET="Sync"
 MEDIA_PATH="`~/bin/video/mediaPath`"
 BASE_DIR="${MEDIA_PATH}/${TARGET}"
 

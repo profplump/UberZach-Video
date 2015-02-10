@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters
-TARGET="Heady"
+TARGET="Sync"
 BASE_DIR="`~/bin/video/mediaPath`"
 
 # Environmental parameters
