@@ -1125,7 +1125,9 @@ sub resolveTrackers($) {
 		# Parse out and fetch the tracker list URL
 		my ($list) = $fetch->content() =~ /\<a rel\=\"nofollow\" href\=\"(\/announcelist_\d+)\"\>/;
 		if (!defined($list)) {
-			print STDERR "Unable to find tracker list link\n";
+			if ($DEBUG) {
+				print STDERR 'Unable to find tracker list link at: ' . $hashURL . "\n";
+			}
 			return $url;
 		}
 		my $listURL = $baseURL . $list;
