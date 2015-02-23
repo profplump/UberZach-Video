@@ -8,18 +8,23 @@ TIMEOUT=10
 # Grab the input URLs
 URLS="`cat -`"
 
+# Bail if there's nothing to process
+if [ -z "${URLS}" ]; then
+	exit 0
+fi
+
 # Choose an inter-file delay
 DELAY="${2}"
 if [ -z "${DELAY}" ]; then
 	DELAY=10
 fi
 
-# Move to the destination directory
+# Find the destination directory
 DEST="${1}"
 if [ -z "${DEST}" ]; then
-	DEST=~/Desktop
+	DEST="${HOME}/Desktop"
+	if [ -e "${DEST}" ]; then DEST="${HOME}"; fi
 fi
-cd "${DEST}"
 
 # Use Transmission if the URL is a magenet link
 if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
@@ -43,13 +48,20 @@ if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
 	fi
 fi
 
-# Use "open" if the URLs aren't HTTP/HTTPS
+# Use "open", if available, for non-HTTP URLs
 if ! echo "${URLS}" | head -n 1 | grep -Eqi '^http'; then
-	echo "${URLS}" | xargs -n 1 open
-	exit "${?}"
+	open >/dev/null 2>&1
+	if [ $? -eq 1 ]; then
+		echo "${URLS}" | xargs -n 1 open
+		exit "${?}"
+	else
+		echo "Non-HTTP URL, open() not available. Aborting..." 1>&2
+		exit 1
+	fi
 fi
 
 # Download
+cd "${DEST}"
 wget --quiet \
 	--connect-timeout "${TIMEOUT}" \
 	--wait "${DELAY}" --random-wait \
