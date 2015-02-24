@@ -25,6 +25,13 @@ OFFLINE=0
 LOCAL_LINK=0
 MEDIA=""
 
+# Allow forced updates
+if [ -n "${FORCE}" ] && [ "${FORCE}" -ne "0" ]; then
+	FORCE=1
+else
+	FORCE=0
+fi
+
 # Hack for mismatched usernames
 if [ "${USER}" == "tv" ]; then
 	REMOTE_USER="atv"
@@ -71,7 +78,7 @@ elif [ -h "${HOME}/media" ] && readlink "${HOME}/media" | grep -qE "^${LOCAL_MED
 fi
 
 # Skip this whole shebang if we've got a valid, remote link
-if [ $LOCAL_LINK -eq 0 ] && ~/bin/video/isMediaMounted; then
+if [ $LOCAL_LINK -eq 0 ] && [ $FORCE -eq 0 ] && ~/bin/video/isMediaMounted; then
 	exit 0
 fi
 
@@ -87,7 +94,7 @@ if [ $OFFLINE -eq 0 ] && [ $LOCAL_LINK -ne 0 ]; then
 fi
 
 # At this point any valid link is acceptable
-if ~/bin/video/isMediaMounted; then
+if [ $FORCE -eq 0 ] && ~/bin/video/isMediaMounted; then
 	exit 0
 fi
 
