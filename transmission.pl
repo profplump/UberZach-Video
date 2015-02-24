@@ -8,6 +8,7 @@ use Date::Parse;
 use File::Touch;
 use File::Temp qw/ :mktemp /;
 use File::Basename;
+use Image::ExifTool qw/ :Public/;
 use FindBin qw($Bin);
 use lib $Bin;
 use Fetch;
@@ -485,24 +486,36 @@ sub guessExt($) {
 		$ext = 'txt';
 	}
 
-	# Ask movInfo.pl about the demuxer
+	# Guess the file type if we don't have one yet
 	if (!$ext) {
+
+		my $mime  = '';
 		my $demux = '';
-		open(INFO, '-|', $ENV{'HOME'} . '/bin/video/movInfo.pl', $file, 'DEMUXER');
-		while (<INFO>) {
-			$demux .= $_;
+
+		# Try ExifTool
+		my $exif = ImageInfo($file);
+		if (defined($exif) && ref($exif) eq 'HASH') {
+			if ($exif->{'MIMEType'}) {
+				$mime = $exif->{'MIMEType'};
+
+			}
+			if ($exif->{'FileType'}) {
+				$demux = $exif->{'FileType'};
+			}
 		}
-		close(INFO);
+
+		# Try file(1) if we didn't find a MIME type yet
+		if (!$mime) {
+			open(FILE, ' - | ', ' file ', ' -b ', $file);
+			while (<FILE>) {
+				$mime .= $_;
+			}
+			close(FILE);
+		}
+
+		# Cleanup the demuxer and MIME type
 		$demux =~ s/^\s+//;
 		$demux =~ s/\s+$//;
-
-		# Grab a MIME type from file(1)
-		my $mime = '';
-		open(FILE, '-|', 'file', '-b', $file);
-		while (<FILE>) {
-			$mime .= $_;
-		}
-		close(FILE);
 		$mime =~ s/^\s+//;
 		$mime =~ s/\s+$//;
 		$mime =~ s/\;.*$//;
@@ -510,15 +523,15 @@ sub guessExt($) {
 
 		# Try to pick an extension we understand
 		$ext = 'avi';
-		if ($demux =~ /mkv/i || $mime =~ /Matroska/i) {
+		if ($demux =~ /MKV/i || $mime =~ /Matroska/i) {
 			$ext = 'mkv';
-		} elsif ($demux =~ /asf/i || $mime =~ /\bASF\b/i) {
+		} elsif ($demux =~ /ASF/i || $mime =~ /\bASF\b/i) {
 			$ext = 'wmv';
 		} elsif ($mime =~ /\bZIP/i) {
 			$ext = 'zip';
 		} elsif ($mime =~ /\bAVI\b/i) {
 			$ext = 'avi';
-		} elsif ($demux =~ /mpegts/i) {
+		} elsif ($demux =~ /MPEGTS/i) {
 			$ext = 'ts';
 		}
 	}
@@ -538,10 +551,10 @@ sub processFile($$) {
 			print STDERR 'Declining to save packaging file: ' . $file . "\n";
 		}
 		return 1;
-	}	
+	}
 
 	# Guess a file extension and basename
-	my $ext = &guessExt($file);
+	my $ext      = &guessExt($file);
 	my $filename = basename($file);
 
 	# Delete WMV files -- mostly viruses/fake
