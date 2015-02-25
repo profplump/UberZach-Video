@@ -33,7 +33,7 @@ sub runAndCheck(@);
 my $maxAge         = 2.5 * 86400;
 my $tvDir          = `~/bin/video/mediaPath` . '/TV';
 my $monitoredExec  = $ENV{'HOME'} . '/bin/video/torrentMonitored.pl';
-my $host           = 'http://baldwin-ipv4.uberzach.com:9091';
+my $host           = 'http://vera.uberzach.com:9091';
 my $url            = $host . '/transmission/rpc';
 my $content        = '{"method":"torrent-get","arguments":{"fields":["hashString","id","addedDate","comment","creator","dateCreated","isPrivate","name","totalSize","pieceCount","pieceSize","downloadedEver","error","errorString","eta","haveUnchecked","haveValid","leftUntilDone","metadataPercentComplete","peersConnected","peersGettingFromUs","peersSendingToUs","rateDownload","rateUpload","recheckProgress","sizeWhenDone","status","trackerStats","uploadedEver","uploadRatio","seedRatioLimit","seedRatioMode","downloadDir","files","fileStats"]}}';
 my $delContent     = '{"method":"torrent-remove","arguments":{"ids":["#_ID_#"], "delete-local-data":"true"}';

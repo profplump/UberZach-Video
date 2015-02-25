@@ -2,7 +2,7 @@
 
 # Config
 AGENT="Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8"
-TRANS_URL="http://baldwin-ipv4.uberzach.com:9091/transmission/rpc"
+TRANS_URL="http://vera.uberzach.com:9091/transmission/rpc"
 TIMEOUT=10
 
 # Grab the input URLs
