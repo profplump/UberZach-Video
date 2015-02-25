@@ -252,7 +252,7 @@ sub getSSE($) {
 		($season, $month, $day) = $seasonBlock =~ /(20\d\d)(?:\.|\-)([01]?\d)(?:\.|\-)([0-3]?\d)/;
 		$season = int($season);
 		$episode = sprintf('%04d-%02d-%02d', $season, $month, $day);
-	} elsif ($name =~ /(?:\b|_)(S(?:eason)?[_\s\.\-]*\d{1,2}[_\s\.\-]*E(?:pisode)?[_\s\.]*\d{1,3})(?:\b|_)/i) {
+	} elsif ($name =~ /(?:\b|_)(S(?:eason)?[_\s\.\-]*\d{1,2}[_\s\.\-]*E(?:pisode)?[_\s\.]*\d{1,3}(?:E\d{1,3})?)(?:\b|_)/i) {
 		$seasonBlock = $1;
 		($season, $episode) = $seasonBlock =~ /S(?:eason)?[_\s\.\-]*(\d{1,2})[_\s\.\-]*E(?:pisode)?[_\s\.\-]*(\d{1,3})/i;
 		$season = int($season);
@@ -492,19 +492,20 @@ sub guessExt($) {
 		my $mime  = '';
 		my $demux = '';
 
-		# Try ExifTool
-		my $exif = ImageInfo($file);
-		if (defined($exif) && ref($exif) eq 'HASH') {
-			if ($exif->{'MIMEType'}) {
-				$mime = $exif->{'MIMEType'};
-
-			}
-			if ($exif->{'FileType'}) {
-				$demux = $exif->{'FileType'};
+		# Try ExifTool for MIME and demuxer types
+		if (!$mime || !$demux) {
+			my $exif = ImageInfo($file);
+			if (defined($exif) && ref($exif) eq 'HASH') {
+				if ($exif->{'MIMEType'}) {
+					$mime = $exif->{'MIMEType'};
+				}
+				if ($exif->{'FileType'}) {
+					$demux = $exif->{'FileType'};
+				}
 			}
 		}
 
-		# Try file(1) if we didn't find a MIME type yet
+		# Try file(1) for MIME types
 		if (!$mime) {
 			open(FILE, ' - | ', ' file ', ' -b ', $file);
 			while (<FILE>) {
@@ -513,7 +514,7 @@ sub guessExt($) {
 			close(FILE);
 		}
 
-		# Cleanup the demuxer and MIME type
+		# Cleanup the demuxer and MIME types
 		$demux =~ s/^\s+//;
 		$demux =~ s/\s+$//;
 		$mime =~ s/^\s+//;
@@ -522,17 +523,18 @@ sub guessExt($) {
 		$mime =~ s/^video\///i;
 
 		# Try to pick an extension we understand
-		$ext = 'avi';
 		if ($demux =~ /MKV/i || $mime =~ /Matroska/i) {
 			$ext = 'mkv';
 		} elsif ($demux =~ /ASF/i || $mime =~ /\bASF\b/i) {
 			$ext = 'wmv';
+		} elsif ($demux =~ /MP4/i || $mime =~ /\bMP4\b/i) {
+			$ext = 'mp4';
 		} elsif ($mime =~ /\bZIP/i) {
 			$ext = 'zip';
-		} elsif ($mime =~ /\bAVI\b/i) {
-			$ext = 'avi';
 		} elsif ($demux =~ /MPEGTS/i) {
 			$ext = 'ts';
+		} else {
+			$ext = 'avi';
 		}
 	}
 
