@@ -5,6 +5,7 @@ use strict;
 # Includes
 use JSON;
 use Date::Parse;
+use File::Copy;
 use File::Touch;
 use File::Temp qw/ :mktemp /;
 use File::Basename;
@@ -27,7 +28,6 @@ sub seriesCleanupCore($);
 sub seriesCleanup($);
 sub readDir($$);
 sub findMediaFiles($$);
-sub runAndCheck(@);
 
 # Parameters
 my $maxAge         = 2.5 * 86400;
@@ -613,9 +613,9 @@ sub processFile($$) {
 		}
 	}
 
-	# Copy with system tools
+	# Copy (to let Transmission deal with local cleanup) and rename into place
 	my $tmp = mktemp($dest . '.XXXXXXXX');
-	runAndCheck(('cp', $file, $tmp));
+	copy($file, $tmp);
 	rename($tmp, $dest);
 
 	# Touch to avoid carrying dates set in the download process
@@ -770,24 +770,4 @@ sub findMediaFiles($$) {
 		}
 	}
 	return @files;
-}
-
-sub runAndCheck(@) {
-	my (@args) = (@_);
-
-	# Run
-	system { $args[0] } @args;
-	my $res = $?;
-
-	# Die on any error
-	if ($res == -1) {
-		die('Unable to execute program: ' . join(' ', @args) . ': ' . $! . "\n");
-	} elsif ($res & 127) {
-		die('Child exited on signal: ' . join(' ', @args) . ': ' . ($res & 127) . "\n");
-	} elsif ($res != 0) {
-		die('Child exited with non-zero value: ' . join(' ', @args) . ': ' . ($res >> 8) . "\n");
-	}
-
-	# If we get here, all is well
-	return 1;
 }
