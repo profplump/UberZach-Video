@@ -2,7 +2,7 @@
 
 # Config
 DRIVE_NAME="iHBS112"
-OUT_DIR="${HOME}/Desktop/Docs/Downloads"
+OUT_DIR="/Users/Shared/EncodeQueue/in"
 APP_PATH="/Applications/Zach/Media/MakeMKV.app"
 
 # Globals
