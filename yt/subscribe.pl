@@ -265,7 +265,7 @@ foreach my $id (keys(%{$videos})) {
 	  )
 	{
 		if ($RENAME) {
-			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'episode'});
+			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 		} else {
 
 			# Find the old NFO to avoid re-fetching
@@ -923,7 +923,7 @@ sub renameVideo($$$$$) {
 
 	# General sanity checks
 	if (!defined($video) || !defined($suffix) || !defined($id) || !defined($season) || !defined($episode)) {
-		die("Invalid call to renameVideo\n");
+		die("Invalid call to renameVideo()\n\t" . $video . "\n\t" . $suffix . "\n\t" . $id . "\n\t" . $season . "\n\t" . $episode . "\n");
 	}
 
 	# We could ask for this but there are already a lot of parameters
