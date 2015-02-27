@@ -12,6 +12,7 @@ use URI::Escape;
 use JSON;
 use XML::LibXML;
 use IPC::System::Simple qw( system );
+use IPC::Cmd qw( can_run );
 use WWW::YouTube::Download;
 use PrettyPrint;
 
@@ -72,22 +73,25 @@ my %API             = (
 
 # Prototypes
 sub findVideos($);
-sub findFiles($);
+sub findFiles();
 sub findVideo($);
 sub ytURL($);
 sub buildNFO($);
 sub buildSeriesNFO($);
 sub getSubscriptions($$);
 sub saveSubscriptions($$);
-sub saveChannel($$);
+sub saveChannel($);
 sub getChannel($);
 sub fetchParse($$);
 sub saveString($$);
-sub readExcludes($);
-sub readExtras($);
+sub readExcludes();
+sub readExtras();
 sub parseVideoData($);
-sub dropExcludes($$);
-sub addExtras($$);
+sub dropExcludes($);
+sub addExtras($);
+sub updateNFOData($$$);
+sub videoPath($$$);
+sub renameVideo($$$$$);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -155,6 +159,10 @@ my $SEASON_0 = 0;
 if ($ENV{'SEASON_0'}) {
 	$SEASON_0 = 1;
 }
+my $SUDO_CHATTR = 1;
+if ($ENV{'NO_CHATTR'} || !can_run('sudo') || !can_run('chattr')) {
+	$SUDO_CHATTR = 0;
+}
 if ($ENV{'MAX_INDEX'} && $ENV{'MAX_INDEX'} =~ /(\d+)/) {
 	$MAX_INDEX = $1;
 }
@@ -193,7 +201,7 @@ if ($0 =~ /subscription/i) {
 my $channel = {};
 if (!$NO_CHANNEL) {
 	$channel = getChannel($user);
-	saveChannel($dir, $channel);
+	saveChannel($channel);
 }
 
 # Find all the user's videos on YT
@@ -205,26 +213,33 @@ if (!$NO_SEARCH) {
 # Find any requested "extra" videos
 my $extras = {};
 if (!$NO_EXTRAS) {
-	$extras = addExtras($dir, $videos);
+	$extras = addExtras($videos);
 }
 
 # Drop any "excludes" videos
 my $excludes = {};
 if (!$NO_EXCLUDES) {
-	$excludes = dropExcludes($dir, $videos);
+	$excludes = dropExcludes($videos);
 }
 
 # Calculate the episode number using the publish dates
-my @byDate = sort { $videos->{$a}->{'date'} <=> $videos->{$b}->{'date'} || $a cmp $b } keys %{$videos};
-my $num = 1;
-foreach my $id (@byDate) {
-	$videos->{$id}->{'number'} = $num++;
+{
+	my @byDate     = sort { $videos->{$a}->{'date'} <=> $videos->{$b}->{'date'} || $a cmp $b } keys %{$videos};
+	my $num        = undef();
+	my $lastSeason = undef();
+	foreach my $id (@byDate) {
+		if (!$lastSeason || $lastSeason != $videos->{$id}->{'season'}) {
+			$num        = 1;
+			$lastSeason = $videos->{$id}->{'season'};
+		}
+		$videos->{$id}->{'number'} = $num++;
+	}
 }
 
 # Find all existing YT files on disk
 my $files = {};
 if (!$NO_FILES) {
-	$files = findFiles($dir);
+	$files = findFiles();
 }
 
 # Whine about unknown videos
@@ -232,25 +247,25 @@ foreach my $id (keys(%{$files})) {
 	if (!exists($videos->{$id})) {
 		print STDERR 'Local video not known to YT channel (' . $user . '): ' . $id . "\n";
 		if ($SEASON_0) {
-			system('ytS0', $id);
+			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 		}
 	}
 }
 
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
-	my $basePath = $dir . '/S01E' . sprintf('%02d', $videos->{$id}->{'number'}) . ' - ' . $id . '.';
+	my $basePath = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id);
 	my $nfo = $basePath . 'nfo';
 
 	# Warn (and optionally rename) if the video numbers drift
-	if (exists($files->{$id}) && $files->{$id}->{'number'} != $videos->{$id}->{'number'}) {
+	if (
+		exists($files->{$id})
+		&& (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
+			|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
+	  )
+	{
 		if ($RENAME) {
-			print STDERR 'Renaming ' . $files->{$id}->{'path'} . ' => ' . $basePath . $files->{$id}->{'suffix'} . "\n";
-			rename($files->{$id}->{'path'}, $basePath . $files->{$id}->{'suffix'});
-			rename($files->{$id}->{'nfo'},  $nfo);
-
-			# This is a hack, but it fits nicely in one line
-			system('sed', '-i', 's%<episode>[0-9]*</episode>%<episode>' . $videos->{$id}->{'number'} . '</episode>%', $nfo);
+			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'episode'});
 		} else {
 
 			# Find the old NFO to avoid re-fetching
@@ -317,7 +332,7 @@ sub saveString($$) {
 
 	my $fh = undef();
 	if (!open($fh, '>', $path)) {
-		warn('Cannot open file for writing: ' . $! . "\n");
+		warn('Cannot open file for writing: ' . $path . ': ' . $! . "\n");
 		return undef();
 	}
 	print $fh $str;
@@ -364,7 +379,7 @@ sub buildNFO($) {
 
 	# Add data
 	$elm = $doc->createElement('season');
-	$elm->appendText('1');
+	$elm->appendText($video->{'season'});
 	$show->appendChild($elm);
 
 	$elm = $doc->createElement('episode');
@@ -452,8 +467,7 @@ sub ytURL($) {
 	return ($bestStream->{'url'}, $bestStream->{'suffix'});
 }
 
-sub findFiles($) {
-	my ($dir) = @_;
+sub findFiles() {
 	my %files = ();
 
 	# Allow complete bypass
@@ -463,19 +477,20 @@ sub findFiles($) {
 
 	# Read the output directory
 	my $fh = undef();
-	opendir($fh, $dir)
-	  or die('Unable to open output directory: ' . $! . "\n");
+	opendir($fh, '.')
+	  or die('Unable to open files directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
-		my ($num, $id, $suffix) = $file =~ /^S01+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
+		my ($season, $num, $id, $suffix) = $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
 		if (defined($id) && length($id) > 0) {
 			if ($suffix eq 'nfo') {
 				next;
 			}
 
 			my %tmp = (
+				'season' => $season,
 				'number' => $num,
 				'suffix' => $suffix,
-				'path'   => $dir . '/' . $file,
+				'path'   => $file,
 			);
 			$tmp{'nfo'} = $tmp{'path'};
 			$tmp{'nfo'} =~ s/\.\w\w\w$/\.nfo/;
@@ -611,8 +626,8 @@ sub saveSubscriptions($$) {
 	# Check for local subscriptions missing from YT
 	my %locals = ();
 	my $fh     = undef();
-	opendir($fh, $folder)
-	  or die('Unable to open subscriptions directory: ' . $! . "\n");
+	opendir($fh, '.')
+	  or die('Unable to open subscriptions directory: ' . $folder . ': ' . $! . "\n");
 	while (my $file = readdir($fh)) {
 
 		# Skip dotfiles
@@ -621,13 +636,13 @@ sub saveSubscriptions($$) {
 		}
 
 		# Skip non-directories
-		if (!-d $folder . '/' . $file) {
+		if (!-d $file) {
 			next;
 		}
-		
+
 		# YT has some trouble with case
 		my $lcFile = lc($file);
-		
+
 		# Anything else should be in the list
 		if (!$subs->{$file} && !$subs->{$lcFile}) {
 			print STDERR 'Missing YT subscription for: ' . $file . "\n";
@@ -640,17 +655,17 @@ sub saveSubscriptions($$) {
 
 	# Check for YT subscriptions missing locally
 	foreach my $sub (keys(%{$subs})) {
-		if (!exists($locals{lc($sub)})) {
+		if (!exists($locals{ lc($sub) })) {
 			print STDERR 'Adding local subscription for: ' . $sub . ' (' . $subs->{$sub} . ")\n";
 			mkdir($folder . '/' . $sub);
 		}
 	}
 }
 
-sub saveChannel($$) {
-	my ($dir, $channel) = @_;
+sub saveChannel($) {
+	my ($channel) = @_;
 
-	my $nfo = $dir . '/tvshow.nfo';
+	my $nfo = 'tvshow.nfo';
 	if (!-e $nfo) {
 		if ($DEBUG) {
 			print STDERR 'Saving series data for: ' . $channel->{'title'} . "\n";
@@ -658,9 +673,8 @@ sub saveChannel($$) {
 
 		# Save the poster
 		if (exists($channel->{'thumbnail'}) && length($channel->{'thumbnail'}) > 5) {
-			my $poster = $dir . '/poster.jpg';
-			my $jpg    = get($channel->{'thumbnail'});
-			saveString($poster, $jpg);
+			my $jpg = get($channel->{'thumbnail'});
+			saveString('poster.jpg', $jpg);
 		}
 
 		# Save the series NFO
@@ -694,15 +708,13 @@ sub getChannel($) {
 	return \%channel;
 }
 
-sub readExcludes($) {
-	my ($dir) = @_;
+sub readExcludes() {
 	my %excludes = ();
 
 	# Read and parse the excludes videos file, if it exists
-	my $file = $dir . '/' . $EXCLUDES_FILE;
-	if (-e $file) {
+	if (-e $EXCLUDES_FILE) {
 		my $fh;
-		open($fh, $file)
+		open($fh, $EXCLUDES_FILE)
 		  or die('Unable to open excludes videos file: ' . $! . "\n");
 		while (<$fh>) {
 
@@ -727,15 +739,13 @@ sub readExcludes($) {
 	return \%excludes;
 }
 
-sub readExtras($) {
-	my ($dir) = @_;
+sub readExtras() {
 	my %extras = ();
 
 	# Read and parse the extra videos file, if it exists
-	my $file = $dir . '/' . $EXTRAS_FILE;
-	if (-e $file) {
+	if (-e $EXTRAS_FILE) {
 		my $fh;
-		open($fh, $file)
+		open($fh, $EXTRAS_FILE)
 		  or die('Unable to open extra videos file: ' . $! . "\n");
 		while (<$fh>) {
 
@@ -770,6 +780,7 @@ sub parseVideoData($) {
 		'rating'      => $data->{'rating'},
 		'creator'     => $data->{'uploader'},
 	);
+	$video{'season'} = time2str('%Y', $video{'date'});
 	return \%video;
 }
 
@@ -789,9 +800,9 @@ sub findVideo($) {
 	return parseVideoData($data);
 }
 
-sub dropExcludes($$) {
-	my ($dir, $videos) = @_;
-	my $excludes = readExcludes($dir);
+sub dropExcludes($) {
+	my ($videos) = @_;
+	my $excludes = readExcludes();
 	foreach my $id (keys(%{$excludes})) {
 		if (!exists($videos->{$id})) {
 			if ($DEBUG > 1) {
@@ -804,9 +815,9 @@ sub dropExcludes($$) {
 	return $excludes;
 }
 
-sub addExtras($$) {
-	my ($dir, $videos) = @_;
-	my $extras = readExtras($dir);
+sub addExtras($) {
+	my ($videos) = @_;
+	my $extras = readExtras();
 	foreach my $id (keys(%{$extras})) {
 		if (exists($videos->{$id})) {
 			if ($DEBUG > 1) {
@@ -816,7 +827,6 @@ sub addExtras($$) {
 		}
 
 		my $video = findVideo($id);
-		$video->{'api_number'} = $extras->{$id};
 		$videos->{$id} = $video;
 	}
 	return $extras;
@@ -858,7 +868,6 @@ sub findVideos($) {
 		my $offset = 0;
 		foreach my $item (@{$items}) {
 			my $video = parseVideoData($item);
-			$video->{'api_number'} = $itemCount - $index - $offset + 1;
 			$videos{ $item->{'id'} } = $video;
 			$offset++;
 		}
@@ -882,4 +891,75 @@ sub findVideos($) {
 	}
 
 	return \%videos;
+}
+
+sub updateNFOData($$$) {
+	my ($file, $season, $episode) = @_;
+
+	my $nfoData = undef();
+	{
+		open(my $fh, '<', $file)
+		  or warn('Unable to open NFO for renumber: ' . $file . ': ' . $! . "\n");
+		$/       = undef;
+		$nfoData = <$fh>;
+		close($fh);
+	}
+
+	if ($nfoData) {
+		$nfoData =~ s/<season>\d+<\/season>/<season>${season}<\/season>/;
+		$nfoData =~ s/<episode>\d+<\/episode>/<episode>${episode}<\/episode>/;
+	}
+
+	return $nfoData;
+}
+
+sub videoPath($$$) {
+	my ($season, $episode, $id) = @_;
+	return sprintf('S%02dE%02d - %s.', $season, $episode, $id);
+}
+
+sub renameVideo($$$$$) {
+	my ($video, $suffix, $id, $season, $episode) = @_;
+
+	# General sanity checks
+	if (!defined($video) || !defined($suffix) || !defined($id) || !defined($season) || !defined($episode)) {
+		die("Invalid call to renameVideo\n");
+	}
+
+	# We could ask for this but there are already a lot of parameters
+	my $nfo = $video;
+	$nfo =~ s/\.${suffix}$/\.nfo/;
+
+	# Build a new path
+	my $base     = videoPath($season, $episode, $id);
+	my $videoNew = $base . $suffix;
+	my $nfoNew   = $base . 'nfo';
+	print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
+
+	# Parse old NFO data
+	my $nfoData = updateNFOData($nfo, $season, $episode)
+	  or die('No NFO data found, refusing to rename: ' . $id . "\n");
+
+	# Specific sanity checks, as we do dangerous work here
+	if (!-r $video || !-r $nfo) {
+		die('Invalid video or NFO sources in rename: ' . $video . '/' . $nfo);
+	}
+	if (-e $videoNew) {
+		die('Rename: Target exists: ' . $videoNew);
+	}
+
+	# Rename video
+	if ($SUDO_CHATTR) {
+		system('sudo', 'chattr', '-i', $video);
+	}
+	rename($video, $videoNew)
+	  or die('Unable to rename: ' . $video . ': ' . $! . "\n");
+
+	# Write a new NFO and unlink the old one
+	saveString($nfoNew, $nfoData);
+	if ($SUDO_CHATTR) {
+		system('sudo', 'chattr', '-i', $nfo);
+	}
+	unlink($nfo)
+	  or warn('Unable to delete NFO during rename: ' . $! . "\n");
 }
