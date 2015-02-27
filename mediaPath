@@ -6,16 +6,14 @@ if [ "`basename "${0}"`" == 'isMediaMounted' ]; then
 	SILENT=1
 fi
 
-# Check the possible paths
-for i in "${HOME}/media/TV" "/mnt/media/TV"; do
-	if [ -d "${i}" ]; then
-		if [ $SILENT -le 0 ]; then
-			dir="`dirname "${i}"`"
-			echo -n "${dir}"
-		fi
-		exit 0
+# Exit cleanly if the TV path exists
+MEDIA="${HOME}/media"
+if [ -d "${MEDIA}/TV" ]; then
+	if [ $SILENT -le 0 ]; then
+		echo -n "${MEDIA}"
 	fi
-done
+	exit 0
+fi
 
 # Return false if we don't find anything
 exit 1

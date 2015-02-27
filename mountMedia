@@ -57,13 +57,6 @@ function findMedia {
 
 function writeLinks {
 	DEST="${1}"
-	if [ -d /mnt ] && touch /mnt/media.writeTest >/dev/null 2>&1; then
-		rm -f /mnt/media.writeTest
-		if [ -e /mnt/media ] || [ -h /mnt/media ]; then
-				rm -f /mnt/media
-		fi
-		ln -s "${DEST}" /mnt/media
-	fi
 	if [ -e "${HOME}/media" ] || [ -h "${HOME}/media" ]; then
 		rm -f "${HOME}/media"
 		ln -s "${DEST}" "${HOME}/media"
@@ -71,9 +64,7 @@ function writeLinks {
 }
 
 # Determine if we have a remote link
-if [ -h /mnt/media ] && readlink /mnt/media | grep -qE "^${LOCAL_MEDIA}"; then
-	LOCAL_LINK=1
-elif [ -h "${HOME}/media" ] && readlink "${HOME}/media" | grep -qE "^${LOCAL_MEDIA}"; then
+if [ -h "${HOME}/media" ] && readlink "${HOME}/media" | grep -qE "^${LOCAL_MEDIA}"; then
 	LOCAL_LINK=1
 fi
 
