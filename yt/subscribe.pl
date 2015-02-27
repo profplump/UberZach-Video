@@ -244,7 +244,7 @@ if (!$NO_FILES) {
 
 # Whine about unknown videos
 foreach my $id (keys(%{$files})) {
-	if (!exists($videos->{$id})) {
+	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
 		print STDERR 'Local video not known to YT channel (' . $user . '): ' . $id . "\n";
 		if ($SEASON_0) {
 			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
@@ -945,7 +945,7 @@ sub renameVideo($$$$$) {
 		die('Invalid video or NFO sources in rename: ' . $video . '/' . $nfo);
 	}
 	if (-e $videoNew) {
-		die('Rename: Target exists: ' . $videoNew);
+		die('Rename: Target exists: ' . $videoNew . "\n");
 	}
 
 	# Rename video
