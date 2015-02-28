@@ -37,13 +37,19 @@ while read -d $'\0' SERIES ; do
 	fi
 
 	# Actual search, with timeout to ensure we don't get stuck
-	~/bin/video/timeout -t 300 \
-		~/bin/video/findTorrent.pl "${SERIES}" \
-		| ~/bin/download
-
-	# Print the series name on error
+	URLS="`~/bin/video/timeout -t 300 ~/bin/video/findTorrent.pl "${SERIES}"`"
 	if [ $? -ne 0 ]; then
-		echo "${SERIES}"
+		echo "Error searching: ${SERIES}"
+		continue
+	fi
+
+	# Download, if we found anything
+	if [ -n "${URLS}" ]; then
+		echo "${URLS}" | ~/bin/download
+		if [ $? -ne 0 ]; then
+			echo "Error downloading: ${SERIES}"
+			continue
+		fi
 	fi
 
 # Loop on the null-delimited list of monitored series/seasons
