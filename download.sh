@@ -32,7 +32,7 @@ if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
 	if [ -n "${SESSION_ID}" ]; then
 		SLEEP=0
 		IFS=$'\n'
-		for i in "${URLS}"; do
+		for i in ${URLS}; do
 			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
 			SLEEP="${DELAY}"
 			RESULT="`curl --silent --max-time "${TIMEOUT}" \
@@ -50,8 +50,7 @@ fi
 
 # Use "open", if available, for non-HTTP URLs
 if ! echo "${URLS}" | head -n 1 | grep -Eqi '^http'; then
-	open >/dev/null 2>&1
-	if [ $? -eq 1 ]; then
+	if open >/dev/null 2>&1; then
 		echo "${URLS}" | xargs -n 1 open
 		exit "${?}"
 	else
