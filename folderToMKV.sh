@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Bail if media is not available
+if ! ~/bin/video/isMediaMounted; then
+	exit 0
+fi
+
 # Command line
 inFolder="${1}"
 if [ -z "${inFolder}" ] || [ ! -e "${inFolder}" ]; then
