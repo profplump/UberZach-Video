@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # Parameters
-TARGET="Sync"
 MEDIA_PATH="`~/bin/video/mediaPath`"
-BASE_DIR="${MEDIA_PATH}/${TARGET}"
+BASE_DIR="${MEDIA_PATH}/Sync"
 
 # Environmental parameters
 if [ "${DEBUG}" ]; then
@@ -23,6 +22,14 @@ if echo "${1}" | grep -qi "Movie"; then
 	DIR="Movies"
 elif echo "${1}" | grep -qi "YouTube"; then
 	DIR="YouTube"
+fi
+
+# Ensure we have a valid MEDIA_PATH
+if ! ~/bin/video/isMediaMounted && [ -z "${MEDIA_PATH}" ]; then
+	if [ $DEBUG -gt 0 ]; then
+		echo "Media path not available" 1>&2
+	fi
+	exit 0
 fi
 
 # Ensure we have a valid TMPDIR
@@ -78,13 +85,28 @@ done
 # Encode and allow any expected files
 IFS=$'\n'
 for i in $FILES; do
+	# Give up if the media path goes away
+	if ! ~/bin/video/isMediaMounted; then
+		exit
+	fi
+
+	# Skip if the input file does not exist
+	if [ ! -r "${i}" ]; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Missing input path: ${i}" 1>&2
+		fi
+		continue
+	fi
+
+	# Recode
 	if [ $DEBUG -gt 0 ]; then
-		echo "Will encode: ${i}"
+		echo "Will encode: ${i}" 1>&2
 	fi
 	if [ $NO_SYNC -eq 0 ]; then
 		~/bin/video/sync/sync.sh "${i}"
 	fi
 
+	# Drop from our delete files list
 	nobase="`echo "${i}" | sed 's%\....$%%'`"
 	OLD_FILES="`echo "${OLD_FILES}" | grep -v "${nobase}"`"
 done
@@ -93,6 +115,14 @@ done
 IFS=$'\n'
 MIN_AGE="`date -v -1H +%s`"
 for i in $OLD_FILES; do
+	# Skip if the input file does not exist
+	if [ ! -r "${i}" ]; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Missing delete path: ${i}" 1>&2
+		fi
+		continue
+	fi
+
 	# Skip files under 1H old to avoid churn and provide a no-delete signal for other conditions (e.g. filename encoding)
 	STAT="`stat -f '%m' "${BASE_DIR}/${i}" 2>/dev/null`"
 	if [ -z "${STAT}" ]; then
@@ -100,14 +130,14 @@ for i in $OLD_FILES; do
 	fi
 	if [ $STAT -ge $MIN_AGE ]; then
 		if [ $DEBUG -gt 0 ]; then
-			echo "Will skip due to minimum age: ${BASE_DIR}/${i}"
+			echo "Will skip due to minimum age: ${BASE_DIR}/${i}" 1>&2
 		fi
 		continue
 	fi
 
-	# Delete if set to sync
+	# Delete, unless set NOT to sync
 	if [ $DEBUG -gt 0 ]; then
-		echo "Will delete: ${BASE_DIR}/${i}"
+		echo "Will delete: ${BASE_DIR}/${i}" 1>&2
 	fi
 	if [ $NO_SYNC -eq 0 ]; then
 		rm -f "${BASE_DIR}/${i}"
