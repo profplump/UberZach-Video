@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Parameters
+TIMEOUT=300
+
 # Bail if the media share isn't available
 if ! ~/bin/video/isMediaMounted; then
         exit 0
@@ -37,17 +40,21 @@ while read -d $'\0' SERIES ; do
 	fi
 
 	# Actual search, with timeout to ensure we don't get stuck
-	URLS="`~/bin/video/timeout -t 300 ~/bin/video/findTorrent.pl "${SERIES}"`"
-	if [ $? -ne 0 ]; then
-		echo "Error searching: ${SERIES}"
+	URLS="`~/bin/video/timeout -t "${TIMEOUT}" ~/bin/video/findTorrent.pl "${SERIES}"`"
+	RET=$?
+	if [ $RET -ne 0 ]; then
+		if [ $RET -eq 143 ]; then
+			echo "Timeout searching: ${SERIES}" 1>&2
+		else
+			echo "Error searching: ${SERIES}" 1>&2
+		if
 		continue
 	fi
 
 	# Download, if we found anything
 	if [ -n "${URLS}" ]; then
-		echo "${URLS}" | ~/bin/download
-		if [ $? -ne 0 ]; then
-			echo "Error downloading: ${SERIES}"
+		if ! "${URLS}" | ~/bin/download; then
+			echo "Error downloading: ${SERIES}" 1>&2
 			continue
 		fi
 	fi
