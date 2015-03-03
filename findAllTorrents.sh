@@ -47,13 +47,13 @@ while read -d $'\0' SERIES ; do
 			echo "Timeout searching: ${SERIES}" 1>&2
 		else
 			echo "Error searching: ${SERIES}" 1>&2
-		if
+		fi
 		continue
 	fi
 
 	# Download, if we found anything
 	if [ -n "${URLS}" ]; then
-		if ! "${URLS}" | ~/bin/download; then
+		if ! echo "${URLS}" | ~/bin/download; then
 			echo "Error downloading: ${SERIES}" 1>&2
 			continue
 		fi
