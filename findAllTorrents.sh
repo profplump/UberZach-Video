@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters
-TIMEOUT=300
+TIMEOUT=360
 
 # Bail if the media share isn't available
 if ! ~/bin/video/isMediaMounted; then
