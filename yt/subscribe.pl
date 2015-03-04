@@ -508,7 +508,9 @@ sub findFiles() {
 
 					print STDERR 'Deleting duplicate: ' . $del->{'path'} . "\n";
 					unlink($del->{'path'});
-					unlink($del->{'nfo'});
+					if ($del->{'nfo'} ne $tmp{'nfo'}) {
+						unlink($del->{'nfo'});
+					}
 				}
 			}
 			$files{$id} = \%tmp;
