@@ -149,15 +149,15 @@ my $NO_EXCLUDES = 0;
 if ($ENV{'NO_EXCLUDES'}) {
 	$NO_EXCLUDES = 1;
 }
+my $NO_RENAME = 0;
+if ($ENV{'NO_RDNAME'}) {
+	$NO_RENAME = 1;
+}
 
 # Environmental parameters (functional)
-my $RENAME = 0;
-if ($ENV{'RENAME'}) {
-	$RENAME = 1;
-}
-my $SEASON_0 = 0;
-if ($ENV{'SEASON_0'}) {
-	$SEASON_0 = 1;
+my $FORCE_RENAME = 0;
+if ($ENV{'FORCE_RENAME'}) {
+	$FORCE_RENAME = 1;
 }
 my $SUDO_CHATTR = 1;
 if ($ENV{'NO_CHATTR'} || !can_run('sudo') || !can_run('chattr')) {
@@ -246,9 +246,7 @@ if (!$NO_FILES) {
 foreach my $id (keys(%{$files})) {
 	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
 		print STDERR 'Local video not known to YT channel (' . $user . '): ' . $id . "\n";
-		if ($SEASON_0) {
-			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
-		}
+		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 	}
 }
 
@@ -264,21 +262,32 @@ foreach my $id (keys(%{$videos})) {
 			|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
 	  )
 	{
-		if ($RENAME) {
+		if ($FORCE_RENAME) {
 			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 		} else {
 
 			# Find the old NFO to avoid re-fetching
 			$nfo = $files->{$id}->{'nfo'};
 
-			# Ignore small changes
+			# Calculate the drift magnitude
 			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
 			my $tolerance = $files->{$id}->{'number'} / $DRIFT_FACTOR;
 			if ($tolerance < $DRIFT_TOLERANCE) {
 				$tolerance = $DRIFT_TOLERANCE;
 			}
-			if ($delta > $tolerance || $DEBUG) {
+
+			# Ignore small changes
+			my $rename = 0;
+			if ($FORCE_RENAME || $delta > $tolerance) {
+				$rename = 1;
+			}
+
+			# Execute
+			if ($DEBUG || $rename) {
 				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
+				if ($rename) {
+					renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
+				}
 			}
 		}
 	}
@@ -497,7 +506,7 @@ sub findFiles() {
 
 			if (exists($files{$id})) {
 				warn('Duplicate ID: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $tmp{'path'} . "\n");
-				if ($RENAME) {
+				if (!$NO_RENAME) {
 
 					# Prefer to delete MP4 files, if the suffixes differ
 					my $del = $files{$id};
@@ -922,6 +931,12 @@ sub videoPath($$$) {
 
 sub renameVideo($$$$$) {
 	my ($video, $suffix, $id, $season, $episode) = @_;
+
+	# Bail if disabled
+	if ($NO_RENAME) {
+		print STDERR 'Not renaming: ' . $video . "\n";
+		return;
+	}
 
 	# General sanity checks
 	if (!defined($video) || !defined($suffix) || !defined($id) || !defined($season) || !defined($episode)) {
