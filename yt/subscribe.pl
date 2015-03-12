@@ -4,6 +4,7 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/";
 
+use File::Touch;
 use File::Basename;
 use Date::Parse;
 use Date::Format;
@@ -11,7 +12,7 @@ use LWP::Simple;
 use URI::Escape;
 use JSON;
 use XML::LibXML;
-use IPC::System::Simple qw( system run EXIT_ANY $EXITVAL );
+use IPC::System::Simple qw( system run capture EXIT_ANY $EXITVAL );
 use IPC::Cmd qw( can_run );
 use PrettyPrint;
 
@@ -21,6 +22,7 @@ my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $YTDL_BIN        = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
 my @YTDL_ARGS       = ('--force-ipv4', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
+my @YTDL_QUIET      = ('--quiet', '--no-warnings');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
 my $DRIFT_TOLERANCE = 2;
@@ -176,7 +178,7 @@ foreach my $key (keys(%API)) {
 	}
 }
 if (!$DEBUG) {
-	push(@YTDL_ARGS, '--quiet', '--no-warnings');
+	push(@YTDL_ARGS, @YTDL_QUIET);
 }
 
 # Allow use as a subscription manager
@@ -299,21 +301,60 @@ foreach my $id (keys(%{$videos})) {
 
 		# Let youtube-dl handle the URLs and downloading
 		{
-			my @cmd = ($YTDL_BIN);
-			push(@cmd, @YTDL_ARGS);
-			push(@cmd, '--output', videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . '%(id)s.%(ext)s', $id);
+			my @args = ('--output', videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . '%(id)s.%(ext)s', $id);
+			my @name = ($YTDL_BIN);
+			push(@name, @YTDL_ARGS);
+			my @fetch = @name;
+			push(@name,  '--get-filename');
+			push(@fetch, @args);
+			push(@name,  @args);
+
 			if ($NO_FETCH) {
-				print STDERR 'Not running: ' . join(' ', @cmd) . "\n";
+				print STDERR 'Not running: ' . join(' ', @fetch) . "\n";
 			} else {
+
+				# Find the output file name
 				if ($DEBUG > 1) {
-					print STDERR join(' ', @cmd) . "\n";
+					print STDERR join(' ', @name) . "\n";
 				}
 				sleep($DELAY);
-				my $exit = run(EXIT_ANY, @cmd);
-				if ($exit != 0) {
-					warn('Error executing youtube-dl: ' . $exit . "\n");
+				my $file = capture(EXIT_ANY, @name);
+				if ($EXITVAL != 0) {
+					warn('Error executing youtube-dl (name): ' . $EXITVAL . "\n");
 					next;
 				}
+				$file =~ s/^\s+//;
+				$file =~ s/\s+$//;
+
+				# Sanity check
+				if (!$file) {
+					warn('No file name available for video: ' . $id . "\n");
+					next;
+				}
+
+				# Download
+				if ($DEBUG > 1) {
+					print STDERR join(' ', @fetch) . "\n";
+				}
+				sleep($DELAY);
+				my $exit = run(EXIT_ANY, @fetch);
+				if ($exit != 0) {
+					warn('Error executing youtube-dl (fetch): ' . $exit . "\n");
+					next;
+				}
+
+				# Ensure we found something useful
+				if (-e $file . '.part') {
+					warn('Partial download detected: ' . $file . "\n");
+					next;
+				}
+				if (!-s $file) {
+					warn('No output video file: ' . $file . "\n");
+					next;
+				}
+
+				# Touch the file to reflect the download time rather than the upload time
+				touch($file);
 			}
 		}
 
