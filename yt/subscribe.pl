@@ -11,17 +11,16 @@ use LWP::Simple;
 use URI::Escape;
 use JSON;
 use XML::LibXML;
-use IPC::System::Simple qw( system );
+use IPC::System::Simple qw( system run EXIT_ANY $EXITVAL );
 use IPC::Cmd qw( can_run );
-use WWW::YouTube::Download;
 use PrettyPrint;
 
 # Paramters
 my %USERS           = ('profplump' => 'kj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
-my $CURL_BIN        = 'curl';
-my @CURL_ARGS       = ('-4', '--insecure', '-H', 'Accept-Encoding: gzip', '-C', '-', '--connect-timeout', '10', '--max-time', '1800');
+my $YTDL_BIN        = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
+my @YTDL_ARGS       = ('--force-ipv4', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
 my $DRIFT_TOLERANCE = 2;
@@ -75,7 +74,6 @@ my %API             = (
 sub findVideos($);
 sub findFiles();
 sub findVideo($);
-sub ytURL($);
 sub buildNFO($);
 sub buildSeriesNFO($);
 sub getSubscriptions($$);
@@ -90,7 +88,8 @@ sub parseVideoData($);
 sub dropExcludes($);
 sub addExtras($);
 sub updateNFOData($$$);
-sub videoPath($$$);
+sub videoSE($$);
+sub videoPath($$$$);
 sub renameVideo($$$$$);
 
 # Sanity check
@@ -177,7 +176,7 @@ foreach my $key (keys(%API)) {
 	}
 }
 if (!$DEBUG) {
-	push(@CURL_ARGS, '--silent');
+	push(@YTDL_ARGS, '--quiet', '--no-warnings');
 }
 
 # Allow use as a subscription manager
@@ -252,8 +251,7 @@ foreach my $id (keys(%{$files})) {
 
 # Fill in missing videos and NFOs
 foreach my $id (keys(%{$videos})) {
-	my $basePath = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id);
-	my $nfo = $basePath . 'nfo';
+	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
 
 	# Warn (and optionally rename) if the video numbers drift
 	if (
@@ -299,19 +297,11 @@ foreach my $id (keys(%{$videos})) {
 			print STDERR 'Fetching video: ' . $id . "\n";
 		}
 
-		# Find the download URL and file suffix
-		my ($url, $suffix) = ytURL($id);
-		if (!defined($url) || length($url) < 5) {
-			warn('Could not determine URL for video: ' . $id . "\n");
-			$url = undef();
-		}
-
-		# Fetch with cURL
-		# I know LWP exists (and is even loaded) but cURL makes my life easier
-		if ($url) {
-			my @cmd = ($CURL_BIN);
-			push(@cmd, @CURL_ARGS);
-			push(@cmd, '-o', $basePath . $suffix, $url);
+		# Let youtube-dl handle the URLs and downloading
+		{
+			my @cmd = ($YTDL_BIN);
+			push(@cmd, @YTDL_ARGS);
+			push(@cmd, '--output', videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . '%(id)s.%(ext)s', $id);
 			if ($NO_FETCH) {
 				print STDERR 'Not running: ' . join(' ', @cmd) . "\n";
 			} else {
@@ -319,7 +309,11 @@ foreach my $id (keys(%{$videos})) {
 					print STDERR join(' ', @cmd) . "\n";
 				}
 				sleep($DELAY);
-				system(@cmd);
+				my $exit = run(EXIT_ANY, @cmd);
+				if ($exit != 0) {
+					warn('Error executing youtube-dl: ' . $exit . "\n");
+					next;
+				}
 			}
 		}
 
@@ -435,45 +429,6 @@ sub buildNFO($) {
 
 	# Return the string
 	return $doc->toString();
-}
-
-sub ytURL($) {
-	my ($id) = @_;
-
-	# Init the YT object
-	my $tube = WWW::YouTube::Download->new;
-
-	# Fetch metadata
-	my $meta = eval { $tube->prepare_download($id); };
-	if (!defined($meta) || ref($meta) ne 'HASH' || !exists($meta->{'video_url_map'}) || ref($meta->{'video_url_map'}) ne 'HASH') {
-		if ($@ =~ /age gate/i) {
-			print STDERR "Video not available due to age gate restrictions\n";
-		}
-		return undef();
-	}
-
-	# Find the best stream (i.e. highest resolution, prefer mp4)
-	my $bestStream     = undef();
-	my $bestResolution = 0;
-	foreach my $streamID (keys(%{ $meta->{'video_url_map'} })) {
-		my $stream = $meta->{'video_url_map'}->{$streamID};
-		my ($res) = $stream->{'resolution'} =~ /^\s*(\d+)/;
-		if ($DEBUG > 1) {
-			print STDERR $streamID . ' (' . $stream->{'suffix'} . ')' . ' => ' . $stream->{'resolution'} . ' : ' . $stream->{'url'} . "\n";
-		}
-		if (   ($res > $bestResolution)
-			|| ($res == $bestResolution && defined($bestStream) && $bestStream->{'suffix'} ne 'mp4'))
-		{
-			$bestStream     = $stream;
-			$bestResolution = $res;
-		}
-	}
-
-	if (!exists($bestStream->{'suffix'}) || length($bestStream->{'suffix'}) < 2) {
-		$bestStream->{'suffix'} = 'mp4';
-	}
-
-	return ($bestStream->{'url'}, $bestStream->{'suffix'});
 }
 
 sub findFiles() {
@@ -924,9 +879,15 @@ sub updateNFOData($$$) {
 	return $nfoData;
 }
 
-sub videoPath($$$) {
-	my ($season, $episode, $id) = @_;
-	return sprintf('S%02dE%02d - %s.', $season, $episode, $id);
+sub videoSE($$) {
+	my ($season, $episode) = @_;
+	return sprintf('S%02dE%02d - ', $season, $episode);
+
+}
+
+sub videoPath($$$$) {
+	my ($season, $episode, $id, $ext) = @_;
+	return videoSE($season, $episode) . $id . '.' . $ext;
 }
 
 sub renameVideo($$$$$) {
@@ -948,9 +909,8 @@ sub renameVideo($$$$$) {
 	$nfo =~ s/\.${suffix}$/\.nfo/;
 
 	# Build a new path
-	my $base     = videoPath($season, $episode, $id);
-	my $videoNew = $base . $suffix;
-	my $nfoNew   = $base . 'nfo';
+	my $videoNew = videoPath($season, $episode, $id, $suffix);
+	my $nfoNew   = videoPath($season, $episode, $id, 'nfo');
 	print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
 
 	# Parse old NFO data
