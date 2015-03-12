@@ -21,7 +21,7 @@ my %USERS           = ('profplump' => 'kj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfw
 my $EXTRAS_FILE     = 'extra_videos.ini';
 my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $YTDL_BIN        = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
-my @YTDL_ARGS       = ('--force-ipv4', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
+my @YTDL_ARGS       = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
 my @YTDL_QUIET      = ('--quiet', '--no-warnings');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
