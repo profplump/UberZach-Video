@@ -301,7 +301,7 @@ foreach my $id (keys(%{$videos})) {
 
 		# Let youtube-dl handle the URLs and downloading
 		{
-			my @args = ('--output', videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . '%(id)s.%(ext)s', $id);
+			my @args = ('--output', videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . '%(id)s.%(ext)s', '--', $id);
 			my @name = ($YTDL_BIN);
 			push(@name, @YTDL_ARGS);
 			my @fetch = @name;
