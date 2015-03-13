@@ -143,9 +143,6 @@ function printAllSeries() {
 	global $TV_PATH;
 	$all_series = allSeriesSeasons($TV_PATH);
 
-	# Wrap the entire jquery section
-	echo '<div data-role="page" id="linkbar-page">';
-
 	# Header
 	echo '<div data-role="header">';
 	echo '<h1>UberZach TV</h1>';
@@ -157,17 +154,7 @@ function printAllSeries() {
 	echo '</div>';
 
 	# Wrap all the sorted/filtered content
-	echo '<div data-role="content">';
-
-	# Display the sorter
-	echo '<div id="sorter">';
-	echo '<ul data-role="listview">';
-	echo '<li><span>#</span></li>';
-	foreach (range('A', 'Z') as $char) {
-		echo '<li><span>' . $char . '</span></li>';
-	}
-	echo '</ul>';
-	echo '</div>';
+	echo '<div role="main" class="ui-content">';
 
 	# Sort by "sortTitle" -- an approximation of the Plex sort title
 	$sorted_series = array();
@@ -190,7 +177,7 @@ function printAllSeries() {
 
 		echo '<li><a href="?series=' . urlencode($series) . '">';
 		if ($monitored) {
-			echo '<img src="tv.png" class="ui-li-icon ui-corner-none">';
+			echo '<img src="tv.png" class="ui-li-icon ui-corner-none" alt="Currently Airing" />';
 		}
 		echo htmlspecialchars($sort);
 		echo '<span class="ui-li-count">' . count($all_series[ $series ]) . '</span>';
@@ -202,15 +189,12 @@ function printAllSeries() {
 	echo '</div>';
 
 	# Add a series
-	echo '<div data-role="footer"><p>';
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '" method="post" data-ajax="false">';
+	echo '<div data-role="footer"><p>';
 	echo '<label>TheTVDB ID or URL: <input type="text" name="series_add"/></label>';
 	echo '<input type="submit" value="Add Series"/>';
-	echo '</form>';
 	echo '</p></div>';
-
-	# End the jquery section
-	echo '</div>';
+	echo '</form>';
 }
 
 ?>
