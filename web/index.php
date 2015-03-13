@@ -6,6 +6,14 @@ require_once 'includes/main.php';
 # Send our headers early
 header('Content-type: text/html; charset=utf-8');
 
+# Form debug
+if (false) {
+	echo '<H4>$_POST</H4>';
+	echo '<pre>';
+	print_r($_POST);
+	echo '</pre>';
+}
+
 # Did the user request a specific series?
 $series = false;
 if (isset($_REQUEST['series'])) {
