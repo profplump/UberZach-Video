@@ -31,7 +31,7 @@ function printJQuery() {
 	# Print
 	echo <<<ENDOLA
 <!-- Default JQuery -->
-<script src="${protocol}://code.jquery.com/jquery-1.9.1.min.js"></script>
+<script src="${protocol}://code.jquery.com/jquery-1.11.2.min.js"></script>
 
 <!-- Provide # support in JQuery-mobile autodividers -->
 <!-- Must be loaded before JQuery-mobile  -->
@@ -53,8 +53,8 @@ $( document ).on( "mobileinit", function() {
 </script>
 
 <!-- Default JQuery-mobile -->
-<link rel="stylesheet" href="${protocol}://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css" />
-<script src="${protocol}://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.js"></script>
+<link rel="stylesheet" href="${protocol}://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+<script src="${protocol}://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js" />
 
 <!-- Custom code for the linkbar -->
 <script src="autodividers-linkbar.js"></script>
