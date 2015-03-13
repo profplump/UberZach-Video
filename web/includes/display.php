@@ -32,28 +32,37 @@ function printSeries($series) {
 
 	# Series flags
 	echo '<h2>Series Parameters</h2>';
-	echo '<p>';
+	echo '<div data-role="fieldcontain">';
 	foreach ($EXISTS_FILES as $file) {
 		if ($file == 'skip' || !$flags['skip']) {
 			$file_html = htmlspecialchars($file);
-			echo '<label><input value="1" type="checkbox" name="' . $file_html . '" ';
-			if ($flags[ $file ]) {
-				echo 'checked="checked"';
-			}
-			echo '/> ' . $file_html . '</label><br/>';
+			echo '<label for="' . $file_html . '">' . $file_html . '</label>';
+
+			echo '<select data-role="slider" id="' . $file_html . '" name="' . $file_html . '"/>';
+			echo '<option value="0">Off</option>';
+			echo '<option value="1"';
+			if ($flags[ $file ] !== false) {
+				echo ' selected';
+			}			
+			echo '>On</option>';
+			echo '</select><br/>';
 		}
 	}
 	if (!$flags['skip']) {
 		foreach ($CONTENT_FILES as $file) {
 			$file_html = htmlspecialchars($file);
-			echo '<label><input type="text" size="40" name="' . $file_html . '" ';
+			echo '<label for="' . $file_html . '">' . $file_html . ':</label>';
+			echo '<input data-inline="true" type="text" size="40" id="' . $file_html . '" name="' . $file_html . '"';
 			if ($flags[ $file ]) {
-				echo 'value="' . htmlspecialchars($flags[ $file ]) . '"';
+				echo ' value="' . htmlspecialchars($flags[ $file ]) . '"';
 			}
-			echo '/> ' . $file_html . '</label><br/>';
+			echo '>';
 		}
-		echo '</p>';
 	}
+	echo '</div>';
+
+	# Save button
+	echo '<p><input type="submit" name="Save" value="Save"/></p>';
 
 	# Seasons
 	if (!$flags['skip']) {
@@ -63,33 +72,60 @@ function printSeries($series) {
 		echo '<dl>';
 		foreach ($seasons as $season => $monitored) {
 			$season_html = htmlspecialchars($season);
-
 			$episodes = findEpisodes($series, $season);
+			$count = count($episodes);
+			$max = @max(array_keys($episodes));
+			if (!$max) {
+				$max = 0;
+			}
 
 			echo '<h3>Season ' . $season_html . '</h3>';
-			echo '<label>Monitored: <input type="checkbox" value="1" name="season_' . $season_html . '" ';
-			if ($monitored !== false) {
-				echo 'checked="checked"';
+
+			if ($season) {
+				echo '<label><select data-role="slider" name="season_' . $season_html . '"/>';
+				echo '<option value="0">Off</option>';
+				echo '<option value="1"';
+				if ($monitored !== false) {
+					echo ' selected';
+				}			
+				echo '>On</option>';
+				echo '</select></label>';
 			}
-			echo '/></label><br/>';
-			echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete"><br/>';
-			echo 'Episode count: ' . count($episodes) . '<br/>';
-			echo 'Highest episode number: ' . @max(array_keys($episodes)) . '<br/>';
-			echo '<hr/>';
+
+			if ($count) {
+				echo '<div data-role="fieldcontain">';
+				echo '<label for="episodes_' . $season_html . '">Episodes';
+				if ($count == $max) {
+					echo ' (' . $count . ')';
+				} else {
+					echo ' (' . $count . '/' . $max . ')';
+				}
+				echo '</label>';
+				echo '<select id="episodes_' . $season_html . '">';
+				foreach ($episodes as $num => $episode) {
+					echo '<option>' . htmlspecialchars(sprintf('%02d', $num) . ' - ' . $episode) . '</option>';
+				}
+				echo '</select></label>';
+				echo '</div>';
+			} else {
+				echo '<input type="submit" name="season_del_' . $season_html . '" value="Delete Empty Season"><br/>';
+			}
 		}
 		echo '</dl>';
 
+		# Save button
+		echo '<p><input type="submit" name="Save" value="Save"/></p>';
+
 		# Add a season
+		echo '<h2>Add Season</h2>';
 		$next_season = @max(array_keys($seasons)) + 1;
-		echo '<p>Add season: ';
-		echo '<input type="text" size="2" name="season_add" value="' . htmlspecialchars($next_season) . '"/>';
-		echo '<input type="submit" name="AddSeason" value="Add Season">';
-		echo '</p>';
-
+		echo '<div data-role="fieldcontain">';
+		echo '<label for="season_add">';
+		echo '<input pattern="[0-9]*" type="text" size="2" id="season_add" name="season_add" value="' . htmlspecialchars($next_season) . '"/>';
+		echo '</label>';
+		echo '<input type="submit" id="season_add" name="AddSeason" value="Add Season">';
+		echo '</div>';
 	}
-
-	# Save button
-	echo '<p><input type="submit" name="Save" value="Save"/></p>';
 
 	# End Form
 	echo '</form>';
