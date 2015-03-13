@@ -33,34 +33,33 @@ function printSeries($series) {
 
 	# Series flags
 	echo '<h2>Series Parameters</h2>';
-	echo '<div data-role="fieldcontain">';
+	echo '<fieldset><div data-role="fieldcontain">';
 	foreach ($EXISTS_FILES as $file) {
 		if ($file == 'skip' || !$flags['skip']) {
 			$file_html = htmlspecialchars($file);
 			echo '<label for="' . $file_html . '">' . $file_html . '</label>';
-
-			echo '<select data-role="slider" id="' . $file_html . '" name="' . $file_html . '"/>';
-			echo '<option value="0">Off</option>';
-			echo '<option value="1"';
+			echo '<input type="checkbox" data-inline="true" data-role="flipswitch" value="1" id="' .
+				$file_html . '" name="' . $file_html . '"';
 			if ($flags[ $file ] !== false) {
-				echo ' selected';
-			}			
-			echo '>On</option>';
-			echo '</select><br/>';
+				echo ' checked';
+			}
+			echo '/><br style="clear: both" />';
 		}
 	}
+	echo '</div></fieldset>';
 	if (!$flags['skip']) {
+		echo '<fieldset><div data-role="fieldcontain">';
 		foreach ($CONTENT_FILES as $file) {
 			$file_html = htmlspecialchars($file);
 			echo '<label for="' . $file_html . '">' . $file_html . ':</label>';
-			echo '<input data-inline="true" type="text" size="40" id="' . $file_html . '" name="' . $file_html . '"';
+			echo '<input type="text" data-inline="true" id="' . $file_html . '" name="' . $file_html . '"';
 			if ($flags[ $file ]) {
 				echo ' value="' . htmlspecialchars($flags[ $file ]) . '"';
 			}
 			echo '>';
 		}
+		echo '</div></fieldset>';
 	}
-	echo '</div>';
 
 	# Save button
 	echo '<p><input type="submit" name="Save" value="Save"/></p>';
@@ -83,14 +82,12 @@ function printSeries($series) {
 			echo '<h3>Season ' . $season_html . '</h3>';
 
 			if ($season) {
-				echo '<label><select data-role="slider" name="season_' . $season_html . '"/>';
-				echo '<option value="0">Off</option>';
-				echo '<option value="1"';
+				echo '<input type="checkbox" data-inline="true" data-role="flipswitch" value="1"'.
+					' name="season_' . $season_html . '"';
 				if ($monitored !== false) {
-					echo ' selected';
-				}			
-				echo '>On</option>';
-				echo '</select></label>';
+					echo ' checked';
+				}
+				echo '/>';
 			}
 
 			if ($count) {
@@ -122,7 +119,7 @@ function printSeries($series) {
 		$next_season = @max(array_keys($seasons)) + 1;
 		echo '<div data-role="fieldcontain">';
 		echo '<label for="season_add">';
-		echo '<input pattern="[0-9]*" type="text" size="2" id="season_add" name="season_add" value="' . htmlspecialchars($next_season) . '"/>';
+		echo '<input pattern="[0-9]*" type="text" id="season_add" name="season_add" value="' . htmlspecialchars($next_season) . '"/>';
 		echo '</label>';
 		echo '<input type="submit" id="season_add" name="AddSeason" value="Add Season">';
 		echo '</div>';
