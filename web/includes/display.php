@@ -26,8 +26,10 @@ function printSeries($series) {
 	}
 	echo '</div>';
 
+	# Wrap all the content
+	echo '<div role="main" class="ui-content" style="width: 95%; margin-left: auto; margin-right: auto;">';
+
 	# Form
-	echo '<div style="width: 90%; margin-left: auto; margin-right: auto;">';
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post" data-ajax="false">';
 	echo '<input type="hidden" name="series" value="' . htmlspecialchars($series) . '"/>';
 
@@ -133,8 +135,13 @@ function printSeries($series) {
 	$url_html = htmlspecialchars(TVDBURL($flags['tvdb-id'], $flags['tvdb-lid']));
 	echo '<h2>The TVDB</h2>';
 	echo '<p><a target="_blank" href="' . $url_html . '">' . $url_html . '</a></p>';
-	echo '<iframe height="5000" style="width: 90%; display: block; margin: 0 auto;" src="' . $url_html . '">';
+	echo '<iframe height="1000" style="width: 95%; display: block; margin: 0 auto;" id="tvdb_iframe" src="' . $url_html . '">';
 	echo '</iframe>';
+	echo '<script type="text/javascript">';
+	echo 'function tvdb_iframe_height() { $("#tvdb_iframe").attr("height", document.body.offsetHeight * 0.95); }';
+	echo '$(window).ready(tvdb_iframe_height);';
+	echo '$(window).resize(tvdb_iframe_height);';
+	echo '</script>';
 }
 
 # Print a DL of all series and note the available and monitored seasons
@@ -153,7 +160,7 @@ function printAllSeries() {
 	}
 	echo '</div>';
 
-	# Wrap all the sorted/filtered content
+	# Wrap all the content
 	echo '<div role="main" class="ui-content">';
 
 	# Sort by "sortTitle" -- an approximation of the Plex sort title
