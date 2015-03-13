@@ -27,6 +27,7 @@ function printSeries($series) {
 	echo '</div>';
 
 	# Form
+	echo '<div style="width: 90%; margin-left: auto; margin-right: auto;">';
 	echo '<form action="' . $_SERVER['PHP_SELF'] . '?series=' . urlencode($series) . '" method="post" data-ajax="false">';
 	echo '<input type="hidden" name="series" value="' . htmlspecialchars($series) . '"/>';
 
@@ -129,6 +130,7 @@ function printSeries($series) {
 
 	# End Form
 	echo '</form>';
+	echo '</div>';
 
 	# TheTVDB Frame
 	$url_html = htmlspecialchars(TVDBURL($flags['tvdb-id'], $flags['tvdb-lid']));
