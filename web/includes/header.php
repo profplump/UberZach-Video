@@ -31,11 +31,11 @@ function printJQuery() {
 	# Print
 	echo <<<ENDOLA
 <!-- Default JQuery -->
-<script src="${protocol}://code.jquery.com/jquery-1.11.2.min.js"></script>
+<script type="text/javascript" src="${protocol}://code.jquery.com/jquery-1.11.2.min.js"></script>
 
 <!-- Provide # support in JQuery-mobile autodividers -->
 <!-- Must be loaded before JQuery-mobile  -->
-<script>
+<script type="text/javascript">
 $( document ).on( "mobileinit", function() {
 	$.mobile.listview.prototype.options.autodividersSelector = function( elt ) {
 		var text = $.trim( elt.text() ) || null;
@@ -54,11 +54,7 @@ $( document ).on( "mobileinit", function() {
 
 <!-- Default JQuery-mobile -->
 <link rel="stylesheet" href="${protocol}://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
-<script src="${protocol}://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js" />
-
-<!-- Custom code for the linkbar -->
-<script src="autodividers-linkbar.js"></script>
-<link rel="stylesheet" href="autodividers-linkbar.css">
+<script type="text/javascript" src="${protocol}://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
 ENDOLA;
 }
 
