@@ -339,7 +339,7 @@ foreach my $id (keys(%{$videos})) {
 				sleep($DELAY);
 				my $exit = run(EXIT_ANY, @fetch);
 				if ($exit != 0) {
-					warn('Error executing youtube-dl (fetch): ' . $exit . "\n");
+					warn('Error executing youtube-dl for video: ' . $file . "\n");
 					next;
 				}
 
