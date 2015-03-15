@@ -25,6 +25,7 @@ my @YTDL_ARGS       = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist'
 my @YTDL_QUIET      = ('--quiet', '--no-warnings');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
+my $FETCH_LIMIT     = 50;
 my $DRIFT_TOLERANCE = 2;
 my $DRIFT_FACTOR    = 100.0;
 my $DELAY           = 5;
@@ -170,6 +171,9 @@ if ($ENV{'MAX_INDEX'} && $ENV{'MAX_INDEX'} =~ /(\d+)/) {
 if ($ENV{'BATCH_SIZE'} && $ENV{'BATCH_SIZE'} =~ /(\d+)/) {
 	$BATCH_SIZE = $1;
 }
+if ($ENV{'FETCH_LIMIT'} && $ENV{'FETCH_LIMIT'} =~ /(\d+)/) {
+	$FETCH_LIMIT = $1;
+}
 
 # Construct globals
 foreach my $key (keys(%API)) {
@@ -252,6 +256,7 @@ foreach my $id (keys(%{$files})) {
 }
 
 # Fill in missing videos and NFOs
+my $fetched = 0;
 foreach my $id (keys(%{$videos})) {
 	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
 
@@ -312,6 +317,17 @@ foreach my $id (keys(%{$videos})) {
 			if ($NO_FETCH) {
 				print STDERR 'Not running: ' . join(' ', @fetch) . "\n";
 			} else {
+
+				# Count fetch attempts (even if they fail later)
+				$fetched++;
+				if ($FETCH_LIMIT && $fetched gt $FETCH_LIMIT) {
+					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $user . "\n";
+					if ($DEBUG) {
+						print STDERR "\tLocal/Remote videos at start:" .
+							scalar(keys(%{$files})) . '/' . scalar(keys(%{$videos})) . "\n";
+					}
+					exit 1;
+				}
 
 				# Find the output file name
 				if ($DEBUG > 1) {
