@@ -171,7 +171,7 @@ if ($ENV{'MAX_INDEX'} && $ENV{'MAX_INDEX'} =~ /(\d+)/) {
 if ($ENV{'BATCH_SIZE'} && $ENV{'BATCH_SIZE'} =~ /(\d+)/) {
 	$BATCH_SIZE = $1;
 }
-if ($ENV{'FETCH_LIMIT'} && $ENV{'FETCH_LIMIT'} =~ /(\d+)/) {
+if (exists($ENV{'FETCH_LIMIT'}) && $ENV{'FETCH_LIMIT'} =~ /(\d+)/) {
 	$FETCH_LIMIT = $1;
 }
 
