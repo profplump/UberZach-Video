@@ -323,8 +323,7 @@ foreach my $id (keys(%{$videos})) {
 				if ($FETCH_LIMIT && $fetched gt $FETCH_LIMIT) {
 					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $user . "\n";
 					if ($DEBUG) {
-						print STDERR "\tLocal/Remote videos at start:" .
-							scalar(keys(%{$files})) . '/' . scalar(keys(%{$videos})) . "\n";
+						print STDERR "\tLocal/Remote videos at start:" . scalar(keys(%{$files})) . '/' . scalar(keys(%{$videos})) . "\n";
 					}
 					exit 1;
 				}
