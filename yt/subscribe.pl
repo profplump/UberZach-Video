@@ -25,7 +25,7 @@ my @YTDL_ARGS       = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist'
 my @YTDL_QUIET      = ('--quiet', '--no-warnings');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
-my $FETCH_LIMIT     = 100;
+my $FETCH_LIMIT     = 50;
 my $DRIFT_TOLERANCE = 2;
 my $DRIFT_FACTOR    = 100.0;
 my $DELAY           = 5;
@@ -320,7 +320,7 @@ foreach my $id (keys(%{$videos})) {
 
 				# Count fetch attempts (even if they fail later)
 				$fetched++;
-				if ($FETCH_LIMIT && $fetched gt $FETCH_LIMIT) {
+				if ($FETCH_LIMIT && $fetched > $FETCH_LIMIT) {
 					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $user . "\n";
 					if ($DEBUG) {
 						print STDERR "\tLocal/Remote videos at start:" . scalar(keys(%{$files})) . '/' . scalar(keys(%{$videos})) . "\n";
