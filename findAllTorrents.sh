@@ -46,9 +46,9 @@ while read -d $'\0' SERIES ; do
 	RET=$?
 	if [ $RET -ne 0 ]; then
 		if [ $RET -eq 143 ]; then
-			echo "Timeout searching: ${SERIES}" 1>&2
+			echo "Timeout (${TIMEOUT}) searching: ${SERIES}" 1>&2
 		else
-			echo "Error searching: ${SERIES}" 1>&2
+			echo "Error (${RET}) searching: ${SERIES}" 1>&2
 		fi
 		continue
 	fi
