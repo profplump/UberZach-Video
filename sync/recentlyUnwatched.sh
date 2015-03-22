@@ -1,19 +1,33 @@
 #!/bin/bash
 
-HOST="http://pms.uberzach.com:32400"
 CURL_OPTS=(--silent --connect-timeout 5 --max-time 30)
 NUM_SERIES=18
 NUM_EPISODES=4
 MAX_RESULTS=100
 
+# Construct URL components from the environment
+if [ -z "${PMS_URL}" ]; then
+	if [ -z "${PMS_HOST}" ]; then
+		PMS_HOST="localhost"
+	fi
+	if [ -z "${PMS_PORT}" ]; then
+		PMS_PORT=32400
+	fi
+	PMS_URL="http://${PMS_HOST}:${PMS_PORT}"
+fi
+PMS_AUTH=""
+if [ -n "${PMS_TOKEN}" ]; then
+	PMS_AUTH="X-Plex-Token=${PMS_TOKEN}"
+fi
+
 # Select a configuration mode
-URL1="${HOST}/library/sections/2/onDeck/"
+URL1="${PMS_URL}/library/sections/2/onDeck/?${PMS_AUTH}"
 URL2_POST="children/allLeaves?unwatched=1"
 if echo "${1}" | grep -iq Movie; then
-	URL1="${HOST}/library/sections/1/recentlyAdded/"
+	URL1="${PMS_URL}/library/sections/1/recentlyAdded/?${PMS_AUTH}"
 	URL2_POST=""
 elif echo "${1}" | grep -iq YouTube; then
-	URL1="${HOST}/library/sections/16/onDeck/"
+	URL1="${PMS_URL}/library/sections/16/onDeck/?${PMS_AUTH}"
 	NUM_EPISODES=$(( $NUM_EPISODES * 3 ))
 	NUM_SERIES=$(( $NUM_SERIES * 2 ))
 fi
@@ -28,7 +42,7 @@ ITEMS="`curl ${CURL_OPTS[@]} "${URL1}" | \
 SERIES=""
 IFS=$'\n'
 for i in $ITEMS; do
-	ITEM="`curl ${CURL_OPTS[@]} "${HOST}/library/metadata/${i}/" | \
+	ITEM="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/?${PMS_AUTH}" | \
 		grep '<Video ' | \
 		head -n "${MAX_RESULTS}"`"
 	if echo "${ITEM}" | grep -q 'type="episode"'; then
@@ -52,7 +66,7 @@ SERIES_COUNT=0
 IFS=$'\n'
 for i in $SERIES; do
 	SERIES_COUNT=$(( $SERIES_COUNT + 1 ))
-	FILES="`curl ${CURL_OPTS[@]} "${HOST}/library/metadata/${i}/${URL2_POST}" 2>/dev/null | \
+	FILES="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/${URL2_POST}?${PMS_AUTH}" 2>/dev/null | \
 		grep '<Part ' | \
 		head -n "${MAX_RESULTS}" | \
 		sed 's%^.*file="\([^\"]*\)".*$%\1%' | \
