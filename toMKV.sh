@@ -43,9 +43,9 @@ fi
 tmpFile="`mktemp -t toMKV`"
 outFile="${outFile}.mkv"
 if [ -n "${srtFile}" ]; then
-	OUT="`mkvmerge --quiet -o "${tmpFile}" "${inFile}" "${srtFile}" 2>&1`"
+	OUT="`mkvmerge --quiet --default-language eng -o "${tmpFile}" "${inFile}" "${srtFile}" 2>&1`"
 else
-	OUT="`mkvmerge --quiet -o "${tmpFile}" "${inFile}" 2>&1`"
+	OUT="`mkvmerge --quiet --default-language eng -o "${tmpFile}" "${inFile}" 2>&1`"
 fi
 echo "${OUT}" | grep -v "The AVC video track is missing the 'CTTS' atom for frame timecode offsets."
 
