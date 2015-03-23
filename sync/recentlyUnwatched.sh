@@ -18,11 +18,13 @@ fi
 PMS_AUTH=""
 if [ -n "${PMS_TOKEN}" ]; then
 	PMS_AUTH="X-Plex-Token=${PMS_TOKEN}"
+else
+	echo "No PMS_TOKEN provided" 1>&2
 fi
 
 # Select a configuration mode
-URL1="${PMS_URL}/library/sections/2/onDeck/?${PMS_AUTH}"
-URL2_POST="children/allLeaves?unwatched=1"
+URL1="${PMS_URL}/library/sections/2/onDeck/"
+URL2_POST="children/allLeaves?unwatched=1&${PMS_AUTH}"
 if echo "${1}" | grep -iq Movie; then
 	URL1="${PMS_URL}/library/sections/1/recentlyAdded/?${PMS_AUTH}"
 	URL2_POST=""
@@ -66,7 +68,7 @@ SERIES_COUNT=0
 IFS=$'\n'
 for i in $SERIES; do
 	SERIES_COUNT=$(( $SERIES_COUNT + 1 ))
-	FILES="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/${URL2_POST}?${PMS_AUTH}" 2>/dev/null | \
+	FILES="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/${URL2_POST}" 2>/dev/null | \
 		grep '<Part ' | \
 		head -n "${MAX_RESULTS}" | \
 		sed 's%^.*file="\([^\"]*\)".*$%\1%' | \
