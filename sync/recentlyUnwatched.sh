@@ -23,7 +23,7 @@ else
 fi
 
 # Select a configuration mode
-URL1="${PMS_URL}/library/sections/2/onDeck/"
+URL1="${PMS_URL}/library/sections/2/onDeck/?${PMS_AUTH}"
 URL2_POST="children/allLeaves?unwatched=1&${PMS_AUTH}"
 if echo "${1}" | grep -iq Movie; then
 	URL1="${PMS_URL}/library/sections/1/recentlyAdded/?${PMS_AUTH}"
