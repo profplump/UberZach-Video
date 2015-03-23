@@ -27,7 +27,7 @@ URL1="${PMS_URL}/library/sections/2/onDeck/"
 URL2_POST="children/allLeaves?unwatched=1&${PMS_AUTH}"
 if echo "${1}" | grep -iq Movie; then
 	URL1="${PMS_URL}/library/sections/1/recentlyAdded/?${PMS_AUTH}"
-	URL2_POST=""
+	URL2_POST="?${PMS_AUTH}"
 elif echo "${1}" | grep -iq YouTube; then
 	URL1="${PMS_URL}/library/sections/16/onDeck/?${PMS_AUTH}"
 	NUM_EPISODES=$(( $NUM_EPISODES * 3 ))
