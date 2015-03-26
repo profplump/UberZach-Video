@@ -1,5 +1,6 @@
 #!/bin/bash
 
+IFS=''
 CURL_OPTS=(--silent --connect-timeout 5 --max-time 30)
 NUM_SERIES=18
 NUM_EPISODES=4
@@ -15,21 +16,19 @@ if [ -z "${PMS_URL}" ]; then
 	fi
 	PMS_URL="http://${PMS_HOST}:${PMS_PORT}"
 fi
-PMS_AUTH=""
-if [ -n "${PMS_TOKEN}" ]; then
-	PMS_AUTH="X-Plex-Token=${PMS_TOKEN}"
-else
+if [ -z "${PMS_TOKEN}" ]; then
 	echo "No PMS_TOKEN provided" 1>&2
 fi
+CURL_OPTS+=(-H "X-Plex-Token: ${PMS_TOKEN}")
 
 # Select a configuration mode
-URL1="${PMS_URL}/library/sections/2/onDeck/?${PMS_AUTH}"
-URL2_POST="children/allLeaves?unwatched=1&${PMS_AUTH}"
+URL1="${PMS_URL}/library/sections/2/onDeck/"
+URL2_POST="children/allLeaves?unwatched=1"
 if echo "${1}" | grep -iq Movie; then
-	URL1="${PMS_URL}/library/sections/1/recentlyAdded/?${PMS_AUTH}"
-	URL2_POST="?${PMS_AUTH}"
+	URL1="${PMS_URL}/library/sections/1/recentlyAdded/"
+	URL2_POST=""
 elif echo "${1}" | grep -iq YouTube; then
-	URL1="${PMS_URL}/library/sections/16/onDeck/?${PMS_AUTH}"
+	URL1="${PMS_URL}/library/sections/16/onDeck/"
 	NUM_EPISODES=$(( $NUM_EPISODES * 3 ))
 	NUM_SERIES=$(( $NUM_SERIES * 2 ))
 fi
@@ -44,7 +43,7 @@ ITEMS="`curl ${CURL_OPTS[@]} "${URL1}" | \
 SERIES=""
 IFS=$'\n'
 for i in $ITEMS; do
-	ITEM="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/?${PMS_AUTH}" | \
+	ITEM="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/" | \
 		grep '<Video ' | \
 		head -n "${MAX_RESULTS}"`"
 	if echo "${ITEM}" | grep -q 'type="episode"'; then
