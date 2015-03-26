@@ -469,7 +469,7 @@ sub buildNFO($) {
 	}
 
 	if (defined($video->{'duration'})) {
-		$elm = $doc->createElement('runtime');
+		$elm = $doc->createElement('durationinseconds');
 		$elm->appendText($video->{'duration'});
 		$show->appendChild($elm);
 	}
