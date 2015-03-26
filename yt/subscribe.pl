@@ -23,6 +23,7 @@ my $EXCLUDES_FILE   = 'exclude_videos.ini';
 my $YTDL_BIN        = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
 my @YTDL_ARGS       = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
 my @YTDL_QUIET      = ('--quiet', '--no-warnings');
+my @YTDL_DEBUG      = ('--verbose');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
 my $FETCH_LIMIT     = 50;
@@ -181,7 +182,9 @@ foreach my $key (keys(%API)) {
 		$API{$key}{'params'}{'max-results'} = $BATCH_SIZE;
 	}
 }
-if (!$DEBUG) {
+if ($DEBUG > 1) {
+	push(@YTDL_ARGS, @YTDL_DEBUG);
+} elsif (!$DEBUG) {
 	push(@YTDL_ARGS, @YTDL_QUIET);
 }
 
