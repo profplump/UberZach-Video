@@ -94,7 +94,7 @@ sub addExtras($);
 sub updateNFOData($$$);
 sub videoSE($$);
 sub videoPath($$$$);
-sub renameVideo($$$$$);
+sub renameVideo($$$$$$);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -254,7 +254,7 @@ if (!$NO_FILES) {
 foreach my $id (keys(%{$files})) {
 	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
 		print STDERR 'Local video not known to YT channel (' . $user . '): ' . $id . "\n";
-		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
+		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 	}
 }
 
@@ -271,7 +271,7 @@ foreach my $id (keys(%{$videos})) {
 	  )
 	{
 		if ($FORCE_RENAME) {
-			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
+			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 		} else {
 
 			# Find the old NFO to avoid re-fetching
@@ -294,7 +294,7 @@ foreach my $id (keys(%{$videos})) {
 			if ($DEBUG || $rename) {
 				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
 				if ($rename) {
-					renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
+					renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 				}
 			}
 		}
@@ -515,6 +515,7 @@ sub findFiles() {
 	while (my $file = readdir($fh)) {
 		my ($season, $num, $id, $suffix) = $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
 		if (defined($id) && length($id) > 0) {
+			my $path = $dir . '/' . $file;
 
 			# Create the record as needed
 			if (!exists($files{$id})) {
@@ -532,10 +533,10 @@ sub findFiles() {
 			}
 
 			# Deal with duplicates
-			if (exists($video->{$type})) {
+			if (exists($files{$id}->{$type})) {
 				if ($type eq 'nfo') {
-					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $path . "\n");
-					if (!$NO_REANME) {
+					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $file . "\n");
+					if (!$NO_RENAME) {
 						if ($SUDO_CHATTR) {
 							system('sudo', 'chattr', '-i', $path);
 						}
@@ -544,7 +545,7 @@ sub findFiles() {
 					}
 				} else {
 					warn('Duplicate video: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $path . "\n");
-					if (!$NO_REANME) {
+					if (!$NO_RENAME) {
 						my $del = $path;
 						if ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
 							$del = $files{$id}->{'path'};
@@ -975,8 +976,8 @@ sub videoPath($$$$) {
 	return videoSE($season, $episode) . $id . '.' . $ext;
 }
 
-sub renameVideo($$$$$) {
-	my ($video, $suffix, $id, $season, $episode) = @_;
+sub renameVideo($$$$$$) {
+	my ($video, $suffix, $nfo, $id, $season, $episode) = @_;
 
 	# Bail if disabled
 	if ($NO_RENAME) {
@@ -985,13 +986,9 @@ sub renameVideo($$$$$) {
 	}
 
 	# General sanity checks
-	if (!defined($video) || !defined($suffix) || !defined($id) || !defined($season) || !defined($episode)) {
-		die("Invalid call to renameVideo()\n\t" . $video . "\n\t" . $suffix . "\n\t" . $id . "\n\t" . $season . "\n\t" . $episode . "\n");
+	if (!defined($video) || !defined($suffix) || !defined($nfo) || !defined($id) || !defined($season) || !defined($episode)) {
+		die("Invalid call to renameVideo()\n\t" . $video . "\n\t" . $suffix . "\n\t" . $nfo . "\n\t" . $id . "\n\t" . $season . "\n\t" . $episode . "\n");
 	}
-
-	# We could ask for this but there are already a lot of parameters
-	my $nfo = $video;
-	$nfo =~ s/\.${suffix}$/\.nfo/;
 
 	# Build a new path
 	my $videoNew = videoPath($season, $episode, $id, $suffix);
