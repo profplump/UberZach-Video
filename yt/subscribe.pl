@@ -1001,45 +1001,60 @@ sub renameVideo($$$$$$) {
 	}
 
 	# General sanity checks
-	if (!defined($video) || !defined($suffix) || !defined($nfo) || !defined($id) || !defined($season) || !defined($episode)) {
+	if (!defined($id) || !defined($season) || !defined($episode)) {
 		die("Invalid call to renameVideo()\n\t" . $video . "\n\t" . $suffix . "\n\t" . $nfo . "\n\t" . $id . "\n\t" . $season . "\n\t" . $episode . "\n");
 	}
 
-	# Build a new path
-	my $videoNew = videoPath($season, $episode, $id, $suffix);
-	my $nfoNew   = videoPath($season, $episode, $id, 'nfo');
-
-	# Parse old NFO data
-	my $nfoData = updateNFOData($nfo, $season, $episode)
-	  or die('No NFO data found, refusing to rename: ' . $id . "\n");
-
-	# Specific sanity checks, as we do dangerous work here
-	if (!-r $video || !-r $nfo) {
-		die('Invalid video or NFO sources in rename: ' . $video . '/' . $nfo);
+	# Warning about useless calls
+	if (!defined($nfo) && (!defined($video) || !defined($suffix))) {
+		warn("No NFO or video path provided in renameVideo()\n");
+		return;
 	}
 
-	# Rename video
-	if ($video ne $videoNew) {
-		print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
-		if (-e $videoNew) {
-			die('Rename: Target exists: ' . $videoNew . "\n");
+	# Video
+	if (defined($video) && defined($suffix)) {
+		my $videoNew = videoPath($season, $episode, $id, $suffix);
+
+		# Sanity checks, as we do dangerous work here
+		if (!-r $video) {
+			die('Invalid video sources in rename: ' . $video . "\n");
 		}
+		if ($video ne $videoNew) {
+			print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
+			if (-e $videoNew) {
+				die('Rename: Target exists: ' . $videoNew . "\n");
+			}
+			if ($SUDO_CHATTR) {
+				system('sudo', 'chattr', '-i', $video);
+			}
+			rename($video, $videoNew)
+			  or die('Unable to rename: ' . $video . ': ' . $! . "\n");
+		}
+	}
+
+	# NFO
+	if (defined($nfo)) {
+		my $nfoNew = videoPath($season, $episode, $id, 'nfo');
+
+		# Parse old NFO data
+		my $nfoData = updateNFOData($nfo, $season, $episode)
+		  or die('No NFO data found, refusing to rename: ' . $id . "\n");
+
+		# Sanity checks, as we do dangerous work here
+		if (!-r $video) {
+			die('Invalid video sources in rename: ' . $video . "\n");
+		}
+
+		# Write a new NFO and unlink the old one
 		if ($SUDO_CHATTR) {
-			system('sudo', 'chattr', '-i', $video);
+			system('sudo', 'chattr', '-i', $nfo);
 		}
-		rename($video, $videoNew)
-		  or die('Unable to rename: ' . $video . ': ' . $! . "\n");
-	}
-
-	# Write a new NFO and unlink the old one
-	if ($SUDO_CHATTR) {
-		system('sudo', 'chattr', '-i', $nfo);
-	}
-	saveString($nfoNew, $nfoData);
-	if ($nfo ne $nfoNew) {
-		print STDERR 'Renaming ' . $nfo . ' => ' . $nfoNew . "\n";
-		unlink($nfo)
-		  or warn('Unable to delete NFO during rename: ' . $! . "\n");
+		saveString($nfoNew, $nfoData);
+		if ($nfo ne $nfoNew) {
+			print STDERR 'Renaming ' . $nfo . ' => ' . $nfoNew . "\n";
+			unlink($nfo)
+			  or warn('Unable to delete NFO during rename: ' . $! . "\n");
+		}
 	}
 }
 
