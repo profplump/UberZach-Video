@@ -271,10 +271,13 @@ foreach my $id (keys(%{$videos})) {
 
 	# Determine if we may or must rename
 	my $rename = 0;
-	my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
-	if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
-		$rename = -1;
-	} elsif ($files->{$id}->{'number'} != $videos->{$id}->{'number'}
+	if ($files->{$id}->{'nfo'}) {
+		my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
+		if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
+			$rename = -1;
+		}
+	}
+	if ($files->{$id}->{'number'} != $videos->{$id}->{'number'}
 		|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
 	{
 		$rename = 1;
