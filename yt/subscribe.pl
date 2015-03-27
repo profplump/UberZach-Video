@@ -153,7 +153,7 @@ if ($ENV{'NO_EXCLUDES'}) {
 	$NO_EXCLUDES = 1;
 }
 my $NO_RENAME = 0;
-if ($ENV{'NO_RDNAME'}) {
+if ($ENV{'NO_RENAME'}) {
 	$NO_RENAME = 1;
 }
 
