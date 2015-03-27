@@ -277,7 +277,7 @@ foreach my $id (keys(%{$videos})) {
 			$rename = -1;
 		}
 	}
-	if ($files->{$id}->{'number'} != $videos->{$id}->{'number'}
+	if (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
 		|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
 	{
 		$rename = 1;
@@ -530,6 +530,7 @@ sub findFiles() {
 	while (my $file = readdir($fh)) {
 		my ($season, $num, $id, $suffix) = parseFilename($file);
 		if (defined($id) && length($id) > 0) {
+
 			# Create the record as needed
 			if (!exists($files{$id})) {
 				my %tmp = (
@@ -550,7 +551,7 @@ sub findFiles() {
 				if ($type eq 'nfo') {
 					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
-						warn("\tDeleting: " .  $file . "\n");
+						warn("\tDeleting: " . $file . "\n");
 						if ($SUDO_CHATTR) {
 							system('sudo', 'chattr', '-i', $file);
 						}
@@ -564,7 +565,7 @@ sub findFiles() {
 						if ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
 							$del = $files{$id}->{'path'};
 						}
-						warn("\tDeleting: " .  $del . "\n");
+						warn("\tDeleting: " . $del . "\n");
 						if ($SUDO_CHATTR) {
 							system('sudo', 'chattr', '-i', $del);
 						}
@@ -1017,7 +1018,7 @@ sub renameVideo($$$$$$) {
 
 		# Sanity checks, as we do dangerous work here
 		if (!-r $video) {
-			die('Invalid video sources in rename: ' . $video . "\n");
+			die('Invalid video source in rename: ' . $video . "\n");
 		}
 		if ($video ne $videoNew) {
 			print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
@@ -1036,14 +1037,14 @@ sub renameVideo($$$$$$) {
 	if (defined($nfo)) {
 		my $nfoNew = videoPath($season, $episode, $id, 'nfo');
 
+		# Sanity checks, as we do dangerous work here
+		if (!-r $nfo) {
+			die('Invalid NFO source in rename: ' . $nfo . "\n");
+		}
+
 		# Parse old NFO data
 		my $nfoData = updateNFOData($nfo, $season, $episode)
 		  or die('No NFO data found, refusing to rename: ' . $id . "\n");
-
-		# Sanity checks, as we do dangerous work here
-		if (!-r $video) {
-			die('Invalid video sources in rename: ' . $video . "\n");
-		}
 
 		# Write a new NFO and unlink the old one
 		if ($SUDO_CHATTR) {
