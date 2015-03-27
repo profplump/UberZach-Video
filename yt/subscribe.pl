@@ -515,38 +515,54 @@ sub findFiles() {
 	while (my $file = readdir($fh)) {
 		my ($season, $num, $id, $suffix) = $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
 		if (defined($id) && length($id) > 0) {
-			if ($suffix eq 'nfo') {
-				next;
+
+			# Create the record as needed
+			if (!exists($files{$id})) {
+				my %tmp = (
+					'season' => $season,
+					'number' => $num,
+				);
+				$files{$id} = \%tmp;
 			}
 
-			my %tmp = (
-				'season' => $season,
-				'number' => $num,
-				'suffix' => $suffix,
-				'path'   => $file,
-			);
-			$tmp{'nfo'} = $tmp{'path'};
-			$tmp{'nfo'} =~ s/\.\w\w\w$/\.nfo/;
+			# Video or NFO?
+			my $type = 'path';
+			if ($suffix eq 'nfo') {
+				$type = 'nfo';
+			}
 
-			if (exists($files{$id})) {
-				warn('Duplicate ID: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $tmp{'path'} . "\n");
-				if (!$NO_RENAME) {
-
-					# Prefer to delete MP4 files, if the suffixes differ
-					my $del = $files{$id};
-					if ($tmp{'suffix'} eq 'mp4' && $del->{'suffix'} ne 'mp4') {
-						$del = \%tmp;
-						%tmp = %{ $files{$id} };
+			# Deal with duplicates
+			if (exists($video->{$type})) {
+				if ($type eq 'nfo') {
+					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $path . "\n");
+					if (!$NO_REANME) {
+						if ($SUDO_CHATTR) {
+							system('sudo', 'chattr', '-i', $path);
+						}
+						unlink($path);
+						next;
 					}
-
-					print STDERR 'Deleting duplicate: ' . $del->{'path'} . "\n";
-					unlink($del->{'path'});
-					if ($del->{'nfo'} ne $tmp{'nfo'}) {
-						unlink($del->{'nfo'});
+				} else {
+					warn('Duplicate video: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $path . "\n");
+					if (!$NO_REANME) {
+						my $del = $path;
+						if ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
+							$del = $files{$id}->{'path'};
+						}
+						if ($SUDO_CHATTR) {
+							system('sudo', 'chattr', '-i', $del);
+						}
+						unlink($del);
+						next;
 					}
 				}
 			}
-			$files{$id} = \%tmp;
+
+			# Assign the component paths
+			$files{$id}->{$type} = $file;
+			if ($type ne 'nfo') {
+				$files{$id}->{'suffix'} = $suffix;
+			}
 		}
 	}
 	close($fh);
