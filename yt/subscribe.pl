@@ -1005,7 +1005,6 @@ sub renameVideo($$$$$$) {
 	# Build a new path
 	my $videoNew = videoPath($season, $episode, $id, $suffix);
 	my $nfoNew   = videoPath($season, $episode, $id, 'nfo');
-	print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
 
 	# Parse old NFO data
 	my $nfoData = updateNFOData($nfo, $season, $episode)
@@ -1015,24 +1014,30 @@ sub renameVideo($$$$$$) {
 	if (!-r $video || !-r $nfo) {
 		die('Invalid video or NFO sources in rename: ' . $video . '/' . $nfo);
 	}
-	if (-e $videoNew) {
-		die('Rename: Target exists: ' . $videoNew . "\n");
-	}
 
 	# Rename video
-	if ($SUDO_CHATTR) {
-		system('sudo', 'chattr', '-i', $video);
+	if ($video ne $videoNew) {
+		print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
+		if (-e $videoNew) {
+			die('Rename: Target exists: ' . $videoNew . "\n");
+		}
+		if ($SUDO_CHATTR) {
+			system('sudo', 'chattr', '-i', $video);
+		}
+		rename($video, $videoNew)
+		  or die('Unable to rename: ' . $video . ': ' . $! . "\n");
 	}
-	rename($video, $videoNew)
-	  or die('Unable to rename: ' . $video . ': ' . $! . "\n");
 
 	# Write a new NFO and unlink the old one
-	saveString($nfoNew, $nfoData);
 	if ($SUDO_CHATTR) {
 		system('sudo', 'chattr', '-i', $nfo);
 	}
-	unlink($nfo)
-	  or warn('Unable to delete NFO during rename: ' . $! . "\n");
+	saveString($nfoNew, $nfoData);
+	if ($nfo ne $nfoNew) {
+		print STDERR 'Renaming ' . $nfo . ' => ' . $nfoNew . "\n";
+		unlink($nfo)
+		  or warn('Unable to delete NFO during rename: ' . $! . "\n");
+	}
 }
 
 sub parseFilename($) {
