@@ -527,8 +527,6 @@ sub findFiles() {
 	while (my $file = readdir($fh)) {
 		my ($season, $num, $id, $suffix) = parseFilename($file);
 		if (defined($id) && length($id) > 0) {
-			my $path = $dir . '/' . $file;
-
 			# Create the record as needed
 			if (!exists($files{$id})) {
 				my %tmp = (
@@ -549,19 +547,21 @@ sub findFiles() {
 				if ($type eq 'nfo') {
 					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
+						warn("\tDeleting: " .  $file . "\n");
 						if ($SUDO_CHATTR) {
-							system('sudo', 'chattr', '-i', $path);
+							system('sudo', 'chattr', '-i', $file);
 						}
-						unlink($path);
+						unlink($file);
 						next;
 					}
 				} else {
-					warn('Duplicate video: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $path . "\n");
+					warn('Duplicate video: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
-						my $del = $path;
+						my $del = $file;
 						if ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
 							$del = $files{$id}->{'path'};
 						}
+						warn("\tDeleting: " .  $del . "\n");
 						if ($SUDO_CHATTR) {
 							system('sudo', 'chattr', '-i', $del);
 						}
