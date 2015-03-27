@@ -95,6 +95,7 @@ sub updateNFOData($$$);
 sub videoSE($$);
 sub videoPath($$$$);
 sub renameVideo($$$$$$);
+sub parseFilename($);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -263,14 +264,25 @@ my $fetched = 0;
 foreach my $id (keys(%{$videos})) {
 	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
 
-	# Warn (and optionally rename) if the video numbers drift
-	if (
-		exists($files->{$id})
-		&& (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
-			|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
-	  )
+	# Skip remote-only videos
+	if (!exists($files->{$id})) {
+		next;
+	}
+
+	# Determine if we may or must rename
+	my $rename = 0;
+	my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
+	if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
+		$rename = -1;
+	} elsif ($files->{$id}->{'number'} != $videos->{$id}->{'number'}
+		|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
 	{
-		if ($FORCE_RENAME) {
+		$rename = 1;
+	}
+
+	# Warn (and optionally rename) if the video numbers drift
+	if ($rename != 0) {
+		if ($rename < 0 || $FORCE_RENAME) {
 			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 		} else {
 
@@ -513,7 +525,7 @@ sub findFiles() {
 	opendir($fh, '.')
 	  or die('Unable to open files directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
-		my ($season, $num, $id, $suffix) = $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
+		my ($season, $num, $id, $suffix) = parseFilename($file);
 		if (defined($id) && length($id) > 0) {
 			my $path = $dir . '/' . $file;
 
@@ -1021,4 +1033,9 @@ sub renameVideo($$$$$$) {
 	}
 	unlink($nfo)
 	  or warn('Unable to delete NFO during rename: ' . $! . "\n");
+}
+
+sub parseFilename($) {
+	my ($file) = @_;
+	return $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
 }
