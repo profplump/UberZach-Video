@@ -437,6 +437,12 @@ sub buildNFO($) {
 	$doc->setStandalone(1);
 	my $show = $doc->createElement('episodedetails');
 	$doc->setDocumentElement($show);
+	my $file = $doc->createElement('fileinfo');
+	$show->appendChild($file);
+	my $stream = $doc->createElement('streamdetails');
+	$file->appendChild($stream);
+	my $stream_video = $doc->createElement('video');
+	$stream->appendChild($stream_video);
 	my $elm;
 
 	# Add data
@@ -469,9 +475,13 @@ sub buildNFO($) {
 	}
 
 	if (defined($video->{'duration'})) {
-		$elm = $doc->createElement('durationinseconds');
+		$elm = $doc->createElement('runtime');
 		$elm->appendText($video->{'duration'});
 		$show->appendChild($elm);
+
+		$elm = $doc->createElement('durationinseconds');
+		$elm->appendText($video->{'duration'});
+		$stream_video->appendChild($elm);
 	}
 
 	if (defined($video->{'rating'})) {
