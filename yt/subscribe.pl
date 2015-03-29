@@ -264,23 +264,21 @@ my $fetched = 0;
 foreach my $id (keys(%{$videos})) {
 	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
 
-	# Skip remote-only videos
-	if (!exists($files->{$id})) {
-		next;
-	}
-
 	# Determine if we may or must rename
 	my $rename = 0;
-	if ($files->{$id}->{'nfo'}) {
-		my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
-		if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
-			$rename = -1;
+	# Skip remote-only videos
+	if (exists($files->{$id})) {
+		if ($files->{$id}->{'nfo'}) {
+			my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
+			if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
+				$rename = -1;
+			}
 		}
-	}
-	if (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
-		|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
-	{
-		$rename = 1;
+		if (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
+			|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
+		{
+			$rename = 1;
+		}
 	}
 
 	# Warn (and optionally rename) if the video numbers drift
