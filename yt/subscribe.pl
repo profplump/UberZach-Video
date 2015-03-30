@@ -266,51 +266,41 @@ foreach my $id (keys(%{$videos})) {
 
 	# Determine if we may or must rename
 	my $rename = 0;
-	# Skip remote-only videos
 	if (exists($files->{$id})) {
-		if ($files->{$id}->{'nfo'}) {
-			my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
-			if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
-				$rename = -1;
+		# Renumber if we drift a lot
+		if ($files->{$id}->{'path'}) {
+			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
+			my $tolerance = $files->{$id}->{'number'} / $DRIFT_FACTOR;
+			if ($FORCE_RENAME) {
+				$tolerance = 0;
+			} elsif ($tolerance < $DRIFT_TOLERANCE) {
+				$tolerance = $DRIFT_TOLERANCE;
+			}
+			if ($delta > $tolerance) {
+				if ($DEBUG) {
+					print STDERR 'Rename due to drift (' . $delta . '/' . $tolerance . ")\n"
+				}
+				$rename = 1;
 			}
 		}
-		if (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
-			|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
-		{
-			$rename = 1;
+
+		# Always rename if the NFO does not match the media
+		if ($files->{$id}->{'path'} && $files->{$id}->{'nfo'}) {
+			my ($mseason, $mnumber) = parseFilename($files->{$id}->{'path'});
+			my ($nseason, $nnumber) = parseFilename($files->{$id}->{'nfo'});
+			if ($mseason != $nseason || $mnumber != $nnumber) {
+				if ($DEBUG) {
+					print STDERR "Rename due to media-metadata mismatch\n"
+				}
+				$rename = 1;
+			}
 		}
 	}
 
-	# Warn (and optionally rename) if the video numbers drift
-	if ($rename != 0) {
-		if ($rename < 0 || $FORCE_RENAME) {
-			renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
-		} else {
-
-			# Find the old NFO to avoid re-fetching
-			$nfo = $files->{$id}->{'nfo'};
-
-			# Calculate the drift magnitude
-			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
-			my $tolerance = $files->{$id}->{'number'} / $DRIFT_FACTOR;
-			if ($tolerance < $DRIFT_TOLERANCE) {
-				$tolerance = $DRIFT_TOLERANCE;
-			}
-
-			# Ignore small changes
-			my $rename = 0;
-			if ($FORCE_RENAME || $delta > $tolerance) {
-				$rename = 1;
-			}
-
-			# Execute
-			if ($DEBUG || $rename) {
-				print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
-				if ($rename) {
-					renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
-				}
-			}
-		}
+	# Warn (and optionally rename) as selected
+	if ($rename) {
+		print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
+		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 	}
 
 	# If we haven't heard of the file, or don't have an NFO for it
