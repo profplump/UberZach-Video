@@ -1,10 +1,17 @@
 #!/bin/bash
 
+# Static config
 IFS=''
+MAX_RESULTS=200
 CURL_OPTS=(--silent --connect-timeout 5 --max-time 30)
-NUM_SERIES=18
-NUM_EPISODES=4
-MAX_RESULTS=100
+
+# Functional environmental parameters
+if [ -z "${NUM_SERIES}" ]; then
+	NUM_SERIES=25
+fi
+if [ -z "${NUM_EPISODES}" ]; then
+	NUM_EPISODES=4
+fi
 
 # Construct URL components from the environment
 if [ -z "${PMS_URL}" ]; then
