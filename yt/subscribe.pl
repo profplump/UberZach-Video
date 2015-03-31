@@ -76,7 +76,7 @@ my %API             = (
 
 # Prototypes
 sub findVideos($);
-sub findFiles();
+sub findFiles($);
 sub findVideo($);
 sub buildNFO($);
 sub buildSeriesNFO($);
@@ -248,7 +248,7 @@ if (!$NO_EXCLUDES) {
 # Find all existing YT files on disk
 my $files = {};
 if (!$NO_FILES) {
-	$files = findFiles();
+	$files = findFiles($videos);
 }
 
 # Whine about unknown videos
@@ -267,6 +267,7 @@ foreach my $id (keys(%{$videos})) {
 	# Determine if we may or must rename
 	my $rename = 0;
 	if (exists($files->{$id})) {
+
 		# Renumber if we drift a lot
 		if ($files->{$id}->{'path'}) {
 			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
@@ -278,7 +279,7 @@ foreach my $id (keys(%{$videos})) {
 			}
 			if ($delta > $tolerance) {
 				if ($DEBUG) {
-					print STDERR 'Rename due to drift (' . $delta . '/' . $tolerance . ")\n"
+					print STDERR 'Rename due to drift (' . $delta . '/' . $tolerance . ")\n";
 				}
 				$rename = 1;
 			}
@@ -290,7 +291,7 @@ foreach my $id (keys(%{$videos})) {
 			my ($nseason, $nnumber) = parseFilename($files->{$id}->{'nfo'});
 			if ($mseason != $nseason || $mnumber != $nnumber) {
 				if ($DEBUG) {
-					print STDERR "Rename due to media-metadata mismatch\n"
+					print STDERR "Rename due to media-metadata mismatch\n";
 				}
 				$rename = 1;
 			}
@@ -503,7 +504,8 @@ sub buildNFO($) {
 	return $doc->toString();
 }
 
-sub findFiles() {
+sub findFiles($) {
+	my ($videos) = @_;
 	my %files = ();
 
 	# Allow complete bypass
@@ -516,14 +518,14 @@ sub findFiles() {
 	opendir($fh, '.')
 	  or die('Unable to open files directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
-		my ($season, $num, $id, $suffix) = parseFilename($file);
+		my ($season, $number, $id, $suffix) = parseFilename($file);
 		if (defined($id) && length($id) > 0) {
 
 			# Create the record as needed
 			if (!exists($files{$id})) {
 				my %tmp = (
 					'season' => $season,
-					'number' => $num,
+					'number' => $number,
 				);
 				$files{$id} = \%tmp;
 			}
@@ -539,6 +541,13 @@ sub findFiles() {
 				if ($type eq 'nfo') {
 					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
+						my $del = $file;
+						if (   exists($videos->{$id})
+							&& $season == $videos->{$id}->{'season'}
+							&& $number == $videos->{$id}->{'number'})
+						{
+							$del = $files{$id}->{'nfo'};
+						}
 						warn("\tDeleting: " . $file . "\n");
 						if ($SUDO_CHATTR) {
 							system('sudo', 'chattr', '-i', $file);
@@ -550,7 +559,12 @@ sub findFiles() {
 					warn('Duplicate video: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
 						my $del = $file;
-						if ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
+						if (   exists($videos->{$id})
+							&& $season == $videos->{$id}->{'season'}
+							&& $number == $videos->{$id}->{'number'})
+						{
+							$del = $files{$id}->{'path'};
+						} elsif ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
 							$del = $files{$id}->{'path'};
 						}
 						warn("\tDeleting: " . $del . "\n");
