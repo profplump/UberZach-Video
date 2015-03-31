@@ -36,8 +36,6 @@ if echo "${1}" | grep -iq Movie; then
 	URL2_POST=""
 elif echo "${1}" | grep -iq YouTube; then
 	URL1="${PMS_URL}/library/sections/16/onDeck/"
-	NUM_EPISODES=$(( $NUM_EPISODES * 3 ))
-	NUM_SERIES=$(( $NUM_SERIES * 2 ))
 fi
 
 # Find recent items
