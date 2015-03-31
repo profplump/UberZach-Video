@@ -595,7 +595,7 @@ foreach my $content (@html_content) {
 			push(@tors, \%tor);
 		}
 
-	} elsif ($content =~ /Isohunt Torrent Search Engine\<\/title\>/i) {
+	} elsif ($content =~ /\<title\>isoHunt\b/i) {
 
 		# Find each TR element from ISOHunt
 		my @trs = splitTags($content, 'TR', 'TH');
