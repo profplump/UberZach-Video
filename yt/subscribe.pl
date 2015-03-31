@@ -27,8 +27,6 @@ my @YTDL_DEBUG      = ('--verbose');
 my $BATCH_SIZE      = 50;
 my $MAX_INDEX       = 25000;
 my $FETCH_LIMIT     = 50;
-my $DRIFT_TOLERANCE = 2;
-my $DRIFT_FACTOR    = 100.0;
 my $DELAY           = 5;
 my $API_URL         = 'https://gdata.youtube.com/feeds/api/';
 my %API             = (
@@ -159,10 +157,6 @@ if ($ENV{'NO_RENAME'}) {
 }
 
 # Environmental parameters (functional)
-my $FORCE_RENAME = 0;
-if ($ENV{'FORCE_RENAME'}) {
-	$FORCE_RENAME = 1;
-}
 my $SUDO_CHATTR = 1;
 if ($ENV{'NO_CHATTR'} || !can_run('sudo') || !can_run('chattr')) {
 	$SUDO_CHATTR = 0;
@@ -268,28 +262,22 @@ foreach my $id (keys(%{$videos})) {
 	my $rename = 0;
 	if (exists($files->{$id})) {
 
-		# Renumber if we drift a lot
-		if ($files->{$id}->{'path'}) {
-			my $delta     = abs($files->{$id}->{'number'} - $videos->{$id}->{'number'});
-			my $tolerance = $files->{$id}->{'number'} / $DRIFT_FACTOR;
-			if ($FORCE_RENAME) {
-				$tolerance = 0;
-			} elsif ($tolerance < $DRIFT_TOLERANCE) {
-				$tolerance = $DRIFT_TOLERANCE;
-			}
-			if ($delta > $tolerance) {
+		# Rename if we drift
+		if (!$rename && $files->{$id}->{'path'}) {
+			if (   $files->{$id}->{'number'} != $videos->{$id}->{'number'}
+				|| $files->{$id}->{'season'} != $videos->{$id}->{'season'})
+			{
 				if ($DEBUG) {
-					print STDERR 'Rename due to drift (' . $delta . '/' . $tolerance . ")\n";
+					print STDERR "Rename due to drift\n";
 				}
 				$rename = 1;
 			}
 		}
 
 		# Always rename if the NFO does not match the media
-		if ($files->{$id}->{'path'} && $files->{$id}->{'nfo'}) {
-			my ($mseason, $mnumber) = parseFilename($files->{$id}->{'path'});
-			my ($nseason, $nnumber) = parseFilename($files->{$id}->{'nfo'});
-			if ($mseason != $nseason || $mnumber != $nnumber) {
+		if (!$rename && $files->{$id}->{'path'} && $files->{$id}->{'nfo'}) {
+			my ($season, $number) = parseFilename($files->{$id}->{'nfo'});
+			if ($files->{$id}->{'season'} != $season || $files->{$id}->{'number'} != $number) {
 				if ($DEBUG) {
 					print STDERR "Rename due to media-metadata mismatch\n";
 				}
@@ -300,7 +288,7 @@ foreach my $id (keys(%{$videos})) {
 
 	# Warn (and optionally rename) as selected
 	if ($rename) {
-		print STDERR 'Video ' . $id . ' had video number ' . $files->{$id}->{'number'} . ' but now has video number ' . $videos->{$id}->{'number'} . "\n";
+		print STDERR 'Video ' . $id . ' had number ' . $files->{$id}->{'number'} . ' but now has number ' . $videos->{$id}->{'number'} . "\n";
 		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 	}
 
