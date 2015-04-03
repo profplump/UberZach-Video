@@ -330,7 +330,7 @@ foreach my $id (keys(%{$videos})) {
 				sleep($DELAY);
 				my $file = capture(EXIT_ANY, @name);
 				if ($EXITVAL != 0) {
-					warn('Error executing youtube-dl (name): ' . $EXITVAL . "\n");
+					warn('Error executing youtube-dl for name: ' . $id . ' (' . $EXITVAL . ")\n");
 					next;
 				}
 				$file =~ s/^\s+//;
