@@ -507,7 +507,7 @@ sub guessExt($) {
 
 		# Try file(1) for MIME types
 		if (!$mime) {
-			open(FILE, ' - | ', ' file ', ' -b ', $file);
+			open(FILE, '-|', 'file', '-b', $file);
 			while (<FILE>) {
 				$mime .= $_;
 			}
