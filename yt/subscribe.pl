@@ -90,7 +90,8 @@ sub parseVideoData($);
 sub dropExcludes($);
 sub addExtras($);
 sub updateNFOData($$$);
-sub videoSE($$);
+sub videoNumberStr($$);
+sub videoSE($$); 
 sub videoPath($$$$);
 sub renameVideo($$$$$$);
 sub parseFilename($);
@@ -256,6 +257,15 @@ foreach my $id (keys(%{$files})) {
 # Fill in missing videos and NFOs
 my $fetched = 0;
 foreach my $id (keys(%{$videos})) {
+	if ($DEBUG > 1) {
+		print STDERR 'Checking remote video: ' . $id . "\n";
+		if (!exists($files->{$id})) {
+			print STDERR "\tLocal file: <missing>\n";
+		} else {
+			print STDERR "\tLocal media: " . $files->{$id}->{'path'} ."\n";
+			print STDERR "\tLocal NFO: " . $files->{$id}->{'nfo'} ."\n";
+		}
+	}
 	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
 
 	# Determine if we may or must rename
@@ -443,7 +453,7 @@ sub buildNFO($) {
 	$show->appendChild($elm);
 
 	$elm = $doc->createElement('episode');
-	$elm->appendText($video->{'number'});
+	$elm->appendText(videoNumberStr($video->{'season'}, $video->{'number'}));
 	$show->appendChild($elm);
 
 	if (!defined($video->{'title'})) {
@@ -971,17 +981,22 @@ sub updateNFOData($$$) {
 	return $nfoData;
 }
 
-sub videoSE($$) {
+sub videoNumberStr($$) {
 	my ($season, $episode) = @_;
 	my $str = '';
 
-	if ($season == 0 && $episode ~= /^(20[012]\d)(\d{2,4})$/) {
-		$str = sprintf('S00E%04d%04d - ', $1, $2);
+	if ($season == 0 && $episode =~ /^(20[012]\d)(\d{2,4})$/) {
+		$str = sprintf('%04d%04d', $1, $2);
 	} else {
-		$str = sprintf('S%02dE%02d - ', $season, $episode);
+		$str = sprintf('%02d', $episode);
 	}
 
 	return $str;
+}
+
+sub videoSE($$) {
+	my ($season, $episode) = @_;
+	return sprintf('S%0dE%s - ', $season, videoNumberStr($season, $episode));
 }
 
 sub videoPath($$$$) {
