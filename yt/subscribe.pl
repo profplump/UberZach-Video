@@ -973,8 +973,15 @@ sub updateNFOData($$$) {
 
 sub videoSE($$) {
 	my ($season, $episode) = @_;
-	return sprintf('S%02dE%02d - ', $season, $episode);
+	my $str = '';
 
+	if ($season == 0 && $episode ~= /^(20[012]\d)(\d{2,4})$/) {
+		$str = sprintf('S00E%04d%04d - ', $1, $2);
+	} else {
+		$str = sprintf('S%02dE%02d - ', $season, $episode);
+	}
+
+	return $str;
 }
 
 sub videoPath($$$$) {
