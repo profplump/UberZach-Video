@@ -813,11 +813,11 @@ sub readExtras() {
 			}
 
 			# Match our specific format or whine
-			if ($_ =~ /^\s*(\d+)\s*[=:>]+\s*([\w\-]+)\s*$/) {
+			if ($_ =~ /^\s*([\w\-]+)\s*$/) {
 				if ($DEBUG > 1) {
-					print STDERR 'Adding extra video: ' . $1 . ' => ' . $2 . "\n";
+					print STDERR 'Adding extra video: ' . $1 . "\n";
 				}
-				$extras{$2} = $1;
+				$extras{$1} = 1;
 			} else {
 				print STDERR 'Skipped extra video line: ' . $_;
 			}
