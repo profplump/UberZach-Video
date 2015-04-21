@@ -92,7 +92,6 @@ sub buildSeriesNFO($);
 sub getSubscriptions($$);
 sub saveSubscriptions($$);
 sub saveChannel($);
-sub getChannelID($);
 sub getChannel($);
 sub fetchParse($$);
 sub saveString($$);
@@ -114,21 +113,23 @@ if (scalar(@ARGV) < 1) {
 }
 
 # Command-line parameters
-my ($dir) = @ARGV;
-$dir =~ s/\/+$//;
-if (!-d $dir) {
-	die('Invalid output directory: ' . $dir . "\n");
+my ($DIR) = @ARGV;
+$DIR =~ s/\/+$//;
+if (!-d $DIR) {
+	die('Invalid output directory: ' . $DIR . "\n");
 }
-my $user = basename($dir);
-if ($user =~ /\s\((\w+)\)$/) {
-	$user = $1;
+my $ID = basename($DIR);
+if ($ID =~ /\s\((\w+)\)$/) {
+	$ID = $1;
+} else {
+	die('Invalid folder: ' . $DIR . "\n");
 }
-if (length($user) < 1 || !($user =~ /^\w+$/)) {
-	die('Invalid user: ' . $user . "\n");
+if (length($ID) < 1 || !($ID =~ /^\w+$/)) {
+	die('Invalid channel ID: ' . $ID . "\n");
 }
 
 # Move to the target directory so we can use relative paths later
-chdir($dir);
+chdir($DIR);
 
 # Environmental parameters (debug)
 my $DEBUG = 0;
@@ -212,27 +213,21 @@ if ($0 =~ /subscription/i) {
 			}
 		}
 	}
-	saveSubscriptions($dir, \%subs);
+	saveSubscriptions($DIR, \%subs);
 	exit(0);
 }
 
 # Grab the channel data
-my $id      = undef();
 my $channel = {};
 if (!$NO_CHANNEL) {
-	$id = getChannelID($user);
-	if (!$id) {
-		$id = $user;
-	}
-
-	$channel = getChannel($id);
+	$channel = getChannel($ID);
 	saveChannel($channel);
 }
 
 # Find all the user's videos on YT
 my $videos = {};
-if (!$NO_SEARCH && defined($id)) {
-	$videos = findVideos($id);
+if (!$NO_SEARCH) {
+	$videos = findVideos($ID);
 }
 
 # Find any requested "extra" videos
@@ -270,7 +265,7 @@ if (!$NO_FILES) {
 # Whine about unknown videos
 foreach my $id (keys(%{$files})) {
 	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
-		print STDERR 'Local video not known to YT channel (' . $user . '): ' . $id . "\n";
+		print STDERR 'Local video not known to YT channel (' . $ID . '): ' . $id . "\n";
 		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 	}
 }
@@ -347,7 +342,7 @@ foreach my $id (keys(%{$videos})) {
 				# Count fetch attempts (even if they fail later)
 				$fetched++;
 				if ($FETCH_LIMIT && $fetched > $FETCH_LIMIT) {
-					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $user . "\n";
+					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $ID . "\n";
 					if ($DEBUG) {
 						print STDERR "\tLocal/Remote videos at start:" . scalar(keys(%{$files})) . '/' . scalar(keys(%{$videos})) . "\n";
 					}
@@ -767,35 +762,8 @@ sub saveChannel($) {
 	}
 }
 
-# Convert a channel name to its ID
-sub getChannelID($) {
-	my ($user) = @_;
-	my $id = undef();
-
-	# Build, fetch, parse, check
-	my $data = fetchParse('channelID', { 'forUsername' => $user });
-	if (  !exists($data->{'pageInfo'})
-		|| ref($data->{'pageInfo'}) ne 'HASH'
-		|| !exists($data->{'pageInfo'}->{'totalResults'}))
-	{
-		die("Invalid channel ID data\n");
-	}
-
-	if (   $data->{'pageInfo'}->{'totalResults'} == 1
-		&& exists($data->{'items'})
-		&& ref($data->{'items'}) eq 'ARRAY'
-		&& scalar(@{ $data->{'items'} }) > 0
-		&& ref($data->{'items'}[0]) eq 'HASH'
-		&& exists($data->{'items'}[0]->{'id'}))
-	{
-		$id = $data->{'items'}[0]->{'id'};
-	}
-
-	return $id;
-}
-
 sub getChannel($) {
-	my ($user) = @_;
+	my ($id) = @_;
 
 	# Build, fetch, parse, check
 	my $data = fetchParse('channel', { 'id' => $id });
