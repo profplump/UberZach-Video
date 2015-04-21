@@ -17,7 +17,8 @@ use IPC::Cmd qw( can_run );
 use PrettyPrint;
 
 # Paramters
-my %USERS         = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
+#my %USERS = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
+my %USERS         = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA');
 my $EXTRAS_FILE   = 'extra_videos.ini';
 my $EXCLUDES_FILE = 'exclude_videos.ini';
 my $YTDL_BIN      = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
@@ -56,7 +57,7 @@ my %API           = (
 		'params' => {
 			'part'       => 'id',
 			'key'        => $API_KEY,
-			'maxResults' => 1,
+			'maxResults' => 5,
 			'safeSearch' => 'none',
 			'type'       => 'video'
 		},
@@ -75,8 +76,9 @@ my %API           = (
 	'subscriptions' => {
 		'url'    => $API_URL . 'subscriptions',
 		'params' => {
-			'part' => 'snippet',
-			'key'  => $API_KEY,
+			'part'       => 'snippet',
+			'key'        => $API_KEY,
+			'maxResults' => 5,
 		},
 	},
 );
@@ -118,6 +120,9 @@ if (!-d $dir) {
 	die('Invalid output directory: ' . $dir . "\n");
 }
 my $user = basename($dir);
+if ($user =~ /\s\((\w+)\)$/) {
+	$user = $1;
+}
 if (length($user) < 1 || !($user =~ /^\w+$/)) {
 	die('Invalid user: ' . $user . "\n");
 }
@@ -642,60 +647,53 @@ sub fetchParse($$) {
 sub getSubscriptions($$) {
 	my ($user, $id) = @_;
 
-	my $index     = 1;
-	my $itemCount = undef();
+	# Loop through until we have all the entries
+	my $pageToken = '';
 	my %subs      = ();
 	SUBS_LOOP:
 	{
-		# Build, fetch, parse
-		$API{'subscriptions'}{'params'}{'start-index'} = $index;
-		my $data = fetchParse('subscriptions', $id);
-
-		# It's all in the feed
-		if (!exists($data->{'feed'}) || ref($data->{'feed'}) ne 'HASH') {
+		# Build, fetch, parse, check
+		my $data = fetchParse('subscriptions', { 'channelId' => $id, 'pageToken' => $pageToken });
+		$pageToken = '';
+		if (   exists($data->{'pageInfo'})
+			&& ref($data->{'pageInfo'}) eq 'HASH'
+			&& exists($data->{'pageInfo'}->{'totalResults'})
+			&& $data->{'pageInfo'}->{'totalResults'} > 0
+			&& exists($data->{'pageInfo'}->{'resultsPerPage'})
+			&& exists($data->{'items'})
+			&& ref($data->{'items'}) eq 'ARRAY')
+		{
+			if (exists($data->{'nextPageToken'})) {
+				$pageToken = $data->{'nextPageToken'};
+			}
+			$data = $data->{'items'};
+		} else {
 			die("Invalid subscription data\n");
 		}
-		$data = $data->{'feed'};
 
-		# Grab the total count, so we know when to stop
-		if (!defined($itemCount)) {
-			if (  !exists($data->{'openSearch$totalResults'})
-				|| ref($data->{'openSearch$totalResults'}) ne 'HASH'
-				|| !exists($data->{'openSearch$totalResults'}->{'$t'}))
+		foreach my $item (@{$data}) {
+			if (  !exists($item->{'snippet'})
+				|| ref($item->{'snippet'}) ne 'HASH'
+				|| !exists($item->{'snippet'}->{'title'})
+				|| !exists($item->{'snippet'}->{'resourceId'})
+				|| ref($item->{'snippet'}->{'resourceId'}) ne 'HASH'
+				|| !exists($item->{'snippet'}->{'resourceId'}->{'channelId'}))
 			{
-				die("Invalid subscription feed metadata\n");
-			}
-
-			$itemCount = $data->{'openSearch$totalResults'}->{'$t'};
-		}
-
-		# Process each item
-		if (!exists($data->{'entry'}) || ref($data->{'entry'}) ne 'ARRAY') {
-			die("Invalid subscription entries\n");
-		}
-		my $items = $data->{'entry'};
-		foreach my $item (@{$items}) {
-			if (   ref($item) ne 'HASH'
-				|| !exists($item->{'yt$username'})
-				|| ref($item->{'yt$username'}) ne 'HASH'
-				|| !exists($item->{'yt$username'}->{'$t'}))
-			{
+				warn("Skipping invalid subscription\n");
+				if ($DEBUG > 2) {
+					print STDERR prettyPrint($item, "\t") . "\n";
+				}
 				next;
 			}
 			if ($DEBUG) {
-				print STDERR prettyPrint($item->{'yt$username'}, "\t") . "\n";
+				print STDERR $item->{'snippet'}->{'title'} . ' => ' . $item->{'snippet'}->{'resourceId'}->{'channelId'} . "\n";
 			}
-			$subs{ $item->{'yt$username'}->{'$t'} } = $user;
+			$subs{ $item->{'snippet'}->{'title'} . ' (' . $item->{'snippet'}->{'resourceId'}->{'channelId'} . ')' } = $user;
 		}
 
 		# Loop if there are results left to fetch
-		$index += $BATCH_SIZE;
-		if (defined($itemCount) && $itemCount >= $index) {
-
-			# But don't go past the max supported index
-			if ($index <= $MAX_INDEX) {
-				redo SUBS_LOOP;
-			}
+		if ($pageToken) {
+			redo SUBS_LOOP;
 		}
 	}
 
@@ -739,7 +737,7 @@ sub saveSubscriptions($$) {
 	# Check for YT subscriptions missing locally
 	foreach my $sub (keys(%{$subs})) {
 		if (!exists($locals{ lc($sub) })) {
-			print STDERR 'Adding local subscription for: ' . $sub . ' (' . $subs->{$sub} . ")\n";
+			print STDERR 'Adding local subscription for: ' . $sub . ' => ' . $subs->{$sub} . "\n";
 			mkdir($folder . '/' . $sub);
 		}
 	}
@@ -776,10 +774,14 @@ sub getChannelID($) {
 
 	# Build, fetch, parse, check
 	my $data = fetchParse('channelID', { 'forUsername' => $user });
-	if (   exists($data->{'pageInfo'})
-		&& ref($data->{'pageInfo'}) eq 'HASH'
-		&& exists($data->{'pageInfo'}->{'totalResults'})
-		&& $data->{'pageInfo'}->{'totalResults'} == 1
+	if (  !exists($data->{'pageInfo'})
+		|| ref($data->{'pageInfo'}) ne 'HASH'
+		|| !exists($data->{'pageInfo'}->{'totalResults'}))
+	{
+		die("Invalid channel ID data\n");
+	}
+
+	if (   $data->{'pageInfo'}->{'totalResults'} == 1
 		&& exists($data->{'items'})
 		&& ref($data->{'items'}) eq 'ARRAY'
 		&& scalar(@{ $data->{'items'} }) > 0
@@ -787,8 +789,6 @@ sub getChannelID($) {
 		&& exists($data->{'items'}[0]->{'id'}))
 	{
 		$id = $data->{'items'}[0]->{'id'};
-	} else {
-		die("Invalid channel ID data\n");
 	}
 
 	return $id;
