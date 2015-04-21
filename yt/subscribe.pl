@@ -17,8 +17,7 @@ use IPC::Cmd qw( can_run );
 use PrettyPrint;
 
 # Paramters
-#my %USERS = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
-my %USERS         = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA');
+my %USERS         = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'UChfwMHzkPXOOFDce5hyQkTA');
 my $EXTRAS_FILE   = 'extra_videos.ini';
 my $EXCLUDES_FILE = 'exclude_videos.ini';
 my $YTDL_BIN      = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
@@ -115,6 +114,10 @@ sub fetch($$);
 if (scalar(@ARGV) < 1) {
 	die('Usage: ' . basename($0) . " output_directory\n");
 }
+my $SUBSCRIPTIONS = 0;
+if ($0 =~ /subscription/i) {
+	$SUBSCRIPTIONS = 1;
+}
 
 # Command-line parameters
 my ($DIR) = @ARGV;
@@ -125,15 +128,15 @@ if (!-d $DIR) {
 my $ID = basename($DIR);
 if ($ID =~ /\s\((\w+)\)$/) {
 	$ID = $1;
-} else {
+	if (length($ID) < 1 || !($ID =~ /^\w+$/)) {
+		die('Invalid channel ID: ' . $ID . "\n");
+	}
+} elsif (!$SUBSCRIPTIONS) {
 	die('Invalid folder: ' . $DIR . "\n");
-}
-if (length($ID) < 1 || !($ID =~ /^\w+$/)) {
-	die('Invalid channel ID: ' . $ID . "\n");
 }
 
 # Move to the target directory so we can use relative paths later
-chdir($DIR);
+chdir($DIR) or die('Unable to chdir to: ' . $DIR . "\n");
 
 # Environmental parameters (debug)
 my $DEBUG = 0;
@@ -206,7 +209,7 @@ if ($DEBUG > 1) {
 }
 
 # Allow use as a subscription manager
-if ($0 =~ /subscription/i) {
+if ($SUBSCRIPTIONS) {
 	my %subs = ();
 	foreach my $user (keys(%USERS)) {
 		my $tmp = getSubscriptions($user, $USERS{$user});
