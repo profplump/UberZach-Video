@@ -17,70 +17,80 @@ use IPC::Cmd qw( can_run );
 use PrettyPrint;
 
 # Paramters
-my %USERS           = ('profplump' => 'kj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
-my $EXTRAS_FILE     = 'extra_videos.ini';
-my $EXCLUDES_FILE   = 'exclude_videos.ini';
-my $YTDL_BIN        = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
-my @YTDL_ARGS       = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
-my @YTDL_QUIET      = ('--quiet', '--no-warnings');
-my @YTDL_DEBUG      = ('--verbose');
-my $BATCH_SIZE      = 50;
-my $MAX_INDEX       = 25000;
-my $FETCH_LIMIT     = 50;
-my $DELAY           = 5;
-my $API_URL         = 'https://gdata.youtube.com/feeds/api/';
-my %API             = (
-	'search' => {
-		'prefix' => $API_URL . 'users/',
-		'suffix' => '/uploads',
+my %USERS         = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'hfwMHzkPXOOFDce5hyQkTA');
+my $EXTRAS_FILE   = 'extra_videos.ini';
+my $EXCLUDES_FILE = 'exclude_videos.ini';
+my $YTDL_BIN      = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
+my @YTDL_ARGS     = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
+my @YTDL_QUIET    = ('--quiet', '--no-warnings');
+my @YTDL_DEBUG    = ('--verbose');
+my $BATCH_SIZE    = 50;
+my $MAX_INDEX     = 25000;
+my $FETCH_LIMIT   = 50;
+my $DELAY         = 1.1;
+my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
+my $API_KEY       = $ENV{'YT_API_KEY'};
+my %API           = (
+
+	#https://www.googleapis.com/youtube/v3/channels?part=id&forUsername={channelName}&key={YOUR_API_KEY}
+	'channelID' => {
+		'url'    => $API_URL . 'channels',
 		'params' => {
-			'start-index' => 1,
-			'max-results' => 1,
-			'strict'      => 1,
-			'v'           => 2,
-			'alt'         => 'jsonc',
+			'part' => 'id',
+			'key'  => $API_KEY,
 		},
 	},
-	'subscriptions' => {
-		'prefix' => $API_URL . 'users/',
-		'suffix' => '/subscriptions',
-		'params' => {
-			'start-index' => 1,
-			'max-results' => 1,
-			'strict'      => 1,
-			'v'           => 2,
-			'alt'         => 'json',
-		},
-	},
-	'video' => {
-		'prefix' => $API_URL . 'videos/',
-		'suffix' => '',
-		'params' => {
-			'strict' => 1,
-			'v'      => 2,
-			'alt'    => 'jsonc'
-		},
-	},
+
+	#https://www.googleapis.com/youtube/v3/channels?part=snippet&id={channelID}&key={YOUR_API_KEY}
 	'channel' => {
-		'prefix' => $API_URL . 'users/',
-		'suffix' => '',
+		'url'    => $API_URL . 'channels',
 		'params' => {
-			'strict' => 1,
-			'v'      => 2,
-			'alt'    => 'json'
+			'part' => 'snippet',
+			'key'  => $API_KEY,
+		},
+	},
+
+	#https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={channelID}&maxResults={maxResults}&pageToken={foo}&safeSearch=none&type=video&key={YOUR_API_KEY}
+	'search' => {
+		'url'    => $API_URL . 'search',
+		'params' => {
+			'part'       => 'id',
+			'key'        => $API_KEY,
+			'maxResults' => 1,
+			'safeSearch' => 'none',
+			'type'       => 'video'
+		},
+	},
+
+	#https://www.googleapis.com/youtube/v3/videos?part=snippet&id={videoID}&key={YOUR_API_KEY}
+	'video' => {
+		'url'    => $API_URL . 'videos',
+		'params' => {
+			'part' => 'snippet,contentDetails',
+			'key'  => $API_KEY,
+		},
+	},
+
+	#https://www.googleapis.com/youtube/v3/subscriptions?part=snippet&channelId={channelID}&key={YOUR_API_KEY}
+	'subscriptions' => {
+		'url'    => $API_URL . 'subscriptions',
+		'params' => {
+			'part' => 'snippet',
+			'key'  => $API_KEY,
 		},
 	},
 );
 
 # Prototypes
+sub getVideoData($);
 sub findVideos($);
 sub findFiles($);
-sub findVideo($);
 sub buildNFO($);
 sub buildSeriesNFO($);
 sub getSubscriptions($$);
 sub saveSubscriptions($$);
 sub saveChannel($);
+sub getChannelID($);
 sub getChannel($);
 sub fetchParse($$);
 sub saveString($$);
@@ -91,7 +101,7 @@ sub dropExcludes($);
 sub addExtras($);
 sub updateNFOData($$$);
 sub videoNumberStr($$);
-sub videoSE($$); 
+sub videoSE($$);
 sub videoPath($$$$);
 sub renameVideo($$$$$$);
 sub parseFilename($);
@@ -174,8 +184,8 @@ if (exists($ENV{'FETCH_LIMIT'}) && $ENV{'FETCH_LIMIT'} =~ /(\d+)/) {
 
 # Construct globals
 foreach my $key (keys(%API)) {
-	if (exists($API{$key}{'params'}{'max-results'})) {
-		$API{$key}{'params'}{'max-results'} = $BATCH_SIZE;
+	if (exists($API{$key}{'params'}{'maxResults'})) {
+		$API{$key}{'params'}{'maxResults'} = $BATCH_SIZE;
 	}
 }
 if ($DEBUG > 1) {
@@ -202,16 +212,22 @@ if ($0 =~ /subscription/i) {
 }
 
 # Grab the channel data
+my $id      = undef();
 my $channel = {};
 if (!$NO_CHANNEL) {
-	$channel = getChannel($user);
+	$id = getChannelID($user);
+	if (!$id) {
+		$id = $user;
+	}
+
+	$channel = getChannel($id);
 	saveChannel($channel);
 }
 
 # Find all the user's videos on YT
 my $videos = {};
-if (!$NO_SEARCH) {
-	$videos = findVideos($user);
+if (!$NO_SEARCH && defined($id)) {
+	$videos = findVideos($id);
 }
 
 # Find any requested "extra" videos
@@ -262,8 +278,8 @@ foreach my $id (keys(%{$videos})) {
 		if (!exists($files->{$id})) {
 			print STDERR "\tLocal file: <missing>\n";
 		} else {
-			print STDERR "\tLocal media: " . $files->{$id}->{'path'} ."\n";
-			print STDERR "\tLocal NFO: " . $files->{$id}->{'nfo'} ."\n";
+			print STDERR "\tLocal media: " . $files->{$id}->{'path'} . "\n";
+			print STDERR "\tLocal NFO: " . $files->{$id}->{'nfo'} . "\n";
 		}
 	}
 	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
@@ -486,12 +502,6 @@ sub buildNFO($) {
 		$stream_video->appendChild($elm);
 	}
 
-	if (defined($video->{'rating'})) {
-		$elm = $doc->createElement('rating');
-		$elm->appendText($video->{'rating'});
-		$show->appendChild($elm);
-	}
-
 	if (defined($video->{'creator'})) {
 		$elm = $doc->createElement('director');
 		$elm->appendText($video->{'creator'});
@@ -595,11 +605,16 @@ sub findFiles($) {
 }
 
 sub fetchParse($$) {
-	my ($name, $id) = @_;
+	my ($name, $params) = @_;
 
-	my $url = $API{$name}{'prefix'} . $id . $API{$name}{'suffix'} . '?';
-	foreach my $key (keys(%{ $API{$name}{'params'} })) {
-		$url .= '&' . uri_escape($key) . '=' . uri_escape($API{$name}{'params'}{$key});
+	my $url = $API{$name}{'url'} . '?';
+	foreach my $key (keys(%{ $API{$name}{'params'} }), keys(%{$params})) {
+		$url .= '&' . uri_escape($key) . '=';
+		if (exists($params->{$key})) {
+			$url .= uri_escape($params->{$key});
+		} else {
+			$url .= uri_escape($API{$name}{'params'}{$key});
+		}
 	}
 
 	# Fetch
@@ -754,24 +769,59 @@ sub saveChannel($) {
 	}
 }
 
+# Convert a channel name to its ID
+sub getChannelID($) {
+	my ($user) = @_;
+	my $id = undef();
+
+	# Build, fetch, parse, check
+	my $data = fetchParse('channelID', { 'forUsername' => $user });
+	if (   exists($data->{'pageInfo'})
+		&& ref($data->{'pageInfo'}) eq 'HASH'
+		&& exists($data->{'pageInfo'}->{'totalResults'})
+		&& $data->{'pageInfo'}->{'totalResults'} == 1
+		&& exists($data->{'items'})
+		&& ref($data->{'items'}) eq 'ARRAY'
+		&& scalar(@{ $data->{'items'} }) > 0
+		&& ref($data->{'items'}[0]) eq 'HASH'
+		&& exists($data->{'items'}[0]->{'id'}))
+	{
+		$id = $data->{'items'}[0]->{'id'};
+	} else {
+		die("Invalid channel ID data\n");
+	}
+
+	return $id;
+}
+
 sub getChannel($) {
 	my ($user) = @_;
 
-	# Build, fetch, parse
-	my $data = fetchParse('channel', $user);
-
-	if (!exists($data->{'entry'}) || ref($data->{'entry'}) ne 'HASH') {
+	# Build, fetch, parse, check
+	my $data = fetchParse('channel', { 'id' => $id });
+	if (   exists($data->{'pageInfo'})
+		&& ref($data->{'pageInfo'}) eq 'HASH'
+		&& exists($data->{'pageInfo'}->{'totalResults'})
+		&& $data->{'pageInfo'}->{'totalResults'} == 1
+		&& exists($data->{'items'})
+		&& ref($data->{'items'}) eq 'ARRAY'
+		&& scalar(@{ $data->{'items'} }) > 0
+		&& ref($data->{'items'}[0]) eq 'HASH'
+		&& exists($data->{'items'}[0]->{'snippet'})
+		&& ref($data->{'items'}[0]->{'snippet'}) eq 'HASH')
+	{
+		$data = $data->{'items'}[0]->{'snippet'};
+	} else {
 		die("Invalid channel data\n");
 	}
-	$data = $data->{'entry'};
 
 	# Extract the data we want
 	my %channel = (
-		'id'          => $data->{'yt$channelId'}->{'$t'},
-		'title'       => $data->{'title'}->{'$t'},
-		'date'        => str2time($data->{'published'}->{'$t'}),
-		'description' => $data->{'summary'}->{'$t'},
-		'thumbnail'   => $data->{'media$thumbnail'}->{'url'},
+		'id'          => $id,
+		'title'       => $data->{'title'},
+		'date'        => str2time($data->{'publishedAt'}),
+		'description' => $data->{'description'},
+		'thumbnail'   => $data->{'thumbnails'}->{'high'}->{'url'},
 	);
 	return \%channel;
 }
@@ -840,32 +890,36 @@ sub readExtras() {
 
 sub parseVideoData($) {
 	my ($data) = @_;
-	my %video = (
-		'title'       => $data->{'title'},
-		'date'        => str2time($data->{'uploaded'}),
-		'description' => $data->{'description'},
-		'duration'    => $data->{'duration'},
-		'rating'      => $data->{'rating'},
-		'creator'     => $data->{'uploader'},
-	);
-	$video{'season'} = time2str('%Y', $video{'date'});
-	return \%video;
-}
-
-sub findVideo($) {
-	my ($id) = @_;
-
-	# Build, fetch, parse
-	my $data = fetchParse('video', $id);
-
-	# Validate
-	if (!exists($data->{'data'})) {
-		die("Invalid video list\n");
+	if (   !exists($data->{'id'})
+		|| !exists($data->{'snippet'})
+		|| ref($data->{'snippet'}) ne 'HASH'
+		|| !exists($data->{'contentDetails'})
+		|| ref($data->{'contentDetails'}) ne 'HASH'
+		|| !exists($data->{'contentDetails'}->{'duration'}))
+	{
+		if ($DEBUG > 2) {
+			print STDERR "Unable to parse video data:\n" . prettyPrint($data, "\t") . "\n";
+		}
+		return undef();
 	}
-	$data = $data->{'data'};
 
-	# Parse the video data
-	return parseVideoData($data);
+	my %video = (
+		'id'          => $data->{'id'},
+		'title'       => $data->{'snippet'}->{'title'},
+		'description' => $data->{'snippet'}->{'description'},
+		'creator'     => $data->{'snippet'}->{'channelTitle'},
+		'duration'    => $data->{'contentDetails'}->{'duration'},
+	);
+
+	$video{'date'} = str2time($data->{'snippet'}->{'publishedAt'});
+	$video{'season'} = time2str('%Y', $video{'date'});
+	if ($data->{'contentDetails'}->{'duration'} =~ /PT(\d+)M(\d+)/) {
+		$video{'duration'} = ($1 * 60) + $2;
+	} else {
+		$video{'duration'} = $data->{'contentDetails'}->{'duration'};
+	}
+
+	return \%video;
 }
 
 sub dropExcludes($) {
@@ -894,14 +948,55 @@ sub addExtras($) {
 			next;
 		}
 
-		my $video = findVideo($id);
-		$videos->{$id} = $video;
+		my $video = getVideoData($id);
+		$videos->{$id} = $video->[0];
 	}
 	return $extras;
 }
 
+sub getVideoData($) {
+	my ($ids) = @_;
+	my @videos = ();
+
+	# Do a batch request for the entire batch of video data
+	my $data = fetchParse('video', { 'id' => join(',', @{$ids}) });
+	if (   exists($data->{'pageInfo'})
+		&& ref($data->{'pageInfo'}) eq 'HASH'
+		&& exists($data->{'pageInfo'}->{'totalResults'})
+		&& $data->{'pageInfo'}->{'totalResults'} > 0
+		&& exists($data->{'items'})
+		&& ref($data->{'items'}) eq 'ARRAY')
+	{
+		if ($data->{'pageInfo'}->{'totalResults'} != scalar(@{$ids})) {
+			die('Video/metadata search count mismatch: ' . $data->{'pageInfo'}->{'totalResults'} . '/' . scalar(@{$ids}) . "\n");
+		}
+		$data = $data->{'items'};
+	} else {
+		die("Invalid search video data\n");
+	}
+
+	# Build each metadata record
+	foreach my $item (@{$data}) {
+		if (!exists($item->{'snippet'}) || ref($item->{'snippet'}) ne 'HASH') {
+			warn("Skipping invalid metadata item\n");
+			if ($DEBUG > 2) {
+				print STDERR prettyPrint($item, "\t") . "\n";
+			}
+			next;
+		}
+		my $video = parseVideoData($item);
+		if (!$video) {
+			die("Unable to parse video data\n");
+		}
+		push(@videos, $video);
+	}
+
+	# Parse the video data
+	return \@videos;
+}
+
 sub findVideos($) {
-	my ($user) = @_;
+	my ($id) = @_;
 	my %videos = ();
 
 	# Allow complete bypass
@@ -910,44 +1005,58 @@ sub findVideos($) {
 	}
 
 	# Loop through until we have all the entries
-	my $index     = 1;
-	my $itemCount = undef();
+	my $pageToken  = '';
+	my $count      = 0;
+	my $totalCount = 0;
 	LOOP:
 	{
 
-		# Build, fetch, parse
-		$API{'search'}{'params'}{'start-index'} = $index;
-		my $data = fetchParse('search', $user);
+		# Build, fetch, parse, check
+		my $data = fetchParse('search', { 'channelId' => $id, 'pageToken' => $pageToken });
+		$pageToken = '';
+		if (   exists($data->{'pageInfo'})
+			&& ref($data->{'pageInfo'}) eq 'HASH'
+			&& exists($data->{'pageInfo'}->{'totalResults'})
+			&& $data->{'pageInfo'}->{'totalResults'} > 0
+			&& exists($data->{'pageInfo'}->{'resultsPerPage'})
+			&& exists($data->{'items'})
+			&& ref($data->{'items'}) eq 'ARRAY')
+		{
+			if (exists($data->{'nextPageToken'})) {
+				$pageToken = $data->{'nextPageToken'};
+			} elsif ($data->{'pageInfo'}->{'totalResults'} > $count + $data->{'pageInfo'}->{'resultsPerPage'}) {
+				warn("Missing nextPageToken\n");
+			}
+			if (!$totalCount) {
+				$totalCount = $data->{'pageInfo'}->{'totalResults'};
+			}
+			$data = $data->{'items'};
+		} else {
+			die("Invalid search data\n");
+		}
 
-		# Grab the total count, so we know when to stop
-		if (!exists($data->{'data'})) {
-			die("Invalid video list\n");
-		}
-		$data = $data->{'data'};
-		if (!defined($itemCount) && exists($data->{'totalItems'})) {
-			$itemCount = $data->{'totalItems'};
+		# Grab each video ID
+		my @ids = ();
+		foreach my $item (@{$data}) {
+			if (!exists($item->{'id'}) || ref($item->{'id'}) ne 'HASH' || !exists($item->{'id'}->{'videoId'})) {
+				warn("Skipping invalid video item\n");
+				if ($DEBUG > 2) {
+					print STDERR prettyPrint($data, "\t") . "\n";
+				}
+				next;
+			}
+			push(@ids, $item->{'id'}->{'videoId'});
 		}
 
-		# Process each item
-		if (!exists($data->{'items'}) || ref($data->{'items'}) ne 'ARRAY') {
-			die("Invalid video list\n");
-		}
-		my $items  = $data->{'items'};
-		my $offset = 0;
-		foreach my $item (@{$items}) {
-			my $video = parseVideoData($item);
-			$videos{ $item->{'id'} } = $video;
-			$offset++;
+		# Do a batch request for the entire batch of video data
+		my $records = getVideoData(\@ids);
+		foreach my $rec (@{$records}) {
+			$videos{ $rec->{'id'} } = $rec;
 		}
 
 		# Loop if there are results left to fetch
-		$index += $BATCH_SIZE;
-		if (defined($itemCount) && $itemCount >= $index) {
-
-			# But don't go past the max supported index
-			if ($index <= $MAX_INDEX) {
-				redo LOOP;
-			}
+		if ($totalCount > $count && $count <= $MAX_INDEX && $pageToken) {
+			redo LOOP;
 		}
 	}
 
