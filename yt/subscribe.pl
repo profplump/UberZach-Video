@@ -8,7 +8,7 @@ use File::Touch;
 use File::Basename;
 use Date::Parse;
 use Date::Format;
-use LWP::Simple;
+use LWP::UserAgent;
 use URI::Escape;
 use JSON;
 use XML::LibXML;
@@ -29,6 +29,9 @@ my $BATCH_SIZE    = 50;
 my $MAX_INDEX     = 25000;
 my $FETCH_LIMIT   = 50;
 my $DELAY         = 1.1;
+my $HTTP_TIMEOUT  = 10;
+my $HTTP_UA       = 'ZachBot/1.0 (Plex)';
+my $HTTP_VERIFY   = 0;
 my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
 my %API           = (
@@ -106,6 +109,7 @@ sub videoSE($$);
 sub videoPath($$$$);
 sub renameVideo($$$$$$);
 sub parseFilename($);
+sub fetch($$);
 
 # Sanity check
 if (scalar(@ARGV) < 1) {
@@ -189,6 +193,7 @@ if (exists($ENV{'FETCH_LIMIT'}) && $ENV{'FETCH_LIMIT'} =~ /(\d+)/) {
 }
 
 # Construct globals
+my $LWP = undef();
 foreach my $key (keys(%API)) {
 	if (exists($API{$key}{'params'}{'maxResults'})) {
 		$API{$key}{'params'}{'maxResults'} = $BATCH_SIZE;
@@ -622,18 +627,18 @@ sub fetchParse($$) {
 		print STDERR 'Fetching ' . $name . ' API URL: ' . $url . "\n";
 	}
 	sleep($DELAY);
-	my $content = get($url);
-	if (!defined($content) || length($content) < 10) {
-		die('Invalid content from URL: ' . $url . "\n");
+	my $content;
+	if (fetch($url, \$content) != 200 || !defined($content) || length($content) < 10) {
+		die('Invalid content from URL: ' . $url . "\n" . $content . "\n");
 	}
 
 	# Parse
+	if ($DEBUG > 2) {
+		print STDERR "Raw JSON data:\n" . $content . "\n";
+	}
 	my $data = decode_json($content);
 	if (!defined($data) || ref($data) ne 'HASH') {
 		die('Invalid JSON: ' . $content . "\n");
-	}
-	if ($DEBUG > 2) {
-		print STDERR "Raw JSON data:\n" . prettyPrint($data, '  ') . "\n";
 	}
 
 	return $data;
@@ -749,8 +754,10 @@ sub saveChannel($) {
 
 		# Save the poster
 		if (exists($channel->{'thumbnail'}) && length($channel->{'thumbnail'}) > 5) {
-			my $jpg = get($channel->{'thumbnail'});
-			saveString('poster.jpg', $jpg);
+			my $jpg;
+			if (fetch($channel->{'thumbnail'}, \$jpg) == 200) {
+				saveString('poster.jpg', $jpg);
+			}
 		}
 
 		# Save the series NFO
@@ -992,8 +999,6 @@ sub findVideos($) {
 		{
 			if (exists($data->{'nextPageToken'})) {
 				$pageToken = $data->{'nextPageToken'};
-			} elsif ($data->{'pageInfo'}->{'totalResults'} > $count + $data->{'pageInfo'}->{'resultsPerPage'}) {
-				warn("Missing nextPageToken\n");
 			}
 			if (!$totalCount) {
 				$totalCount = $data->{'pageInfo'}->{'totalResults'};
@@ -1151,4 +1156,30 @@ sub renameVideo($$$$$$) {
 sub parseFilename($) {
 	my ($file) = @_;
 	return $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
+}
+
+# GET the requested URL, accepting encoded data and extracting the HTTP status code
+sub fetch($$) {
+	my ($url, $data) = @_;
+
+	# Init the global LWP as needed
+	if (!defined($LWP)) {
+		$LWP = new LWP::UserAgent;
+		$LWP->agent($HTTP_UA);
+		$LWP->timeout($HTTP_TIMEOUT);
+		$LWP->ssl_opts({ 'verify_hostname' => $HTTP_VERIFY });
+	}
+
+	# Make a request
+	my $request = HTTP::Request->new('GET' => $url);
+	$request->header('Accept-Encoding' => HTTP::Message::decodable);
+	my $response = $LWP->request($request);
+
+	# Do something useful with the response
+	my $code = 400;
+	if ($response->status_line =~ /^(\d+)\s/) {
+		$code = $1;
+	}
+	${$data} = $response->decoded_content();
+	return $code;
 }
