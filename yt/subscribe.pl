@@ -126,9 +126,9 @@ if (!-d $DIR) {
 	die('Invalid output directory: ' . $DIR . "\n");
 }
 my $ID = basename($DIR);
-if ($ID =~ /\s\((\w+)\)$/) {
+if ($ID =~ /\s\(([\w\-]+)\)$/) {
 	$ID = $1;
-	if (length($ID) < 1 || !($ID =~ /^\w+$/)) {
+	if (length($ID) < 1 || !($ID =~ /^[\w\-]+$/)) {
 		die('Invalid channel ID: ' . $ID . "\n");
 	}
 } elsif (!$SUBSCRIPTIONS) {
