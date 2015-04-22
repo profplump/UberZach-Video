@@ -1036,10 +1036,17 @@ sub findVideos($) {
 		}
 	}
 
-	if ($DEBUG) {
-		print STDERR 'Found ' . scalar(keys(%videos)) . " remote videos\n";
-		if ($DEBUG > 1) {
-			print STDERR prettyPrint(\%videos, "\t") . "\n";
+	# Sanity check/debug
+	{
+		my $count = scalar(keys(%videos));
+		if ($DEBUG) {
+			print STDERR 'Found ' . $count . " remote videos\n";
+			if ($DEBUG > 1) {
+				print STDERR prettyPrint(\%videos, "\t") . "\n";
+			}
+		}
+		if ($totalCount != $count) {
+			die('Found only ' . $count . ' of ' . $totalCount . " remote videos. Aborting...\n");
 		}
 	}
 
