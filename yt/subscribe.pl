@@ -120,14 +120,16 @@ if ($0 =~ /subscription/i) {
 }
 
 # Command-line parameters
-my ($DIR) = @ARGV;
+our ($DIR) = @ARGV;
 $DIR =~ s/\/+$//;
 if (!-d $DIR) {
 	die('Invalid output directory: ' . $DIR . "\n");
 }
-my $ID = basename($DIR);
-if ($ID =~ /\s\(([\w\-]+)\)$/) {
-	$ID = $1;
+our $NAME = basename($DIR);
+our $ID = $NAME;
+if ($NAME =~ /^(.*)\s\(([\w\-]+)\)$/) {
+	$NAME = $1;
+	$ID = $2;
 	if (length($ID) < 1 || !($ID =~ /^[\w\-]+$/)) {
 		die('Invalid channel ID: ' . $ID . "\n");
 	}
@@ -273,7 +275,7 @@ if (!$NO_FILES) {
 # Whine about unknown videos
 foreach my $id (keys(%{$files})) {
 	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
-		print STDERR 'Local video not known to YT channel (' . $ID . '): ' . $id . "\n";
+		print STDERR 'Local video not known to YT channel (' . $NAME . '): ' . $id . "\n";
 		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 	}
 }
@@ -350,7 +352,7 @@ foreach my $id (keys(%{$videos})) {
 				# Count fetch attempts (even if they fail later)
 				$fetched++;
 				if ($FETCH_LIMIT && $fetched > $FETCH_LIMIT) {
-					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $ID . "\n";
+					print STDERR 'Reached fetch limit (' . $FETCH_LIMIT . ') for: ' . $NAME . "\n";
 					if ($DEBUG) {
 						print STDERR "\tLocal/Remote videos at start:" . scalar(keys(%{$files})) . '/' . scalar(keys(%{$videos})) . "\n";
 					}
@@ -1098,6 +1100,7 @@ sub videoPath($$$$) {
 
 sub renameVideo($$$$$$) {
 	my ($video, $suffix, $nfo, $id, $season, $episode) = @_;
+	our $NAME;
 
 	# Bail if disabled
 	if ($NO_RENAME) {
@@ -1125,7 +1128,7 @@ sub renameVideo($$$$$$) {
 			die('Invalid video source in rename: ' . $video . "\n");
 		}
 		if ($video ne $videoNew) {
-			print STDERR 'Renaming ' . $video . ' => ' . $videoNew . "\n";
+			print STDERR 'Renaming ' . $NAME . '/' . $video . ' => ' . $videoNew . "\n";
 			if (-e $videoNew) {
 				die('Rename: Target exists: ' . $videoNew . "\n");
 			}
@@ -1156,7 +1159,7 @@ sub renameVideo($$$$$$) {
 		}
 		saveString($nfoNew, $nfoData);
 		if ($nfo ne $nfoNew) {
-			print STDERR 'Renaming ' . $nfo . ' => ' . $nfoNew . "\n";
+			print STDERR 'Renaming ' . $NAME . '/' . $nfo . ' => ' . $nfoNew . "\n";
 			unlink($nfo)
 			  or warn('Unable to delete NFO during rename: ' . $! . "\n");
 		}
