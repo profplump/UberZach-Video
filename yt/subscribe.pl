@@ -990,6 +990,9 @@ sub findVideos($) {
 	my $totalCount = 0;
 	LOOP:
 	{
+		if ($DEBUG && $totalCount) {
+			print STDERR 'Fetching ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%)\n";
+		}
 
 		# Build, fetch, parse, check
 		my $data = fetchParse('search', { 'channelId' => $id, 'pageToken' => $pageToken });
@@ -1024,6 +1027,7 @@ sub findVideos($) {
 				next;
 			}
 			push(@ids, $item->{'id'}->{'videoId'});
+			$count++;
 		}
 
 		# Do a batch request for the entire batch of video data
