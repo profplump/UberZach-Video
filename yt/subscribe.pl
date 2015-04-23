@@ -298,7 +298,7 @@ foreach my $id (keys(%{$files})) {
 
 # Fill in missing videos and NFOs
 my $fetched = 0;
-foreach my $id (keys(%{$videos})) {
+FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 	if ($DEBUG > 1) {
 		print STDERR 'Checking remote video: ' . $id . "\n";
 		if (!exists($files->{$id})) {
@@ -383,7 +383,7 @@ foreach my $id (keys(%{$videos})) {
 				my $file = capture(EXIT_ANY, @name);
 				if ($EXITVAL != 0) {
 					warn('Error executing youtube-dl for name: ' . $id . ' (' . $EXITVAL . ")\n");
-					next;
+					next FETCH_LOOP;
 				}
 				$file =~ s/^\s+//;
 				$file =~ s/\s+$//;
@@ -391,7 +391,7 @@ foreach my $id (keys(%{$videos})) {
 				# Sanity check
 				if (!$file) {
 					warn('No file name available for video: ' . $id . "\n");
-					next;
+					next FETCH_LOOP;
 				}
 
 				# Download
@@ -402,17 +402,17 @@ foreach my $id (keys(%{$videos})) {
 				my $exit = run(EXIT_ANY, @fetch);
 				if ($exit != 0) {
 					warn('Error executing youtube-dl for video: ' . $file . "\n");
-					next;
+					next FETCH_LOOP;
 				}
 
 				# Ensure we found something useful
 				if (-e $file . '.part') {
 					warn('Partial download detected: ' . $file . "\n");
-					next;
+					next FETCH_LOOP;
 				}
 				if (!-s $file) {
 					warn('No output video file: ' . $file . "\n");
-					next;
+					next FETCH_LOOP;
 				}
 
 				# Touch the file to reflect the download time rather than the upload time
