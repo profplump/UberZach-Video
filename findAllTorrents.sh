@@ -4,9 +4,10 @@
 if [ -z "${TIMEOUT}" ]; then
 	TIMEOUT=600
 fi
+VIDEO_DIR="${HOME}/bin/video"
 
 # Bail if the media share isn't available
-if ! ~/bin/video/isMediaMounted; then
+if ! "${VIDEO_DIR}/isMediaMounted"; then
         exit 0
 fi
 
@@ -42,7 +43,7 @@ while read -d $'\0' SERIES ; do
 	fi
 
 	# Actual search, with timeout to ensure we don't get stuck
-	URLS="`~/bin/video/timeout -t "${TIMEOUT}" ~/bin/video/findTorrent.pl "${SERIES}"`"
+	URLS="`"${VIDEO_DIR}/timeout" -t "${TIMEOUT}" "${VIDEO_DIR}/findTorrent.pl" "${SERIES}"`"
 	RET=$?
 	if [ $RET -ne 0 ]; then
 		if [ $RET -eq 143 ]; then
@@ -55,14 +56,14 @@ while read -d $'\0' SERIES ; do
 
 	# Download, if we found anything
 	if [ -n "${URLS}" ]; then
-		if ! echo "${URLS}" | ~/bin/download; then
+		if ! echo "${URLS}" | bash -x "${VIDEO_DIR}/download.sh"; then
 			echo "Error downloading: ${SERIES}" 1>&2
 			continue
 		fi
 	fi
 
 # Loop on the null-delimited list of monitored series/seasons
-done < <(~/bin/video/torrentMonitored.pl null)
+done < <("${VIDEO_DIR}/torrentMonitored.pl" null)
 
 # Cleanup
 exit 0
