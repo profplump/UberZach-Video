@@ -5,12 +5,6 @@ AGENT="Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.8) Gecko/
 TRANS_URL="http://vera.uberzach.com:9091/transmission/rpc"
 TIMEOUT=10
 
-# Exclude URLs that match a given regex
-GREP_EXCLUDE=""
-if [ -n "${DOWNLOAD_EXCLUDE}" ]; then
-	GREP_EXCLUDE="(`head -c -1 ${DOWNLOAD_EXCLUDE} | tr $'\n' '|'`)"
-fi
-
 # Grab the input URLs
 URLS="`cat -`"
 
@@ -39,7 +33,6 @@ if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
 		SLEEP=0
 		IFS=$'\n'
 		for i in ${URLS}; do
-			if [ -n "${GREP_EXCLUDE}" ] && echo "${i}" | grep -Eq "${GREP_EXCLUDE}"; then continue; fi
 			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
 			SLEEP="${DELAY}"
 			RESULT="`curl --silent --max-time "${TIMEOUT}" \
