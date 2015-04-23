@@ -1059,6 +1059,12 @@ sub findVideos($) {
 		# Do a batch request for the entire batch of video data
 		my $records = getVideoData(\@ids);
 		foreach my $rec (@{$records}) {
+			if (exists($rec->{'duration'}) && $rec->{'duration'} == 0) {
+				if ($DEBUG > 1) {
+					print STDERR 'Skipping 0-length video: ' . $rec->{'id'} . "\n";
+				}
+				next;
+			}
 			$videos{ $rec->{'id'} } = $rec;
 			if ($rec->{'publishedAt'}) {
 				$params{'publishedBefore'} = $rec->{'publishedAt'};
