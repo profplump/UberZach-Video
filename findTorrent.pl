@@ -595,7 +595,7 @@ foreach my $content (@html_content) {
 			push(@tors, \%tor);
 		}
 
-	} elsif ($content =~ /\<title\>isoHunt\b/i) {
+	} elsif ($content =~ /\<title\>[^\<\>]*\bisoHunt\b[^\<\>]*\<\/title\>/i) {
 
 		# Find each TR element from ISOHunt
 		my @trs = splitTags($content, 'TR', 'TH');
@@ -610,7 +610,7 @@ foreach my $content (@html_content) {
 			}
 
 			# Skip sponsored results
-			if ($tds[1] =~ /Sponsored\<\/td\>/i) {
+			if ($tds[1] =~ /\bSponsored\b/i) {
 				if ($DEBUG > 1) {
 					print STDERR "Skipping sponsored result\n";
 				}
