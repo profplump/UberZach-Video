@@ -33,7 +33,7 @@ my $HTTP_UA       = 'ZachBot/1.0 (Plex)';
 my $HTTP_VERIFY   = 0;
 my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
-my $API_ST_REL    = 0.05;
+my $API_ST_REL    = 0.075;
 my $API_ST_ABS    = 5;
 my %API           = (
 
