@@ -27,12 +27,14 @@ my @YTDL_DEBUG    = ('--verbose');
 my $BATCH_SIZE    = 50;
 my $MAX_INDEX     = 25000;
 my $FETCH_LIMIT   = 50;
-my $DELAY         = 1.1;
+my $DELAY         = 0.5;
 my $HTTP_TIMEOUT  = 10;
 my $HTTP_UA       = 'ZachBot/1.0 (Plex)';
 my $HTTP_VERIFY   = 0;
 my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
+my $API_ST_REL    = 0.05;
+my $API_ST_ABS    = 5;
 my %API           = (
 
 	#https://www.googleapis.com/youtube/v3/channels?part=id&forUsername={channelName}&key={YOUR_API_KEY}
@@ -61,7 +63,8 @@ my %API           = (
 			'key'        => $API_KEY,
 			'maxResults' => 5,
 			'safeSearch' => 'none',
-			'type'       => 'video'
+			'type'       => 'video',
+			'order'      => 'date',
 		},
 	},
 
@@ -126,10 +129,10 @@ if (!-d $DIR) {
 	die('Invalid output directory: ' . $DIR . "\n");
 }
 our $NAME = basename($DIR);
-our $ID = $NAME;
+our $ID   = $NAME;
 if ($NAME =~ /^(.*)\s\(([\w\-]+)\)$/) {
 	$NAME = $1;
-	$ID = $2;
+	$ID   = $2;
 	if (length($ID) < 1 || !($ID =~ /^[\w\-]+$/)) {
 		die('Invalid channel ID: ' . $ID . "\n");
 	}
@@ -148,6 +151,7 @@ if ($ENV{'DEBUG'}) {
 	} else {
 		$DEBUG = 1;
 	}
+	$DELAY /= 2;
 }
 my $NO_FETCH = 0;
 if ($ENV{'NO_FETCH'}) {
@@ -252,6 +256,32 @@ if (!$NO_EXCLUDES) {
 	$excludes = dropExcludes($videos);
 }
 
+# Find all existing YT files on disk
+my $files = {};
+if (!$NO_FILES) {
+	$files = findFiles($videos);
+}
+
+# Deal with unknown videos
+foreach my $id (keys(%{$files})) {
+	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
+
+		# Check the ID specifically to find things the APIv3 fuzzy search misses
+		if ($DEBUG) {
+			print STDERR 'Validating local video by ID: ' . $id . "\n";
+		}
+		my $video = getVideoData([$id]);
+		if ($video->[0] && $video->[0]->{'season'} > 0 && $video->[0]->{'channelId'} eq $ID) {
+			$videos->{$id} = $video->[0];
+			next;
+		}
+
+		# Whine when videos do go away
+		warn('Local video not known to YT channel (' . $NAME . '): ' . $id . "\n");
+		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
+	}
+}
+
 # Calculate the episode number using the publish dates
 {
 	my @byDate     = sort { $videos->{$a}->{'date'} <=> $videos->{$b}->{'date'} || $a cmp $b } keys %{$videos};
@@ -263,20 +293,6 @@ if (!$NO_EXCLUDES) {
 			$lastSeason = $videos->{$id}->{'season'};
 		}
 		$videos->{$id}->{'number'} = $num++;
-	}
-}
-
-# Find all existing YT files on disk
-my $files = {};
-if (!$NO_FILES) {
-	$files = findFiles($videos);
-}
-
-# Whine about unknown videos
-foreach my $id (keys(%{$files})) {
-	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
-		print STDERR 'Local video not known to YT channel (' . $NAME . '): ' . $id . "\n";
-		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 	}
 }
 
@@ -628,7 +644,7 @@ sub fetchParse($$) {
 	}
 
 	# Fetch
-	if ($DEBUG) {
+	if ($DEBUG > 1) {
 		print STDERR 'Fetching ' . $name . ' API URL: ' . $url . "\n";
 	}
 	sleep($DELAY);
@@ -883,20 +899,24 @@ sub parseVideoData($) {
 		return undef();
 	}
 
+	# Direct extraction
 	my %video = (
 		'id'          => $data->{'id'},
 		'title'       => $data->{'snippet'}->{'title'},
 		'description' => $data->{'snippet'}->{'description'},
 		'creator'     => $data->{'snippet'}->{'channelTitle'},
-		'duration'    => $data->{'contentDetails'}->{'duration'},
+		'publishedAt' => $data->{'snippet'}->{'publishedAt'},
+		'channelId'   => $data->{'snippet'}->{'channelId'},
+		'rawDuration' => $data->{'contentDetails'}->{'duration'},
 	);
 
-	$video{'date'} = str2time($data->{'snippet'}->{'publishedAt'});
+	# Convert datetime formats
+	$video{'date'} = str2time($video{'publishedAt'});
 	$video{'season'} = time2str('%Y', $video{'date'});
-	if ($data->{'contentDetails'}->{'duration'} =~ /PT(\d+)M(\d+)/) {
+	if ($video{'rawDuration'} =~ /PT(\d+)M(\d+)S/) {
 		$video{'duration'} = ($1 * 60) + $2;
-	} else {
-		$video{'duration'} = $data->{'contentDetails'}->{'duration'};
+	} elsif ($video{'rawDuration'} =~ /PT(\d+)S/) {
+		$video{'duration'} = $1;
 	}
 
 	return \%video;
@@ -928,7 +948,7 @@ sub addExtras($) {
 			next;
 		}
 
-		my $video = getVideoData($id);
+		my $video = getVideoData([$id]);
 		$videos->{$id} = $video->[0];
 	}
 	return $extras;
@@ -985,18 +1005,19 @@ sub findVideos($) {
 	}
 
 	# Loop through until we have all the entries
-	my $pageToken  = '';
 	my $count      = 0;
 	my $totalCount = 0;
+	my %params     = ('channelId' => $id);
 	LOOP:
 	{
+		# Loop status
 		if ($DEBUG && $totalCount) {
 			print STDERR 'Fetching ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%)\n";
 		}
 
 		# Build, fetch, parse, check
-		my $data = fetchParse('search', { 'channelId' => $id, 'pageToken' => $pageToken });
-		$pageToken = '';
+		my $data = fetchParse('search', \%params);
+		delete($params{'pageToken'});
 		if (   exists($data->{'pageInfo'})
 			&& ref($data->{'pageInfo'}) eq 'HASH'
 			&& exists($data->{'pageInfo'}->{'totalResults'})
@@ -1005,15 +1026,20 @@ sub findVideos($) {
 			&& exists($data->{'items'})
 			&& ref($data->{'items'}) eq 'ARRAY')
 		{
-			if (exists($data->{'nextPageToken'})) {
-				$pageToken = $data->{'nextPageToken'};
-			}
 			if (!$totalCount) {
 				$totalCount = $data->{'pageInfo'}->{'totalResults'};
 			}
 			$data = $data->{'items'};
 		} else {
 			die("Invalid search data\n");
+		}
+
+		# Sanity check
+		if (scalar(@{$data}) < 1) {
+			if ($DEBUG) {
+				print STDERR "Search complete\n";
+			}
+			last LOOP;
 		}
 
 		# Grab each video ID
@@ -1034,10 +1060,13 @@ sub findVideos($) {
 		my $records = getVideoData(\@ids);
 		foreach my $rec (@{$records}) {
 			$videos{ $rec->{'id'} } = $rec;
+			if ($rec->{'publishedAt'}) {
+				$params{'publishedBefore'} = $rec->{'publishedAt'};
+			}
 		}
 
 		# Loop if there are results left to fetch
-		if ($totalCount > $count && $count <= $MAX_INDEX && $pageToken) {
+		if ($totalCount > $count && $count <= $MAX_INDEX && $params{'publishedBefore'}) {
 			redo LOOP;
 		}
 	}
@@ -1051,8 +1080,8 @@ sub findVideos($) {
 				print STDERR prettyPrint(\%videos, "\t") . "\n";
 			}
 		}
-		if ($totalCount != $count) {
-			die('Found only ' . $count . ' of ' . $totalCount . " remote videos. Aborting...\n");
+		if (abs(1 - ($count / $totalCount)) > $API_ST_REL && abs($totalCount - $count) > $API_ST_ABS) {
+			die('Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) remote videos. Aborting...\n");
 		}
 	}
 
