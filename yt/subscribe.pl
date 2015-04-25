@@ -33,7 +33,7 @@ my $HTTP_UA       = 'ZachBot/1.0 (Plex)';
 my $HTTP_VERIFY   = 0;
 my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
-my $API_ST_REL    = 0.075;
+my $API_ST_REL    = 0.20;
 my $API_ST_ABS    = 5;
 my %API           = (
 
@@ -632,6 +632,7 @@ sub findFiles($) {
 
 sub fetchParse($$) {
 	my ($name, $params) = @_;
+	our $NAME;
 
 	my $url = $API{$name}{'url'} . '?';
 	foreach my $key (keys(%{ $API{$name}{'params'} }), keys(%{$params})) {
@@ -649,8 +650,23 @@ sub fetchParse($$) {
 	}
 	sleep($DELAY);
 	my $content;
-	if (fetch($url, \$content) != 200 || !defined($content) || length($content) < 10) {
-		die('Invalid content from URL: ' . $url . "\n" . $content . "\n");
+	my $code = fetch($url, \$content);
+	if ($code != 200 || !defined($content) || length($content) < 10) {
+		my $msg = $NAME . ': Invalid content from URL (' . $code . '): ' . $url . "\n" . $content . "\n";
+		if ($code >= 500 && $code < 600) {
+			if ($DEBUG) {
+				print STDERR $msg;
+			}
+			exit(0);
+		}
+
+		if ($code >= 400 && $code < 500) {
+			if ($DEBUG) {
+				print STDERR "Wainting 30 seconds after 400 error\n";
+			}
+			sleep(30);
+		}
+		die($msg);
 	}
 
 	# Parse
@@ -659,7 +675,7 @@ sub fetchParse($$) {
 	}
 	my $data = decode_json($content);
 	if (!defined($data) || ref($data) ne 'HASH') {
-		die('Invalid JSON: ' . $content . "\n");
+		die($NAME . ': Invalid JSON: ' . $content . "\n");
 	}
 
 	return $data;
@@ -667,6 +683,7 @@ sub fetchParse($$) {
 
 sub getSubscriptions($$) {
 	my ($user, $id) = @_;
+	our $NAME;
 
 	# Loop through until we have all the entries
 	my $pageToken = '';
@@ -689,7 +706,7 @@ sub getSubscriptions($$) {
 			}
 			$data = $data->{'items'};
 		} else {
-			die("Invalid subscription data\n");
+			die($NAME . ": Invalid subscription data\n");
 		}
 
 		foreach my $item (@{$data}) {
@@ -700,7 +717,7 @@ sub getSubscriptions($$) {
 				|| ref($item->{'snippet'}->{'resourceId'}) ne 'HASH'
 				|| !exists($item->{'snippet'}->{'resourceId'}->{'channelId'}))
 			{
-				warn("Skipping invalid subscription\n");
+				warn($NAME . ": Skipping invalid subscription\n");
 				if ($DEBUG > 2) {
 					print STDERR prettyPrint($item, "\t") . "\n";
 				}
@@ -792,6 +809,7 @@ sub saveChannel($) {
 
 sub getChannel($) {
 	my ($id) = @_;
+	our $NAME;
 
 	# Build, fetch, parse, check
 	my $data = fetchParse('channel', { 'id' => $id });
@@ -808,7 +826,7 @@ sub getChannel($) {
 	{
 		$data = $data->{'items'}[0]->{'snippet'};
 	} else {
-		die("Invalid channel data\n");
+		die($NAME . ": Invalid channel data\n");
 	}
 
 	# Extract the data we want
@@ -957,6 +975,7 @@ sub addExtras($) {
 sub getVideoData($) {
 	my ($ids) = @_;
 	my @videos = ();
+	our $NAME;
 
 	# Do a batch request for the entire batch of video data
 	my $data = fetchParse('video', { 'id' => join(',', @{$ids}) });
@@ -972,13 +991,13 @@ sub getVideoData($) {
 		}
 		$data = $data->{'items'};
 	} else {
-		die("Invalid search video data\n");
+		die($NAME . ": Invalid search video data\n");
 	}
 
 	# Build each metadata record
 	foreach my $item (@{$data}) {
 		if (!exists($item->{'snippet'}) || ref($item->{'snippet'}) ne 'HASH') {
-			warn("Skipping invalid metadata item\n");
+			warn($NAME . ": Skipping invalid metadata item\n");
 			if ($DEBUG > 2) {
 				print STDERR prettyPrint($item, "\t") . "\n";
 			}
@@ -998,6 +1017,7 @@ sub getVideoData($) {
 sub findVideos($) {
 	my ($id) = @_;
 	my %videos = ();
+	our $NAME;
 
 	# Allow complete bypass
 	if ($NO_SEARCH) {
@@ -1005,12 +1025,12 @@ sub findVideos($) {
 	}
 
 	# Loop through until we have all the entries
-	my $count      = 0;
 	my $totalCount = 0;
-	my %params     = ('channelId' => $id);
+	my %params = ('channelId' => $id);
 	LOOP:
 	{
 		# Loop status
+		my $count = scalar(keys(%videos));
 		if ($DEBUG && $totalCount) {
 			print STDERR 'Fetching ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%)\n";
 		}
@@ -1031,14 +1051,11 @@ sub findVideos($) {
 			}
 			$data = $data->{'items'};
 		} else {
-			die("Invalid search data\n");
+			die($NAME . ": Invalid search data\n");
 		}
 
 		# Sanity check
 		if (scalar(@{$data}) < 1) {
-			if ($DEBUG) {
-				print STDERR "Search complete\n";
-			}
 			last LOOP;
 		}
 
@@ -1046,17 +1063,17 @@ sub findVideos($) {
 		my @ids = ();
 		foreach my $item (@{$data}) {
 			if (!exists($item->{'id'}) || ref($item->{'id'}) ne 'HASH' || !exists($item->{'id'}->{'videoId'})) {
-				warn("Skipping invalid video item\n");
+				warn($NAME . ": Skipping invalid video item\n");
 				if ($DEBUG > 2) {
 					print STDERR prettyPrint($data, "\t") . "\n";
 				}
 				next;
 			}
 			push(@ids, $item->{'id'}->{'videoId'});
-			$count++;
 		}
 
 		# Do a batch request for the entire batch of video data
+		my $more = 0;
 		my $records = getVideoData(\@ids);
 		foreach my $rec (@{$records}) {
 			if (exists($rec->{'duration'}) && $rec->{'duration'} == 0) {
@@ -1066,13 +1083,14 @@ sub findVideos($) {
 				next;
 			}
 			$videos{ $rec->{'id'} } = $rec;
-			if ($rec->{'publishedAt'}) {
+			if (!defined($params{'publishedBefore'}) || (defined($rec->{'publishedAt'}) && ($rec->{'publishedAt'} cmp $params{'publishedBefore'}) < 0)) {
 				$params{'publishedBefore'} = $rec->{'publishedAt'};
+				$more = 1;
 			}
 		}
 
 		# Loop if there are results left to fetch
-		if ($totalCount > $count && $count <= $MAX_INDEX && $params{'publishedBefore'}) {
+		if ($more && $params{'publishedBefore'} && $count <= $MAX_INDEX) {
 			redo LOOP;
 		}
 	}
