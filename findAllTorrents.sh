@@ -56,7 +56,7 @@ while read -d $'\0' SERIES ; do
 
 	# Download, if we found anything
 	if [ -n "${URLS}" ]; then
-		if ! echo "${URLS}" | bash -x "${VIDEO_DIR}/download.sh"; then
+		if ! echo "${URLS}" | "${VIDEO_DIR}/download.sh"; then
 			echo "Error downloading: ${SERIES}" 1>&2
 			continue
 		fi
