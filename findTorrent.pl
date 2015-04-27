@@ -28,11 +28,12 @@ my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
 
 # App config
-my $DELAY       = 4;
-my $TIMEOUT     = 15;
-my $ERR_DELAY   = $TIMEOUT * 2;
-my $ERR_RETRIES = 3;
-my $UA          = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
+my $DELAY         = 4;
+my $TIMEOUT       = 15;
+my $ERR_DELAY     = $TIMEOUT * 2;
+my $ERR_RETRIES   = 3;
+my $UA            = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
+my $EXCLUDES_FILE = undef();
 
 # Static tracker list, appended to all magnet URIs
 my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce');
@@ -50,6 +51,7 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub getHash($);
 sub resolveSecondary($);
 sub resolveTrackers($);
 sub splitTags($$$);
@@ -62,8 +64,21 @@ my ($dir, $search) = @ARGV;
 if (!defined($dir)) {
 	die('Usage: ' . basename($0) . " input_directory [search_string]\n");
 }
+
+# Fetch object
+my $cookies = mktemp('/tmp/findTorrent.cookies.XXXXXXXX');
+my $fetch   = Fetch->new(
+	'cookiefile' => $cookies,
+	'timeout'    => $TIMEOUT,
+	'uas'        => $UA
+);
+
+# Environment
 if ($ENV{'DEBUG'}) {
 	$DEBUG = 1;
+}
+if ($ENV{'EXCLUDES_FILE'}) {
+	$EXCLUDES_FILE = $ENV{'EXCLUDES_FILE'};
 }
 if ($ENV{'NO_QUALITY_CHECKS'}) {
 	$NO_QUALITY_CHECKS = 1;
@@ -81,18 +96,28 @@ if (defined($ENV{'NEXT_EPISODES'})) {
 	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
 }
 
-# Fetch object
-my $cookies = mktemp('/tmp/findTorrent.cookies.XXXXXXXX');
-my $fetch   = Fetch->new(
-	'cookiefile' => $cookies,
-	'timeout'    => $TIMEOUT,
-	'uas'        => $UA
-);
+# Read the torrent excludes list
+my %EXCLUDES = ();
+if ($EXCLUDES_FILE) {
+	my $fh;
+	open($fh, '<', $EXCLUDES_FILE)
+	  or die('Unable to open excludes file: ' . $EXCLUDES_FILE . ': ' . $! . "\n");
+	while (<$fh>) {
 
-# Environment
-#if ($DEBUG) {
-#	print STDERR `printenv` . "\n";
-#}
+		# Skip blank lines and comments
+		if (/^\s*$/ || /^\s*#/) {
+			next;
+		}
+
+		# Assume everything else is one BT hash per line
+		if (/^\s*(\w+)\s*$/) {
+			$EXCLUDES{$1} = 1;
+		} else {
+			die('Invalid exclude line: ' . $_ . "\n");
+		}
+	}
+	close($fh);
+}
 
 # Figure out what we're searching for
 my $show          = '';
@@ -156,12 +181,12 @@ if (-e $dir . '/no_quality_checks') {
 	$NO_QUALITY_CHECKS = 1;
 }
 
-# Read the excludes file, if any
+# Read the search excludes file, if any
 my $exclude = '';
 if (-e $dir . '/excludes') {
 	local $/ = undef;
 	open(EX, $dir . '/excludes')
-	  or die("Unable to open excludes file: ${!}\n");
+	  or die("Unable to open series excludes file: ${!}\n");
 	my $ex = <EX>;
 	close(EX);
 
@@ -860,6 +885,17 @@ my $showRegex = undef();
 }
 foreach my $tor (@tors) {
 
+	# Extract the BTIH, if available
+	getHash($tor);
+
+	# Skip files that are in the torrent excludes list
+	if ($tor->{'hash'} && $EXCLUDES{ $tor->{'hash'} }) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+		}
+		next;
+	}
+
 	# Skip files that don't start with our show title
 	if (!($tor->{'title'} =~ $showRegex)) {
 		if ($DEBUG) {
@@ -1061,11 +1097,39 @@ foreach my $episode (keys(%tors)) {
 unlink($cookies);
 exit(0);
 
+sub getHash($) {
+	my ($tor) = @_;
+	my $url;
+
+	# Allow either a URL or a tor hashref
+	if (ref($tor) eq 'HASH') {
+		$url = $tor - {'url'};
+	} else {
+		$url = $tor;
+		undef($tor);
+	}
+
+	# Extract the BTIH hash, if available
+	my $hash = undef();
+	if ($url =~ /\bxt\=urn\:btih\:(\w+)/i) {
+		$hash = $1;
+	}
+
+	# Save back to the tor, if provided
+	if (defined($tor)) {
+		$tor->{'hash'} = $hash;
+	}
+
+	# Always return the hash, or undef() if none can be found
+	return $hash;
+}
+
 # Resolve secondary URLs
 sub resolveSecondary($) {
 	my ($tor) = @_;
-	my $url = $tor->{'url'};
+	my $magnet = undef();
 
+	# Fetch the torrent-specific page and extract the magent link
 	if ($tor->{'source'} eq 'ISO') {
 		if ($DEBUG) {
 			print STDERR 'Secondary fetch with URL: ' . $tor->{'url'} . "\n";
@@ -1076,19 +1140,29 @@ sub resolveSecondary($) {
 		$fetch->fetch();
 		if ($fetch->status_code() != 200) {
 			print STDERR 'Error fetching secondary URL: ' . $tor->{'url'} . "\n";
-			return undef();
+			goto OUT;
 		}
-		($url) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
-		if (!defined($url) || length($url) < 1) {
+		($magnet) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
+		if (!defined($magnet) || length($magnet) < 1) {
 			if ($DEBUG) {
 				print STDERR 'No secondary URL available from: ' . $tor->{'url'} . "\n";
 			}
-			return undef();
+			goto OUT;
 		}
-		$url = decode_entities($url);
+		$tor->{'url'} = decode_entities($magnet);
 	}
 
-	return $url;
+	# Extract the hash
+	getHash($tor);
+	if (!$tor->{'hash'} || $EXCLUDES{ $tor->{'hash'} }) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+		}
+		goto OUT;
+	}
+
+	OUT:
+	return $magnet;
 }
 
 sub resolveTrackers($) {
