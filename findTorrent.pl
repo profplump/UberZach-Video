@@ -75,7 +75,11 @@ my $fetch   = Fetch->new(
 
 # Environment
 if ($ENV{'DEBUG'}) {
-	$DEBUG = 1;
+	if ($ENV{'DEBUG'} =~ /(\d+)/) {
+		$DEBUG = $1;
+	} else {
+		$DEBUG = 1;
+	}
 }
 if ($ENV{'EXCLUDES_FILE'}) {
 	$EXCLUDES_FILE = $ENV{'EXCLUDES_FILE'};
@@ -111,6 +115,9 @@ if ($EXCLUDES_FILE) {
 
 		# Assume everything else is one BT hash per line
 		if (/^\s*(\w+)\s*$/) {
+			if ($DEBUG > 1) {
+				print STDERR 'Excluding hash: ' . $1 . "\n";
+			}
 			$EXCLUDES{$1} = 1;
 		} else {
 			die('Invalid exclude line: ' . $_ . "\n");
@@ -1103,7 +1110,7 @@ sub getHash($) {
 
 	# Allow either a URL or a tor hashref
 	if (ref($tor) eq 'HASH') {
-		$url = $tor - {'url'};
+		$url = $tor->{'url'};
 	} else {
 		$url = $tor;
 		undef($tor);
