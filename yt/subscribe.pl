@@ -991,7 +991,7 @@ sub getVideoData($) {
 		}
 		$data = $data->{'items'};
 	} else {
-		die($NAME . ": Invalid search video data\n");
+		die($NAME . ": Invalid search video data\n" . prettyPrint($data, "\t") . "\n");
 	}
 
 	# Build each metadata record
