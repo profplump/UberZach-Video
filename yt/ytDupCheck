@@ -1,0 +1,58 @@
+#!/bin/bash
+
+BASE_DIR="`~/bin/video/mediaPath`/YouTube"
+DIR="`basename "${1}"`"
+
+cd "${BASE_DIR}"
+for k in *; do
+	if [ ! -d "${BASE_DIR}/${k}" ]; then
+		continue
+	fi
+
+	if [ -n "${DIR}" ] && [ "${k}" != "${DIR}" ]; then
+		continue
+	fi
+
+	cd "${BASE_DIR}/${k}"
+	for i in S[0-9]*E[0-9]*.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]; do
+		s="`echo "${i}" | cut -d 'S' -f 2 | cut -d 'E' -f 1`"
+		e="`echo "${i}" | cut -d 'E' -f 2 | cut -d ' ' -f 1`"
+		ext="`echo "${i}" | awk -F '.' '{print $NF}'`"
+		id="`echo "${i}" | sed 's%^S[0-9]*E[0-9]* - \(.*\)\.'"${ext}"'$%\1%'`"
+
+		# Duplicate by season/episode
+		if [ `ls "S${s}E${e} - "*".${ext}" | wc -l` -gt 1 ]; then
+			echo "Duplicate season/episode: ${k}/${i}"
+		fi
+
+		# Duplicate by ID
+		if [ `ls S[0-9]*E[0-9]*" - ${id}.${ext}" | wc -l` -gt 1 ]; then
+			echo "Duplicate id: ${k}/${i}"
+		fi
+
+		# Type-specific checks
+		if [ "${ext}" == "nfo" ]; then
+			# Missing video
+			n="`echo "${i}" | sed 's%\.'"${ext}"'$%%'`"
+			if [ `ls "${n}".[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9] | grep -v "${i}" | wc -l` -ne 1 ]; then
+				echo "Missing video: ${k}/${i}"
+			fi
+		else
+			# Missing NFO
+			n="`echo "${i}" | sed 's%\.'"${ext}"'$%.nfo%'`"
+			if [ ! -r "${n}" ]; then
+				echo "Missing NFO: ${k}/${i}"
+			fi
+
+			# Duplicate by type-id
+			if [ `ls S[0-9]*E[0-9]*" - ${id}."[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9] | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
+				echo "Duplicate video by type-id: ${k}/${i}"
+			fi
+
+			# Duplicate by type-season
+			if [ `ls "S${s}E${e} - "*.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9] | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
+				echo "Duplicate video by type-season: ${k}/${i}"
+			fi
+		fi
+	done
+done

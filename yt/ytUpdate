@@ -1,0 +1,13 @@
+#!/bin/bash
+
+DIR="${1}"
+
+if [ -n "${DIR}" ] && [ ! -d "${DIR}" ]; then
+	DIR="`~/bin/video/mediaPath`/YouTube/${DIR}"
+fi
+if [ ! -d "${DIR}" ]; then
+	echo "Usage: `basename "${0}"` yt_directory" 1>&2
+	exit 1
+fi
+
+DEBUG=$(( $DEBUG + 1 )) ~/bin/video/yt/subscribe.pl "${DIR}"
