@@ -1134,7 +1134,6 @@ sub getHash($) {
 # Resolve secondary URLs
 sub resolveSecondary($) {
 	my ($tor) = @_;
-	my $magnet = undef();
 
 	# Fetch the torrent-specific page and extract the magent link
 	if ($tor->{'source'} eq 'ISO') {
@@ -1149,7 +1148,7 @@ sub resolveSecondary($) {
 			print STDERR 'Error fetching secondary URL: ' . $tor->{'url'} . "\n";
 			goto OUT;
 		}
-		($magnet) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
+		my ($magnet) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
 		if (!defined($magnet) || length($magnet) < 1) {
 			if ($DEBUG) {
 				print STDERR 'No secondary URL available from: ' . $tor->{'url'} . "\n";
@@ -1169,7 +1168,7 @@ sub resolveSecondary($) {
 	}
 
 	OUT:
-	return $magnet;
+	return $tor->{'url'};
 }
 
 sub resolveTrackers($) {
