@@ -982,11 +982,10 @@ sub getVideoData($) {
 	if (   exists($data->{'pageInfo'})
 		&& ref($data->{'pageInfo'}) eq 'HASH'
 		&& exists($data->{'pageInfo'}->{'totalResults'})
-		&& $data->{'pageInfo'}->{'totalResults'} > 0
 		&& exists($data->{'items'})
 		&& ref($data->{'items'}) eq 'ARRAY')
 	{
-		if ($data->{'pageInfo'}->{'totalResults'} != scalar(@{$ids})) {
+		if (scalar(@{$ids}) > 1 && $data->{'pageInfo'}->{'totalResults'} != scalar(@{$ids})) {
 			die('Video/metadata search count mismatch: ' . $data->{'pageInfo'}->{'totalResults'} . '/' . scalar(@{$ids}) . "\n");
 		}
 		$data = $data->{'items'};
