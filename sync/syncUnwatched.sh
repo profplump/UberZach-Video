@@ -85,15 +85,17 @@ done
 # Encode and allow any expected files
 IFS=$'\n'
 for i in $FILES; do
+	FILE="${MEDIA_PATH}/${i}"
+
 	# Give up if the media path goes away
 	if ! ~/bin/video/isMediaMounted; then
 		exit
 	fi
 
 	# Skip if the input file does not exist
-	if [ ! -r "${i}" ]; then
+	if [ ! -r "${FILE}" ]; then
 		if [ $DEBUG -gt 0 ]; then
-			echo "Missing input path: ${i}" 1>&2
+			echo "Missing input path: ${FILE}" 1>&2
 		fi
 		continue
 	fi
@@ -115,8 +117,10 @@ done
 IFS=$'\n'
 MIN_AGE="`date -v -1H +%s`"
 for i in $OLD_FILES; do
+	FILE="${BASE_DIR}/${i}"
+
 	# Skip if the input file does not exist
-	if [ ! -r "${i}" ]; then
+	if [ ! -r "${FILE}" ]; then
 		if [ $DEBUG -gt 0 ]; then
 			echo "Missing delete path: ${i}" 1>&2
 		fi
@@ -124,13 +128,13 @@ for i in $OLD_FILES; do
 	fi
 
 	# Skip files under 1H old to avoid churn and provide a no-delete signal for other conditions (e.g. filename encoding)
-	STAT="`stat -f '%m' "${BASE_DIR}/${i}" 2>/dev/null`"
+	STAT="`stat -f '%m' "${FILE}" 2>/dev/null`"
 	if [ -z "${STAT}" ]; then
 		STAT=1
 	fi
 	if [ $STAT -ge $MIN_AGE ]; then
 		if [ $DEBUG -gt 0 ]; then
-			echo "Will skip due to minimum age: ${BASE_DIR}/${i}" 1>&2
+			echo "Will skip due to minimum age: ${FILE}" 1>&2
 		fi
 		continue
 	fi
@@ -140,7 +144,7 @@ for i in $OLD_FILES; do
 		echo "Will delete: ${BASE_DIR}/${i}" 1>&2
 	fi
 	if [ $NO_SYNC -eq 0 ]; then
-		rm -f "${BASE_DIR}/${i}"
+		rm -f "${FILE}"
 	fi
 done
 find "${DEST_DIR}" -type d -empty -delete

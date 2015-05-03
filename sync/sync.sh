@@ -92,7 +92,7 @@ for infile in $FILES; do
 	# Skip files that exist
 	if ls "${OUT_DIR}/${nobase}".* >/dev/null 2>&1; then
 		if [ $DEBUG -gt 0 ]; then
-			echo "Skipping: ${infile}" 1>&2
+			echo "Exists: ${SUB_DIR}/${infile}" 1>&2
 		fi
 		continue
 	fi
