@@ -555,6 +555,17 @@ sub findFiles($) {
 		my ($season, $number, $id, $suffix) = parseFilename($file);
 		if (defined($id) && length($id) > 0) {
 
+			# Determine if there is another video with the same season/number
+			my $exists = 0;
+			if (   exists($videos->{$id})
+				&& exists($videos->{$id}->{'season'})
+				&& exists($videos->{$id}->{'number'})
+				&& $season == $videos->{$id}->{'season'}
+				&& $number == $videos->{$id}->{'number'})
+			{
+				$exists = 1;
+			}
+
 			# Create the record as needed
 			if (!exists($files{$id})) {
 				my %tmp = (
@@ -576,10 +587,7 @@ sub findFiles($) {
 					warn('Duplicate NFO: ' . $id . "\n\t" . $files{$id}->{'nfo'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
 						my $del = $file;
-						if (   exists($videos->{$id})
-							&& $season == $videos->{$id}->{'season'}
-							&& $number == $videos->{$id}->{'number'})
-						{
+						if ($exists) {
 							$del = $files{$id}->{'nfo'};
 						}
 						warn("\tDeleting: " . $file . "\n");
@@ -593,10 +601,7 @@ sub findFiles($) {
 					warn('Duplicate video: ' . $id . "\n\t" . $files{$id}->{'path'} . "\n\t" . $file . "\n");
 					if (!$NO_RENAME) {
 						my $del = $file;
-						if (   exists($videos->{$id})
-							&& $season == $videos->{$id}->{'season'}
-							&& $number == $videos->{$id}->{'number'})
-						{
+						if ($exists) {
 							$del = $files{$id}->{'path'};
 						} elsif ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
 							$del = $files{$id}->{'path'};
@@ -1072,7 +1077,7 @@ sub findVideos($) {
 		}
 
 		# Do a batch request for the entire batch of video data
-		my $more = 0;
+		my $more    = 0;
 		my $records = getVideoData(\@ids);
 		foreach my $rec (@{$records}) {
 			if (exists($rec->{'duration'}) && $rec->{'duration'} == 0) {
