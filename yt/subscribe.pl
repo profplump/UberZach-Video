@@ -541,6 +541,7 @@ sub buildNFO($) {
 sub findFiles($) {
 	my ($videos) = @_;
 	my %files = ();
+	our $NAME;
 
 	# Allow complete bypass
 	if ($NO_FILES) {
@@ -550,7 +551,7 @@ sub findFiles($) {
 	# Read the output directory
 	my $fh = undef();
 	opendir($fh, '.')
-	  or die('Unable to open files directory: ' . $! . "\n");
+	  or die($NAME . ': Unable to open files directory: ' . $! . "\n");
 	while (my $file = readdir($fh)) {
 		my ($season, $number, $id, $suffix) = parseFilename($file);
 		if (defined($id) && length($id) > 0) {
@@ -746,12 +747,13 @@ sub getSubscriptions($$) {
 
 sub saveSubscriptions($$) {
 	my ($folder, $subs) = @_;
+	our $NAME;
 
 	# Check for local subscriptions missing from YT
 	my %locals = ();
 	my $fh     = undef();
 	opendir($fh, '.')
-	  or die('Unable to open subscriptions directory: ' . $folder . ': ' . $! . "\n");
+	  or die($NAME . ': Unable to open subscriptions directory: ' . $folder . ': ' . $! . "\n");
 	while (my $file = readdir($fh)) {
 
 		# Skip dotfiles
@@ -847,12 +849,13 @@ sub getChannel($) {
 
 sub readExcludes() {
 	my %excludes = ();
+	our $NAME;
 
 	# Read and parse the excludes videos file, if it exists
 	if (-e $EXCLUDES_FILE) {
 		my $fh;
 		open($fh, $EXCLUDES_FILE)
-		  or die('Unable to open excludes videos file: ' . $! . "\n");
+		  or die($NAME . ': Unable to open excludes videos file: ' . $! . "\n");
 		while (<$fh>) {
 
 			# Skip blank lines and comments
@@ -878,12 +881,13 @@ sub readExcludes() {
 
 sub readExtras() {
 	my %extras = ();
+	our $NAME;
 
 	# Read and parse the extra videos file, if it exists
 	if (-e $EXTRAS_FILE) {
 		my $fh;
 		open($fh, $EXTRAS_FILE)
-		  or die('Unable to open extra videos file: ' . $! . "\n");
+		  or die($NAME . ': Unable to open extra videos file: ' . $! . "\n");
 		while (<$fh>) {
 
 			# Skip blank lines and comments
@@ -991,7 +995,7 @@ sub getVideoData($) {
 		&& ref($data->{'items'}) eq 'ARRAY')
 	{
 		if (scalar(@{$ids}) > 1 && $data->{'pageInfo'}->{'totalResults'} != scalar(@{$ids})) {
-			die('Video/metadata search count mismatch: ' . $data->{'pageInfo'}->{'totalResults'} . '/' . scalar(@{$ids}) . "\n");
+			die($NAME . ': Video/metadata search count mismatch: ' . $data->{'pageInfo'}->{'totalResults'} . '/' . scalar(@{$ids}) . "\n");
 		}
 		$data = $data->{'items'};
 	} else {
@@ -1009,7 +1013,7 @@ sub getVideoData($) {
 		}
 		my $video = parseVideoData($item);
 		if (!$video) {
-			die("Unable to parse video data\n");
+			die($NAME . ": Unable to parse video data\n");
 		}
 		push(@videos, $video);
 	}
@@ -1109,7 +1113,7 @@ sub findVideos($) {
 			}
 		}
 		if (abs(1 - ($count / $totalCount)) > $API_ST_REL && abs($totalCount - $count) > $API_ST_ABS) {
-			die('Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) remote videos. Aborting...\n");
+			die($NAME . ':Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) remote videos. Aborting...\n");
 		}
 	}
 
@@ -1171,7 +1175,7 @@ sub renameVideo($$$$$$) {
 
 	# General sanity checks
 	if (!defined($id) || !defined($season) || !defined($episode)) {
-		die("Invalid call to renameVideo()\n\t" . $video . "\n\t" . $suffix . "\n\t" . $nfo . "\n\t" . $id . "\n\t" . $season . "\n\t" . $episode . "\n");
+		die($NAME . ": Invalid call to renameVideo()\n\t" . $video . "\n\t" . $suffix . "\n\t" . $nfo . "\n\t" . $id . "\n\t" . $season . "\n\t" . $episode . "\n");
 	}
 
 	# Warning about useless calls
@@ -1186,18 +1190,18 @@ sub renameVideo($$$$$$) {
 
 		# Sanity checks, as we do dangerous work here
 		if (!-r $video) {
-			die('Invalid video source in rename: ' . $video . "\n");
+			die($NAME . ': Invalid video source in rename: ' . $video . "\n");
 		}
 		if ($video ne $videoNew) {
 			print STDERR 'Renaming ' . $NAME . '/' . $video . ' => ' . $videoNew . "\n";
 			if (-e $videoNew) {
-				die('Rename: Target exists: ' . $videoNew . "\n");
+				die($NAME . ': Rename: Target exists: ' . $videoNew . "\n");
 			}
 			if ($SUDO_CHATTR) {
 				system('sudo', 'chattr', '-i', $video);
 			}
 			rename($video, $videoNew)
-			  or die('Unable to rename: ' . $video . ': ' . $! . "\n");
+			  or die($NAME . ': Unable to rename: ' . $video . ': ' . $! . "\n");
 		}
 	}
 
@@ -1207,12 +1211,12 @@ sub renameVideo($$$$$$) {
 
 		# Sanity checks, as we do dangerous work here
 		if (!-r $nfo) {
-			die('Invalid NFO source in rename: ' . $nfo . "\n");
+			die($NAME . ': Invalid NFO source in rename: ' . $nfo . "\n");
 		}
 
 		# Parse old NFO data
 		my $nfoData = updateNFOData($nfo, $season, $episode)
-		  or die('No NFO data found, refusing to rename: ' . $id . "\n");
+		  or die($NAME . ': No NFO data found, refusing to rename: ' . $id . "\n");
 
 		# Write a new NFO and unlink the old one
 		if ($SUDO_CHATTR) {
