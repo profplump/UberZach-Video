@@ -115,10 +115,11 @@ if ($EXCLUDES_FILE && -r $EXCLUDES_FILE) {
 
 		# Assume everything else is one BT hash per line
 		if (/^\s*(\w+)\s*$/) {
+			my $hash = lc($1);
 			if ($DEBUG > 1) {
-				print STDERR 'Excluding hash: ' . $1 . "\n";
+				print STDERR 'Excluding hash: ' . $hash . "\n";
 			}
-			$EXCLUDES{$1} = 1;
+			$EXCLUDES{$hash} = 1;
 		} else {
 			die('Invalid exclude line: ' . $_ . "\n");
 		}
@@ -820,6 +821,7 @@ foreach my $content (@html_content) {
 				}
 				next;
 			}
+			$hash = lc($hash);
 			$title = $hs->parse($title);
 			$hs->eof;
 			$title =~ s/^\s+//;
@@ -1125,7 +1127,7 @@ sub getHash($) {
 	# Extract the BTIH hash, if available
 	my $hash = undef();
 	if ($url =~ /\bxt\=urn\:btih\:(\w+)/i) {
-		$hash = $1;
+		$hash = lc($1);
 	}
 
 	# Save back to the tor, if provided
@@ -1193,7 +1195,7 @@ sub resolveTrackers($) {
 
 	# Fetch a dynamic tracker list for any hashinfo from TorrentZ
 	if ($TRACKER_LOOKUP && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
-		my $hash    = $1;
+		my $hash    = lc($1);
 		my $baseURL = $SOURCES->{'Z'}->{'protocol'} . '://' . $SOURCES->{'Z'}->{'host'};
 		my $hashURL = $baseURL . '/' . $hash;
 		if ($DEBUG) {
