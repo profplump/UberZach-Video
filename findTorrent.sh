@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # Parameters
-DEBUG=$(( $DEBUG + 1 ))
 if [ -z "${TIMEOUT}" ]; then
 	TIMEOUT=600
 fi
 VIDEO_DIR="${HOME}/bin/video"
-EXCLUDES_FILE="${HOME}/.findTorrent.exclude"
+
+# Child parameters
+export DEBUG=$(( $DEBUG + 1 ))
+export EXCLUDES_FILE="${HOME}/.findTorrent.exclude"
 
 # Find with timeout, pass URLs to downloader
 "${VIDEO_DIR}/timeout" -t "${TIMEOUT}" \
