@@ -821,7 +821,7 @@ foreach my $content (@html_content) {
 				}
 				next;
 			}
-			$hash = lc($hash);
+			$hash  = lc($hash);
 			$title = $hs->parse($title);
 			$hs->eof;
 			$title =~ s/^\s+//;
