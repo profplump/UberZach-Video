@@ -42,24 +42,12 @@ while read -d $'\0' SERIES ; do
 		fi
 	fi
 
-	# Actual search, with timeout to ensure we don't get stuck
-	URLS="`"${VIDEO_DIR}/timeout" -t "${TIMEOUT}" "${VIDEO_DIR}/findTorrent.pl" "${SERIES}"`"
-	RET=$?
-	if [ $RET -ne 0 ]; then
-		if [ $RET -eq 143 ]; then
-			echo "Timeout (${TIMEOUT}) searching: ${SERIES}" 1>&2
-		else
-			echo "Error (${RET}) searching: ${SERIES}" 1>&2
-		fi
+	# Search and download
+	DEBUG=1
+	"${VIDEO_DIR}/findTorrent.sh" "${SERIES}" 2>/var/tmp/find.err
+	if [ $? -ne 0 ]; then
+		echo "Skipping: ${SERIES}" 1>&2
 		continue
-	fi
-
-	# Download, if we found anything
-	if [ -n "${URLS}" ]; then
-		if ! echo "${URLS}" | "${VIDEO_DIR}/download.sh"; then
-			echo "Error downloading: ${SERIES}" 1>&2
-			continue
-		fi
 	fi
 
 # Loop on the null-delimited list of monitored series/seasons
