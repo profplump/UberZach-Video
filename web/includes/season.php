@@ -130,7 +130,7 @@ function addSeason($series, $season) {
 	# Ensure the season does not exist
 	$season_path = seasonPath($series, $season);
 	if (file_exists($season_path)) {
-		die('Invalid season: ' . htmlspecialchars($season) . "\n");
+		die(htmlspecialchars($series). ': Invalid season: ' . htmlspecialchars($season) . "\n");
 	}
 
 	# Ensure the season number is listed on TVDB
@@ -140,7 +140,7 @@ function addSeason($series, $season) {
 	}
 	$seasons = getTVDBSeasons($flags['tvdb-id'], $flags['tvdb-lid']);
 	if (!$seasons[ $season ]) {
-		die('Season not listed in TheTVDB: ' . htmlspecialchars($season) . "\n");
+		die(htmlspecialchars($series) . ': Season not listed in TheTVDB: ' . htmlspecialchars($season) . "\n");
 	}
 
 	# Create the directory

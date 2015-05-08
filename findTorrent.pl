@@ -33,7 +33,7 @@ my $TIMEOUT       = 15;
 my $ERR_DELAY     = $TIMEOUT * 2;
 my $ERR_RETRIES   = 3;
 my $UA            = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
-my $EXCLUDES_FILE = $ENV{'HOME'} . '.findTorrent.exclude';
+my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Static tracker list, appended to all magnet URIs
 my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce');
