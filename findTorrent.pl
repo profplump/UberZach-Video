@@ -190,9 +190,40 @@ my %need          = ();
 	}
 }
 
+# Allow the show name to be overriden
+{
+	my $search_name = $dir . '/search_name';
+	if (-e $search_name) {
+		local ($/, *FH);
+		open(FH, $search_name)
+		  or die('Unable to read search_name for show: ' . $show . ': ' . $! . "\n");
+		my $text = <FH>;
+		close(FH);
+		if ($text =~ /^\s*(\S.*\S)\s*$/) {
+			$show = $1;
+		} else {
+			print STDERR 'Skipping invalid search_name for show: ' . $show . ': ' . $text . "\n";
+		}
+	}
+	if ($DEBUG) {
+		print STDERR 'Searching with series title: ' . $show . "\n";
+	}
+}
+
 # Allow quality checks to be disabled
 if (-e $dir . '/no_quality_checks') {
 	$NO_QUALITY_CHECKS = 1;
+	if ($DEBUG) {
+		print STDERR 'Searching with no quality checks: ' . $show . "\n";
+	}
+}
+
+# Allow use of more number formats
+if (-e $dir . '/more_number_formats') {
+	$MORE_NUMBER_FORMATS = 1;
+	if ($DEBUG) {
+		print STDERR 'Searching with more number formats: ' . $show . "\n";
+	}
 }
 
 # Read the search excludes file, if any
@@ -245,9 +276,6 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 	# Note the search-by-date status
 	# Set the CUSTOM_SERACH flag to skip season/epsiode matching
 	$CUSTOM_SEARCH = 1;
-	if ($DEBUG) {
-		print STDERR "Find by date\n";
-	}
 
 	# Read the find-by-date string
 	my $search_by_date = '';
@@ -316,35 +344,15 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 	$str .= '.*';
 	$str .= '\b(?:' . join('|', keys(%days)) . ')\b';
 	$CUSTOM_SEARCH = qr/${str}/;
+
+	# Debug
+	if ($DEBUG) {
+		print STDERR 'Seaching with date template: ' . $str . "\n";
+	}
 }
 
 # Handle standard series
 if (scalar(@urls) < 1) {
-
-	# Allow use of more number formats
-	if (-e $dir . '/more_number_formats') {
-		$MORE_NUMBER_FORMATS = 1;
-	}
-
-	# Allow the show name to be overriden
-	{
-		my $search_name = $dir . '/search_name';
-		if (-e $search_name) {
-			local ($/, *FH);
-			open(FH, $search_name)
-			  or die('Unable to read search_name for show: ' . $show . ': ' . $! . "\n");
-			my $text = <FH>;
-			close(FH);
-			if ($text =~ /^\s*(\S.*\S)\s*$/) {
-				$show = $1;
-			} else {
-				print STDERR 'Skipping invalid search_name for show: ' . $show . ': ' . $text . "\n";
-			}
-		}
-	}
-	if ($DEBUG) {
-		print STDERR 'Searching with series title: ' . $show . "\n";
-	}
 
 	# Validate the season number
 	if (!defined($season) || $season < 1 || $season > 2000) {
