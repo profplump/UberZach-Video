@@ -771,7 +771,10 @@ sub saveSubscriptions($$) {
 
 		# Anything else should be in the list
 		if (!$subs->{$file} && !$subs->{$lcFile}) {
-			print STDERR 'Missing YT subscription for: ' . $file . "\n";
+			my (undef(), undef(), $hour) = localtime(time);
+			if ($hour == 0 || $DEBUG) {
+				print STDERR 'Missing YT subscription for: ' . $file . "\n";
+			}
 		}
 
 		# Note local subscriptions
