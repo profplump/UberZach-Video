@@ -720,7 +720,7 @@ foreach my $content (@html_content) {
 			push(@tors, \%tor);
 		}
 
-	} elsif ($content =~ /KickassTorrents\<\/title\>/i) {
+	} elsif ($content =~ /Kickass\s*Torrents\<\/title\>/i) {
 
 		# Find each TR element from Kickass
 		my @trs = splitTags($content, 'TR', 'TH');
