@@ -33,7 +33,7 @@ my $HTTP_UA       = 'ZachBot/1.0 (Plex)';
 my $HTTP_VERIFY   = 0;
 my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
-my $API_ST_REL    = 0.20;
+my $API_ST_REL    = 0.50;
 my $API_ST_ABS    = 5;
 my %API           = (
 
@@ -1116,7 +1116,7 @@ sub findVideos($) {
 			}
 		}
 		if (abs(1 - ($count / $totalCount)) > $API_ST_REL && abs($totalCount - $count) > $API_ST_ABS) {
-			die($NAME . ':Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) remote videos. Aborting...\n");
+			die($NAME . ': Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) remote videos. Aborting...\n");
 		}
 	}
 
