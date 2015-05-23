@@ -12,14 +12,14 @@ fi
 INFO="`~/bin/video/movInfo.pl "${inFile}"`"
 VCODECS="`echo "${INFO}" | grep VIDEO_CODEC`"
 if [ -z "${VCODECS}" ]; then
-       echo "`basename "${0}"`: Could not determine video codec" 1>&2
-       exit 2
+	echo "`basename "${0}"`: Could not determine video codec" 1>&2
+	exit 2
 fi
 
 # Exclude files with MPEG-1/2 streams
 if echo "${VCODECS}" | grep -q ffmpeg[12]; then
-       echo "Usage: `basename "${0}"` input_file [output_file]" 1>&2
-       exit 1
+	echo "Usage: `basename "${0}"` input_file [output_file]" 1>&2
+	exit 1
 fi
 
 # Construct the output file name
