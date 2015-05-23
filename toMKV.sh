@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Defaults
+if [ -z "${MIN_AVI_SIZE}" ]; then
+	MIN_AVI_SIZE=$(( 250 * 1024 * 1024 ))
+fi
+
 # Command line
 inFile="${1}"
 outFile="${2}"
@@ -12,6 +17,11 @@ fi
 INFO="`~/bin/video/movInfo.pl "${inFile}"`"
 VCODECS="`echo "${INFO}" | grep VIDEO_CODEC`"
 if [ -z "${VCODECS}" ]; then
+	if echo "${inFile}" | grep -qi '\.avi$' && [ `wc -c < "${inFile}"` -lt $MIN_AVI_SIZE ]; then
+		echo "Deleting unlikely AVI: ${inFile}" 1>&2
+		rm -f "${inFile}"
+		exit 3
+	fi
 	echo "`basename "${0}"`: Could not determine video codec" 1>&2
 	exit 2
 fi
