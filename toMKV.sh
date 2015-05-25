@@ -14,7 +14,7 @@ if [ -z "${inFile}" ] || [ ! -e "${inFile}" ]; then
 fi
 
 # Grab some codec info
-INFO="`~/bin/video/movInfo.pl "${inFile}"`"
+INFO="`~/bin/video/movInfo.pl "${inFile}" 2>/dev/null`"
 VCODECS="`echo "${INFO}" | grep VIDEO_CODEC`"
 if [ -z "${VCODECS}" ]; then
 	if echo "${inFile}" | grep -qi '\.avi$' && [ `wc -c < "${inFile}"` -lt $MIN_AVI_SIZE ]; then
