@@ -28,7 +28,7 @@ my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
 
 # App config
-my $DELAY         = 4;
+my $DELAY         = 10;
 my $TIMEOUT       = 15;
 my $ERR_DELAY     = $TIMEOUT * 2;
 my $ERR_RETRIES   = 3;
@@ -1404,6 +1404,9 @@ sub findProxy($$) {
 			last;
 		} elsif ($DEBUG) {
 			print STDERR 'Proxy not available: ' . $host . "\n";
+			if ($DEBUG > 1) {
+				print STDERR $fetch->content() . "\n";
+			}
 		}
 	}
 
