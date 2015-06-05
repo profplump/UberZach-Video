@@ -252,7 +252,7 @@ if (-e $dir . '/excludes') {
 my $SOURCES = initSources();
 
 # Adjust the inter-page delay with respect to the number of unique sources
-$DELAY /= scalar(keys(%{$SOURCES}));
+$DELAY /= scalar(keys(%{$SOURCES})) / 2;
 
 # Handle custom searches
 if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
