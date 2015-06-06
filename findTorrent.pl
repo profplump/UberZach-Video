@@ -979,10 +979,8 @@ foreach my $tor (@tors) {
 			}
 			next;
 
-			# Skip files that don't contain the episode number, unless MORE_NUMBER_FORMATS is set and NO_SEASONS is not
-		} elsif ((!defined($tor->{'episode'}) || !$need{ $tor->{'episode'} })
-			&& !($MORE_NUMBER_FORMATS && $NO_QUALITY_CHECKS && defined($tor->{'episode'}) && $tor->{'episode'} == 0))
-		{
+			# Skip files that don't contain the episode number, unless NO_QUALITY_CHECKS is set
+		} elsif ((!defined($tor->{'episode'}) || (!$need{ $tor->{'episode'} } && !$NO_QUALITY_CHECKS))) {
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
 			}
@@ -1326,7 +1324,7 @@ sub findSE($) {
 		$episode = sprintf('%02d', int($episode));
 	}
 
-	# Return something valid or UNDEF
+	# Return something valid and INTy or UNDEF
 	if (!defined($seasonBlock) || $season < 1 || length($episode) < 1 || $episode eq '0') {
 		if ($DEBUG) {
 			print STDERR 'Could not find seasonBlock in: ' . $name . "\n";
@@ -1334,6 +1332,7 @@ sub findSE($) {
 		$season  = undef();
 		$episode = undef();
 	}
+	$episode = int($episode);
 	return ($season, $episode);
 }
 
