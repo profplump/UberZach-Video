@@ -979,7 +979,7 @@ foreach my $tor (@tors) {
 			}
 			next;
 
-			# Skip files that don't contain the episode number, unless MORE_NUMBER_FORMATS is set and NO_SEAONS is not
+			# Skip files that don't contain the episode number, unless MORE_NUMBER_FORMATS is set and NO_SEASONS is not
 		} elsif ((!defined($tor->{'episode'}) || !$need{ $tor->{'episode'} })
 			&& !($MORE_NUMBER_FORMATS && $NO_QUALITY_CHECKS && defined($tor->{'episode'}) && $tor->{'episode'} == 0))
 		{
@@ -1298,23 +1298,42 @@ sub splitTags($$$) {
 
 # Extract season
 sub findSE($) {
-	my ($title) = @_;
+	my ($name)  = @_;
 	my $season  = 0;
 	my $episode = 0;
 
-	if ($title =~ /[\W_]s(?:eason|eries)?\s*(\d+)/i) {
-		$season = $1;
-	} elsif ($title =~ /\b(\d+)x(\d+)\b/i) {
-		$season  = $1;
-		$episode = $2;
+	my $seasonBlock = '';
+	if ($name =~ /(?:\b|_)(20\d\d(?:\.|\-)[01]?\d(?:\.|\-)[0-3]?\d)(?:\b|_)/) {
+		$seasonBlock = $1;
+		my ($month, $day);
+		($season, $month, $day) = $seasonBlock =~ /(20\d\d)(?:\.|\-)([01]?\d)(?:\.|\-)([0-3]?\d)/;
+		$season = int($season);
+		$episode = sprintf('%04d-%02d-%02d', $season, $month, $day);
+	} elsif ($name =~ /(?:\b|_)(S(?:eason)?[_\s\.\-]*\d{1,2}[_\s\.\-]*E(?:pisode)?[_\s\.]*\d{1,3}(?:E\d{1,3})?)(?:\b|_)/i) {
+		$seasonBlock = $1;
+		($season, $episode) = $seasonBlock =~ /S(?:eason)?[_\s\.\-]*(\d{1,2})[_\s\.\-]*E(?:pisode)?[_\s\.\-]*(\d{1,3})/i;
+		$season = int($season);
+		$episode = sprintf('%02d', int($episode));
+	} elsif ($name =~ /[\[\_\.](\d{1,2}x\d{2,3})[\]\_\.]/i) {
+		$seasonBlock = $1;
+		($season, $episode) = $seasonBlock =~ /(\d+)x(\d+)/i;
+		$season = int($season);
+		$episode = sprintf('%02d', int($episode));
+	} elsif ($name =~ /(?:\b|_)([01]?\d[_\s\.]?[0-3]\d)(?:\b|_)/i) {
+		$seasonBlock = $1;
+		($season, $episode) = $seasonBlock =~ /(?:\b|_)([01]?\d)[_\s\.]?([0-3]\d)/i;
+		$season = int($season);
+		$episode = sprintf('%02d', int($episode));
 	}
 
-	if (!$episode && $title =~ /e(?:ipsode)?\s*(\d{1,2})/i) {
-		$episode = $1;
+	# Return something valid or UNDEF
+	if (!defined($seasonBlock) || $season < 1 || length($episode) < 1 || $episode eq '0') {
+		if ($DEBUG) {
+			print STDERR 'Could not find seasonBlock in: ' . $name . "\n";
+		}
+		$season  = undef();
+		$episode = undef();
 	}
-
-	$season  = int($season);
-	$episode = int($episode);
 	return ($season, $episode);
 }
 
