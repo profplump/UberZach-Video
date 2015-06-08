@@ -979,8 +979,8 @@ foreach my $tor (@tors) {
 			}
 			next;
 
-			# Skip files that don't contain the episode number, unless NO_QUALITY_CHECKS is set
-		} elsif ((!defined($tor->{'episode'}) || (!$need{ $tor->{'episode'} } && !$NO_QUALITY_CHECKS))) {
+			# Skip files that don't contain a needed episode number, unless there is no episode number and NO_QUALITY_CHECKS is set
+		} elsif ((defined($tor->{'episode'}) && !$need{ $tor->{'episode'} }) || (!defined($tor->{'episode'}) && !$NO_QUALITY_CHECKS)) {
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
 			}
