@@ -32,7 +32,7 @@ my $DELAY         = 10;
 my $TIMEOUT       = 15;
 my $ERR_DELAY     = $TIMEOUT * 2;
 my $ERR_RETRIES   = 3;
-my $UA            = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
+my $UA            = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41';
 my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Static tracker list, appended to all magnet URIs
