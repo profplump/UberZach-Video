@@ -30,6 +30,10 @@ if [ -z "${RECODE_LENGTH_RATIO}" ]; then
 		RECODE_LENGTH_RATIO=70
 	fi
 fi
+if [ -z "${RECODE_OVERSIZE}" ]; then
+	# ~2 GB
+	RECODE_OVERSIZE=$((2000 * 1024 * 1024))
+fi
 
 # Delayed error indicator
 if [ -z "${KEEP_IN}" ]; then
@@ -61,7 +65,7 @@ if [ -z "${SIZE_IN}" ] || [ -z "${SIZE_OUT}" ]; then
 	echo "`basename "${0}"`: Unable to determine size_in or size_out." 1>&2
 else
 	SIZE_RATIO=$(( $SIZE_OUT * 100 / $SIZE_IN ))
-	if [ $SIZE_RATIO -lt $RECODE_SIZE_RATIO ]; then
+	if [ $SIZE_RATIO -lt $RECODE_SIZE_RATIO ] && [ $SIZE_IN -lt $RECODE_OVERSIZE ]; then
 		KEEP_IN=1
 		echo "`basename "${0}"`: Output file size (${SIZE_OUT}) is not at least ${RECODE_SIZE_RATIO}% of the input file size (${SIZE_IN}): ${IN}" 1>&2
 	fi
