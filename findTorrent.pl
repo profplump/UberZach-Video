@@ -15,7 +15,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1, 'Z' => 1);
+my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1, 'Z' => 0);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
