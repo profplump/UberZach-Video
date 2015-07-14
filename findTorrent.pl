@@ -665,7 +665,7 @@ foreach my $content (@html_content) {
 			}
 
 			# Find the torrent ID and show title
-			my ($id, $title) = $tds[2] =~ /\<a(?:\s+[^\>]*)?href=\"\/torrent_details\/(\d+)\/[^\"]*\"\>\<span\>([^\>]+)\<\/span\>/i;
+			my ($id, $title) = $tds[2] =~ /\<a(?:\s+[^\>]*)?href=\"\/torrent_details\/(\d+\/[^\"]+)\"\>\<span\>([^\>]+)\<\/span\>/i;
 			if (!defined($id) || length($id) < 1 || !defined($title) || length($title) < 1) {
 				if ($DEBUG) {
 					print STDERR "Unable to find show ID or title in TD:\n\t" . $tds[2] . "\n";
@@ -700,7 +700,7 @@ foreach my $content (@html_content) {
 			}
 
 			# Fetch the detail page for the URL
-			my $url = $SOURCES->{'ISO'}->{'protocol'} . '://' . $SOURCES->{'ISO'}->{'host'} . '/torrent_details/' . $id . '/';
+			my $url = $SOURCES->{'ISO'}->{'protocol'} . '://' . $SOURCES->{'ISO'}->{'host'} . '/torrent_details/' . $id;
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
