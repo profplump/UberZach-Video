@@ -1366,8 +1366,8 @@ sub initSources() {
 
 	# Kickass
 	if ($ENABLE_SOURCE{'KICK'}) {
-		my @proxies = ('http://katproxy.com/usearch/', 'kickass.to/usearch/');
-		my $source = findProxy(\@proxies, 'torrent name\<\/th\>');
+		my @proxies = ('kat.cr/usearch/', 'kickass.unblocked.pw/usearch/', 'kickass.to/usearch/');
+		my $source = findProxy(\@proxies, '/usearch/');
 		if ($source) {
 			$source->{'weight'}        = 0.50;
 			$source->{'quote'}         = 1;
