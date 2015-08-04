@@ -42,11 +42,11 @@ $( document ).on( "mobileinit", function() {
 		if ( !text ) {
 			return null;
 		}
-		if ( !isNaN(parseFloat(text)) ) {
-			return "#";
+		var short = text.slice( 0, 1 ).toUpperCase();
+		if ( short == '@' || !isNaN(parseFloat(text)) ) {
+			return '#';
 		} else {
-			text = text.slice( 0, 1 ).toUpperCase();
-			return text;
+			return short;
 		}
 	};
 });
