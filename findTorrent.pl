@@ -1331,8 +1331,9 @@ sub findSE($) {
 		}
 		$season  = undef();
 		$episode = undef();
+	} else {
+		$episode = int($episode);
 	}
-	$episode = int($episode);
 	return ($season, $episode);
 }
 
