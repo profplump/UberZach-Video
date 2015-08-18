@@ -22,7 +22,7 @@ if [ -z "${VCODECS}" ]; then
 		rm -f "${inFile}"
 		exit 3
 	fi
-	echo "`basename "${0}"`: Could not determine video codec" 1>&2
+	echo "`basename "${0}"`: Could not determine video codec: ${inFile}" 1>&2
 	exit 2
 fi
 
