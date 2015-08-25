@@ -191,7 +191,7 @@ foreach my $time (keys(%episodes)) {
 	$episodes{$time}->{'title'} =~ s/\s*\:\s*/ - /g;
 	$episodes{$time}->{'title'} =~ s/\s+/ /g;
 	$episodes{$time}->{'title'} =~ s/\"/\'/g;
-	$episodes{$time}->{'title'} =~ s/[^\w\s\,\-\.\!\'\(\)\#]//g;
+	$episodes{$time}->{'title'} =~ s/[^\w\s\,\-\.\!\'\(\)\#\&]//g;
 }
 
 # Fetch needed files, with basic validation
