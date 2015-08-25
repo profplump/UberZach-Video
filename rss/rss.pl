@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+use Cwd qw(abs_path);
 use MP3::Tag;
 use XML::Feed;
 use LWP::Simple;
@@ -10,7 +11,7 @@ use Date::Format;
 use File::Basename;
 
 # Command-line
-my $OUT_DIR = $ARGV[0];
+my $OUT_DIR = abs_path($ARGV[0]);
 if (!$OUT_DIR || !-d $OUT_DIR) {
 	die('Usage: ' . basename($0) . " output_directory\n");
 }
@@ -191,7 +192,7 @@ foreach my $time (keys(%episodes)) {
 	$episodes{$time}->{'title'} =~ s/\s*\:\s*/ - /g;
 	$episodes{$time}->{'title'} =~ s/\s+/ /g;
 	$episodes{$time}->{'title'} =~ s/\"/\'/g;
-	$episodes{$time}->{'title'} =~ s/[^\w\s\,\-\.\!\'\(\)\#\&]//g;
+	$episodes{$time}->{'title'} =~ s/[^\w\s\,\-\.\!\'\(\)\#\&\@]//g;
 }
 
 # Fetch needed files, with basic validation
