@@ -103,9 +103,9 @@ for my $entry ($feed->entries()) {
 	if (!$desc && exists($ep->{'itunes:summary'})) {
 		$desc = $ep->{'itunes:summary'};
 	}
-
+	
 	# Collect extracted, cleaned data
-	if ($title && $desc && $time && $url && $ext && $size) {
+	if ($title && $desc && $time && $url && $ext) {
 		my %tmp = (
 			'title'       => $title,
 			'description' => $desc,
@@ -117,7 +117,7 @@ for my $entry ($feed->entries()) {
 			'author'      => $author,
 		);
 		$episodes{$time} = \%tmp;
-	} else {
+	} elsif ($DEBUG) {
 		print STDERR 'Skipping incomplete entry: ' . $ep->{'title'} . ': ' . $ep->{'pubDate'} . "\n";
 	}
 }
