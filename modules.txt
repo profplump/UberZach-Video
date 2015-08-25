@@ -12,3 +12,12 @@ DMX:
 Other:
 	URI::Encode
 	HTML::Strip
+	MP3::Tag
+	XML::Feed
+
+Standard:
+	Cwd
+	LWP::Simple
+	Date::Parse
+	Date::Format
+	File::Basename
