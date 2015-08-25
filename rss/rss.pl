@@ -20,9 +20,9 @@ my $GENRE     = 'Podcast';
 my $SERIES    = basename($OUT_DIR);
 my $URL_FILE  = $OUT_DIR . '/url';
 my $RULE_FILE = $OUT_DIR . '/rules.pm';
+my $ERR_RATIO = 0.05;
 
 # Init
-sub globalRules($);
 our $DEBUG = 0;
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'} =~ /(\d+)/) {
 	$DEBUG = $1;
@@ -56,10 +56,14 @@ for my $entry ($feed->entries()) {
 	# Title
 	my $title = $hs->parse($ep->{'title'});
 	$hs->eof();
+	$title =~ s/^\s+//;
+	$title =~ s/\s+$//;
 
 	# Description
 	my $desc = $hs->parse($ep->{'description'});
 	$hs->eof();
+	$desc =~ s/^\s+//;
+	$desc =~ s/\s+$//;
 
 	# Timestamp
 	my $time = str2time($ep->{'pubDate'});
@@ -68,6 +72,8 @@ for my $entry ($feed->entries()) {
 	my $author = undef();
 	if (exists($ep->{'author'})) {
 		$author = $ep->{'author'};
+		$author =~ s/^\s+//;
+		$author =~ s/\s+$//;
 	}
 
 	# Enclosure (i.e. attachment/file) data
@@ -81,6 +87,10 @@ for my $entry ($feed->entries()) {
 					$ext = 'm4a';
 				} elsif ($enc->{'type'} =~ /audio\/mpeg/i) {
 					$ext = 'mp3';
+				} elsif ($enc->{'type'} =~ /video\//i) {
+					if ($DEBUG > 1) {
+						print STDERR 'Skipping video file: ' . $time . "\n";
+					}
 				} else {
 					print STDERR 'Unknown MIME type: ' . $enc->{'type'} . "\n";
 				}
@@ -102,6 +112,8 @@ for my $entry ($feed->entries()) {
 	}
 	if (!$desc && exists($ep->{'itunes:summary'})) {
 		$desc = $ep->{'itunes:summary'};
+		$desc =~ s/^\s+//;
+		$desc =~ s/\s+$//;
 	}
 	
 	# Collect extracted, cleaned data
@@ -118,7 +130,7 @@ for my $entry ($feed->entries()) {
 		);
 		$episodes{$time} = \%tmp;
 	} elsif ($DEBUG) {
-		print STDERR 'Skipping incomplete entry: ' . $ep->{'title'} . ': ' . $ep->{'pubDate'} . "\n";
+		print STDERR 'Skipping incomplete entry: ' . $title . ': ' . $time . "\n";
 	}
 }
 
@@ -137,7 +149,7 @@ while (my $file = readdir($fh)) {
 			if (exists($episodes{$time}->{'size'}) && $episodes{$time}->{'size'}) {
 				(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($path);
 				my $ratio = ($size / $episodes{$time}->{'size'});
-				if ($ratio < 0.95 || $ratio > 1.05) {
+				if ($ratio < (1 - $ERR_RATIO) || $ratio > (1 + $ERR_RATIO)) {
 					print STDERR 'Invalid output file size (' . $size . '/' . $episodes{$time}->{'size'} . '): ' . $file . "\n";
 				}
 			}
@@ -171,7 +183,15 @@ if (-e $RULE_FILE) {
 	require $RULE_FILE;
 	localRules(\%episodes);
 } else {
-	globalRules(\%episodes);
+	foreach my $time (sort(keys(%episodes))) {
+		$episodes{$time}->{'title'} = time2str('%Y-%m-%d', $time) . ' - ' . $episodes{$time}->{'title'};
+	}
+}
+foreach my $time (keys(%episodes)) {
+	$episodes{$time}->{'title'} =~ s/\s*\:\s*/ - /g;
+	$episodes{$time}->{'title'} =~ s/\s+/ /g;
+	$episodes{$time}->{'title'} =~ s/\"/\'/g;
+	$episodes{$time}->{'title'} =~ s/[^\w\s\,\-\.\!\'\(\)\#]//g;
 }
 
 # Fetch needed files, with basic validation
@@ -202,8 +222,9 @@ foreach my $time (sort(@need)) {
 	}
 	if ($ep->{'size'}) {
 		(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($file);
-		if ($size != $ep->{'size'}) {
-			$err = 'Invalid output size (' . $size . '/' . $ep->{'size'} . '): ' . $file;
+		my $ratio = $size / $ep->{'size'};
+		if ($ratio < (1 - $ERR_RATIO) || $ratio > (1 + $ERR_RATIO)) {
+			$err = 'Invalid download size (' . $size . '/' . $ep->{'size'} . '): ' . $file;
 			goto OUT;
 		}
 	}
@@ -267,36 +288,4 @@ sub globalRules($) {
 		print STDERR "Applying global rules\n";
 	}
 
-	my $lastNum = 1;
-	my $lastSub = undef();
-	foreach my $time (sort(keys(%{$eps}))) {
-		my $title = $eps->{$time}->{'title'};
-
-		# Parse a leading episode number, with optional sub-letters
-		if ($title =~ /^(\d{3,}[a-z]?)\s+(?:\-\s*)?(.*)$/i) {
-			my $part = $1;
-			$title = $2;
-			if ($part =~ /(\d+)([a-z])/i) {
-				$lastNum = int($1);
-				$lastSub = $2;
-			} else {
-				$lastNum = int($part);
-				$lastSub = undef();
-			}
-		} else {
-			if (!$lastSub) {
-				$lastSub = 'a';
-			} else {
-				$lastSub++;
-			}
-			$lastSub = lc($lastSub);
-		}
-
-		# Always generate a clean name
-		my $num = sprintf('%03d', $lastNum);
-		if ($lastSub) {
-			$num .= $lastSub;
-		}
-		$eps->{$time}->{'title'} = $num . ' - ' . $title;
-	}
 }
