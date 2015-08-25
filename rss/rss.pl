@@ -1,0 +1,310 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use MP3::Tag;
+use XML::Feed;
+use LWP::Simple;
+use HTML::Strip;
+use Date::Parse;
+use Date::Format;
+use File::Basename;
+
+# Prototypes
+sub cleanTitles($);
+
+# Parameters
+my %TAGS = (
+	'artist' => 'The Bugle',
+	'album'  => 'The Bugle',
+	'genre'  => 'Podcast',
+);
+my $OUT_DIR  = $ENV{'HOME'} . '/media/Podcasts/The Bugle';
+my $FEED_URL = 'http://feeds.feedburner.com/thebuglefeed';
+
+# Debug
+my $DEBUG = 0;
+if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'} =~ /(\d+)/) {
+	$DEBUG = $1;
+}
+
+# Sanity check
+if (!$OUT_DIR || !-d $OUT_DIR || !$FEED_URL) {
+	die('Usage: ' . basename($0) . " feed_url out_dir\n");
+}
+
+# Init
+my %episodes = ();
+my %have     = ();
+my @need     = ();
+my $hs       = HTML::Strip->new();
+
+# Fetch and analyize the feed
+my $feed = XML::Feed->parse(URI->new($FEED_URL));
+if (!$feed) {
+	die('Unable to parse feed (' . XML::Feed->errstr() . '): ' . $FEED_URL . "\n");
+}
+
+# Parse each episode from the feed
+for my $entry ($feed->entries()) {
+	my $ep = $entry->unwrap();
+
+	# Title
+	my $title = $hs->parse($ep->{'title'});
+	$hs->eof();
+
+	# Description
+	my $desc = $hs->parse($ep->{'description'});
+	$hs->eof();
+
+	# Timestamp
+	my $time = str2time($ep->{'pubDate'});
+
+	# Author
+	my $author = undef();
+	if (exists($ep->{'author'})) {
+		$author = $ep->{'author'};
+	}
+
+	# Enclosure (i.e. attachment/file) data
+	my ($url, $ext, $size) = undef();
+	{
+		my $enc = $ep->{'enclosure'};
+		if ($enc && ref($enc) eq 'HASH' && exists($enc->{'url'})) {
+			$url = $enc->{'url'};
+			if (exists($enc->{'type'})) {
+				if ($enc->{'type'} =~ /audio\/mp4/i) {
+					$ext = 'm4a';
+				} elsif ($enc->{'type'} =~ /audio\/mpeg/i) {
+					$ext = 'mp3';
+				} else {
+					print STDERR 'Unknown MIME type: ' . $enc->{'type'} . "\n";
+				}
+			}
+			if (exists($enc->{'length'})) {
+				$size = $enc->{'length'};
+			}
+		}
+	}
+
+	# iTunes data, if available (and useful)
+	my $duration = undef();
+	if (exists($ep->{'itunes:duration'})) {
+		if ($ep->{'itunes:duration'} =~ /(\d{1,2})\:(\d{1,2})\:(\d{1,2})/) {
+			$duration = (3600 * int($1)) + (60 * int($2)) + int($3);
+		} else {
+			$duration = int($ep->{'itunes:duration'});
+		}
+	}
+	if (!$desc && exists($ep->{'itunes:summary'})) {
+		$desc = $ep->{'itunes:summary'};
+	}
+
+	# Collect extracted, cleaned data
+	if ($title && $desc && $time && $url && $ext && $size) {
+		my %tmp = (
+			'title'       => $title,
+			'description' => $desc,
+			'time'        => $time,
+			'url'         => $url,
+			'ext'         => $ext,
+			'size'        => $size,
+			'duration'    => $duration,
+			'author'      => $author,
+		);
+		$episodes{$time} = \%tmp;
+	} else {
+		print STDERR 'Skipping incomplete entry: ' . $ep->{'title'} . ': ' . $ep->{'pubDate'} . "\n";
+	}
+}
+
+# Check for existing files
+opendir(my $fh, $OUT_DIR)
+  or die('Unable to open output directory (' . $! . '): ' . $OUT_DIR . "\n");
+while (my $file = readdir($fh)) {
+	my $path = $OUT_DIR . '/' . $file;
+	if (-d $path) {
+		next;
+	}
+	if ($file =~ /^(.*)\s+\((\d{7,})\)\.\w{3}$/) {
+		my $title = $1;
+		my $time  = $2;
+		if (exists($episodes{$time})) {
+			if (exists($episodes{$time}->{'size'}) && $episodes{$time}->{'size'}) {
+				(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($path);
+				my $ratio = ($size / $episodes{$time}->{'size'});
+				if ($ratio < 0.95 || $ratio > 1.05) {
+					print STDERR 'Invalid output file size (' . $size . '/' . $episodes{$time}->{'size'} . '): ' . $file . "\n";
+				}
+			}
+			$have{$time} = 1;
+			$episodes{$time}->{'title'} = $title;
+		}
+		if ($DEBUG) {
+			print STDERR 'Found file: ' . $file . "\n";
+		}
+	} elsif ($DEBUG > 1) {
+		print STDERR 'Skipping file: ' . $file . "\n";
+	}
+}
+closedir($fh);
+
+# Decide what we want to download
+foreach my $time (keys(%episodes)) {
+	if (!exists($have{$time})) {
+		push(@need, $time);
+		if ($DEBUG > 1) {
+			print STDERR 'Will fetch: ' . $time . "\n";
+		}
+	}
+}
+
+# Ensure titles start with valid numbers
+cleanTitles(\%episodes);
+
+# Fetch needed files, with basic validation
+foreach my $time (sort(@need)) {
+	my $ep   = $episodes{$time};
+	my $file = $OUT_DIR . '/' . $ep->{'title'} . ' (' . int($time) . ').' . $ep->{'ext'};
+	if (-e $file) {
+		die('Unexpected output file: ' . $file . "\n");
+	}
+
+	# Debug
+	if ($DEBUG) {
+		print STDERR 'Fetching (' . $time . '): ' . $ep->{'title'} . ' => ' . $ep->{'url'} . "\n";
+	}
+
+	# Fetch
+	my $code = getstore($ep->{'url'}, $file);
+
+	# Validate
+	my $err = undef();
+	if ($code != 200) {
+		$err = 'Invalid HTTP response: ' . $code;
+		goto OUT;
+	}
+	if (!-e $file) {
+		$err = 'No output file: ' . $file;
+		goto OUT;
+	}
+	if ($ep->{'size'}) {
+		(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($file);
+		if ($size != $ep->{'size'}) {
+			$err = 'Invalid output size (' . $size . '/' . $ep->{'size'} . '): ' . $file;
+			goto OUT;
+		}
+	}
+
+	# Set MP3/M4A tags
+	if ($ep->{'ext'} eq 'mp3') {
+
+		# Parse the MP3
+		my $mp3 = MP3::Tag->new($file);
+		if (!$mp3) {
+			$err = 'Unable to parse MP3 tags in: ' . $file . "\n";
+			goto OUT;
+		}
+
+		# Delete any ID3v1 tags
+		if (exists($mp3->{'ID3v1'})) {
+			print STDERR "Removing ID3v1 tag\n";
+			$mp3->{'ID3v1'}->remove_tag();
+			print STDERR "Removed?\n";
+		}
+
+		# Find or create the ID3v2 tag
+		my $tags = undef();
+		if (exists($mp3->{'ID3v2'})) {
+			$tags = $mp3->{'ID3v2'};
+		} else {
+			$tags = $mp3->new_tag('ID3v2');
+		}
+
+		# Update tags, applying forced values
+		$tags->title($ep->{'title'});
+		$tags->year(time2str('%Y', $ep->{'time'}));
+		{
+			my $tag = undef();
+			if (exists($TAGS{'comment'})) {
+				$tag = $TAGS{'comment'};
+			} elsif (exists($ep->{'description'})) {
+				$tag = $ep->{'description'};
+			}
+			$tags->comment($tag);
+		}
+		{
+			my $tag = undef();
+			if (exists($TAGS{'album'})) {
+				$tag = $TAGS{'album'};
+			} elsif (exists($ep->{'author'})) {
+				$tag = $ep->{'author'};
+			}
+			$tags->album($tag);
+		}
+		{
+			my $tag = undef();
+			if (exists($TAGS{'artist'})) {
+				$tag = $TAGS{'artist'};
+			} elsif (exists($ep->{'author'})) {
+				$tag = $ep->{'author'};
+			}
+			$tags->artist($tag);
+		}
+		{
+			my $tag = undef();
+			if (exists($TAGS{'genre'})) {
+				$tag = $TAGS{'genre'};
+			} elsif (exists($ep->{'genre'})) {
+				$tag = $ep->{'genre'};
+			}
+			$tags->genre($tag);
+		}
+
+		# Save
+		if (!$tags->write_tag()) {
+			$err = 'Unable to update MP3 tags in: ' . $file . "\n";
+			goto OUT;
+		}
+		$mp3->close();
+	} else {
+		print STDERR 'Tag munging not available for ' . $ep->{'ext'} . ' files: ' . $file . "\n";
+	}
+	OUT:
+
+	# Cleanup
+	if (defined($err)) {
+		print STDERR 'Unable to download ' . $ep->{'url'} . ': ' . $err . "\n";
+		if (-e $file) {
+			unlink($file);
+		}
+	}
+}
+
+sub cleanTitles($) {
+	my ($eps)   = @_;
+	my $lastNum = 178;
+	my $lastSub = undef();
+	foreach my $time (sort(keys(%episodes))) {
+		my $title = $eps->{$time}->{'title'};
+		if ($title =~ /^(?:The\s+)?Bugle\s+(\d{3,}[a-z]?)\s+(?:\-\s*)?(.*)$/i) {
+			my $num = $1;
+			if ($num =~ /(\d+)([a-z])/i) {
+				$lastNum = int($1);
+				$lastSub = $2;
+			} else {
+				$lastNum = int($num);
+				$lastSub = undef();
+			}
+			$eps->{$time}->{'title'} = 'Bugle ' . $1 . ' - ' . $2;
+		} else {
+			$title =~ s/^\s*(?:The|Bonus)\s+Bugle\s*\-\s*//i;
+			if (!$lastSub) {
+				$lastSub = 'a';
+			} else {
+				$lastSub++;
+			}
+			$lastSub = lc($lastSub);
+			$eps->{$time}->{'title'} = 'Bugle ' . $lastNum . $lastSub . ' - ' . $title;
+		}
+	}
+}
