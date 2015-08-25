@@ -9,39 +9,44 @@ use Date::Parse;
 use Date::Format;
 use File::Basename;
 
-# Prototypes
-sub cleanTitles($);
+# Command-line
+my $OUT_DIR = $ARGV[0];
+if (!$OUT_DIR || !-d $OUT_DIR) {
+	die('Usage: ' . basename($0) . " output_directory\n");
+}
 
 # Parameters
-my %TAGS = (
-	'artist' => 'The Bugle',
-	'album'  => 'The Bugle',
-	'genre'  => 'Podcast',
-);
-my $OUT_DIR  = $ENV{'HOME'} . '/media/Podcasts/The Bugle';
-my $FEED_URL = 'http://feeds.feedburner.com/thebuglefeed';
+my $GENRE     = 'Podcast';
+my $SERIES    = basename($OUT_DIR);
+my $URL_FILE  = $OUT_DIR . '/url';
+my $RULE_FILE = $OUT_DIR . '/rules.pm';
 
-# Debug
-my $DEBUG = 0;
+# Init
+sub globalRules($);
+our $DEBUG = 0;
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'} =~ /(\d+)/) {
 	$DEBUG = $1;
 }
-
-# Sanity check
-if (!$OUT_DIR || !-d $OUT_DIR || !$FEED_URL) {
-	die('Usage: ' . basename($0) . " feed_url out_dir\n");
-}
-
-# Init
 my %episodes = ();
 my %have     = ();
 my @need     = ();
 my $hs       = HTML::Strip->new();
 
 # Fetch and analyize the feed
-my $feed = XML::Feed->parse(URI->new($FEED_URL));
-if (!$feed) {
-	die('Unable to parse feed (' . XML::Feed->errstr() . '): ' . $FEED_URL . "\n");
+my $feed = undef();
+{
+	open(my $fh, '<', $URL_FILE)
+	  or die('Unable to open feed file: ' . $URL_FILE . "\n");
+	my $url = <$fh>;
+	close($fh);
+	if (!$url || length($url) < 5) {
+		die('Invalid feed URL: ' . $url . "\n");
+	}
+
+	$feed = XML::Feed->parse(URI->new($url));
+	if (!$feed) {
+		die('Unable to parse feed (' . XML::Feed->errstr() . '): ' . $url . "\n");
+	}
 }
 
 # Parse each episode from the feed
@@ -158,8 +163,16 @@ foreach my $time (keys(%episodes)) {
 	}
 }
 
-# Ensure titles start with valid numbers
-cleanTitles(\%episodes);
+# Apply naming rules
+if (-e $RULE_FILE) {
+	if ($DEBUG > 1) {
+		print STDERR 'Importing local rules from: ' . $RULE_FILE . "\n";
+	}
+	require $RULE_FILE;
+	localRules(\%episodes);
+} else {
+	globalRules(\%episodes);
+}
 
 # Fetch needed files, with basic validation
 foreach my $time (sort(@need)) {
@@ -220,45 +233,13 @@ foreach my $time (sort(@need)) {
 			$tags = $mp3->new_tag('ID3v2');
 		}
 
-		# Update tags, applying forced values
+		# Update tags
 		$tags->title($ep->{'title'});
 		$tags->year(time2str('%Y', $ep->{'time'}));
-		{
-			my $tag = undef();
-			if (exists($TAGS{'comment'})) {
-				$tag = $TAGS{'comment'};
-			} elsif (exists($ep->{'description'})) {
-				$tag = $ep->{'description'};
-			}
-			$tags->comment($tag);
-		}
-		{
-			my $tag = undef();
-			if (exists($TAGS{'album'})) {
-				$tag = $TAGS{'album'};
-			} elsif (exists($ep->{'author'})) {
-				$tag = $ep->{'author'};
-			}
-			$tags->album($tag);
-		}
-		{
-			my $tag = undef();
-			if (exists($TAGS{'artist'})) {
-				$tag = $TAGS{'artist'};
-			} elsif (exists($ep->{'author'})) {
-				$tag = $ep->{'author'};
-			}
-			$tags->artist($tag);
-		}
-		{
-			my $tag = undef();
-			if (exists($TAGS{'genre'})) {
-				$tag = $TAGS{'genre'};
-			} elsif (exists($ep->{'genre'})) {
-				$tag = $ep->{'genre'};
-			}
-			$tags->genre($tag);
-		}
+		$tags->comment($ep->{'description'});
+		$tags->album($SERIES);
+		$tags->artist($SERIES);
+		$tags->genre($GENRE);
 
 		# Save
 		if (!$tags->write_tag()) {
@@ -280,31 +261,42 @@ foreach my $time (sort(@need)) {
 	}
 }
 
-sub cleanTitles($) {
-	my ($eps)   = @_;
-	my $lastNum = 178;
+sub globalRules($) {
+	my ($eps) = @_;
+	if ($DEBUG > 1) {
+		print STDERR "Applying global rules\n";
+	}
+
+	my $lastNum = 1;
 	my $lastSub = undef();
-	foreach my $time (sort(keys(%episodes))) {
+	foreach my $time (sort(keys(%{$eps}))) {
 		my $title = $eps->{$time}->{'title'};
-		if ($title =~ /^(?:The\s+)?Bugle\s+(\d{3,}[a-z]?)\s+(?:\-\s*)?(.*)$/i) {
-			my $num = $1;
-			if ($num =~ /(\d+)([a-z])/i) {
+
+		# Parse a leading episode number, with optional sub-letters
+		if ($title =~ /^(\d{3,}[a-z]?)\s+(?:\-\s*)?(.*)$/i) {
+			my $part = $1;
+			$title = $2;
+			if ($part =~ /(\d+)([a-z])/i) {
 				$lastNum = int($1);
 				$lastSub = $2;
 			} else {
-				$lastNum = int($num);
+				$lastNum = int($part);
 				$lastSub = undef();
 			}
-			$eps->{$time}->{'title'} = 'Bugle ' . $1 . ' - ' . $2;
 		} else {
-			$title =~ s/^\s*(?:The|Bonus)\s+Bugle\s*\-\s*//i;
 			if (!$lastSub) {
 				$lastSub = 'a';
 			} else {
 				$lastSub++;
 			}
 			$lastSub = lc($lastSub);
-			$eps->{$time}->{'title'} = 'Bugle ' . $lastNum . $lastSub . ' - ' . $title;
 		}
+
+		# Always generate a clean name
+		my $num = sprintf('%03d', $lastNum);
+		if ($lastSub) {
+			$num .= $lastSub;
+		}
+		$eps->{$time}->{'title'} = $num . ' - ' . $title;
 	}
 }
