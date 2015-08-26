@@ -34,6 +34,14 @@ my %have     = ();
 my @need     = ();
 my $hs       = HTML::Strip->new();
 
+# Skip if there is a season_done file
+if (-e $OUT_DIR . '/season_done') {
+	if ($DEBUG) {
+		print STDERR 'Podcast disabled: ' . $SERIES . "\n";
+	}
+	exit(0);
+}
+
 # Fetch and analyize the feed
 my $feed = undef();
 {
