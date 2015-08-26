@@ -214,6 +214,15 @@ if ($DEBUG > 1) {
 	push(@YTDL_ARGS, @YTDL_QUIET);
 }
 
+# Disable channel fetching if the ID channel is "None"
+if ($ID =~ /^\s*None\s*$/i) {
+	if ($DEBUG) {
+		print STDERR 'Channel features disabled for: ' . $NAME . "\n";
+	}
+	$NO_CHANNEL = 1;
+	$NO_SEARCH = 1;
+}
+
 # Allow use as a subscription manager
 if ($SUBSCRIPTIONS) {
 	my %subs = ();
