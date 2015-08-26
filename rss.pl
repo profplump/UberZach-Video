@@ -22,6 +22,7 @@ my $SERIES    = basename($OUT_DIR);
 my $URL_FILE  = $OUT_DIR . '/url';
 my $RULE_FILE = $OUT_DIR . '/rules.pm';
 my $ERR_RATIO = 0.05;
+my $DL_LIMIT  = 50;
 
 # Init
 our $DEBUG = 0;
@@ -196,7 +197,13 @@ foreach my $time (keys(%episodes)) {
 }
 
 # Fetch needed files, with basic validation
+my $dlCount = 0;
 foreach my $time (sort(@need)) {
+	if ($dlCount >= $DL_LIMIT) {
+		die('Download limit (' . $DL_LIMIT . ') reached: ' . $SERIES . "\n");
+	}
+	
+	# Build a file path
 	my $ep   = $episodes{$time};
 	my $file = $OUT_DIR . '/' . $ep->{'title'} . ' (' . int($time) . ').' . $ep->{'ext'};
 	if (-e $file) {
@@ -210,6 +217,7 @@ foreach my $time (sort(@need)) {
 
 	# Fetch
 	my $code = getstore($ep->{'url'}, $file);
+	$dlCount++;
 
 	# Validate
 	my $err = undef();
@@ -281,12 +289,4 @@ foreach my $time (sort(@need)) {
 			unlink($file);
 		}
 	}
-}
-
-sub globalRules($) {
-	my ($eps) = @_;
-	if ($DEBUG > 1) {
-		print STDERR "Applying global rules\n";
-	}
-
 }
