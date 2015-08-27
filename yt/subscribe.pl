@@ -775,6 +775,14 @@ sub saveSubscriptions($$) {
 			next;
 		}
 
+		# Skip "None" directories
+		if ($file =~ /\s+\(None\)$/) {
+			if ($DEBUG) {
+				print STDERR 'Ignoring non-channel subscription: ' . $file . "\n";
+			}
+			next;
+		}
+
 		# YT has some trouble with case
 		my $lcFile = lc($file);
 
