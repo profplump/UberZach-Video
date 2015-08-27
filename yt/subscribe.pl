@@ -1039,7 +1039,7 @@ sub getVideoData($) {
 		# Allow local overrides to metadata
 		{
 			my $id   = $video->{'id'};
-			my $meta = $id . '.local';
+			my $meta = $id . '.meta';
 			if (!-r $meta) {
 				next;
 			}
@@ -1050,20 +1050,23 @@ sub getVideoData($) {
 				if (/^\s*#/ || /^\s*$/) {
 					next;
 				}
-				if (/^\s*(\S[^\=]+)\s*=\s*(\S.*\S)\s*$/) {
+				if (/^\s*([^\s\=][^\=]*[^\s\=])\s*=\>?\s*(\S.*\S)\s*$/) {
 					if (exists($video->{$1})) {
-						$video->{$1} = $2;
 						if ($DEBUG) {
 							print STDERR 'Using local metadata line (' . $id . '): ' . $1 . ' => ' . $2 . "\n";
 						}
+						$video->{$1} = $2;
+					} else {
+						die('Invalid local metadata attribute (' . $1 . '): ' . $meta . "\n");
 					}
-				} elsif ($DEBUG) {
-					print STDERR 'Skipping invalid local metdata line (' . $id . '): ' . chomp($_) . "\n";
+				} else {
+					die('Invalid local metdata line (' . $meta . '): ' . chomp($_) . "\n");
 				}
 			}
 			close($fh);
 		}
 
+		# Save
 		push(@videos, $video);
 	}
 
