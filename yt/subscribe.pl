@@ -220,7 +220,7 @@ if ($ID =~ /^\s*None\s*$/i) {
 		print STDERR 'Channel features disabled for: ' . $NAME . "\n";
 	}
 	$NO_CHANNEL = 1;
-	$NO_SEARCH = 1;
+	$NO_SEARCH  = 1;
 }
 
 # Allow use as a subscription manager
@@ -1027,6 +1027,35 @@ sub getVideoData($) {
 		if (!$video) {
 			die($NAME . ": Unable to parse video data\n");
 		}
+
+		# Allow local overrides to metadata
+		{
+			my $id   = $video->{'id'};
+			my $meta = $id . '.local';
+			if (!-r $meta) {
+				next;
+			}
+			my $fh = undef();
+			open($fh, '<', $meta)
+			  or warn('Unable to open local metadata file: ' . $meta . ': ' . $! . ". Skipping...\n");
+			while (<$fh>) {
+				if (/^\s*#/ || /^\s*$/) {
+					next;
+				}
+				if (/^\s*(\S[^\=]+)\s*=\s*(\S.*\S)\s*$/) {
+					if (exists($video->{$1})) {
+						$video->{$1} = $2;
+						if ($DEBUG) {
+							print STDERR 'Using local metadata line (' . $id . '): ' . $1 . ' => ' . $2 . "\n";
+						}
+					}
+				} elsif ($DEBUG) {
+					print STDERR 'Skipping invalid local metdata line (' . $id . '): ' . chomp($_) . "\n";
+				}
+			}
+			close($fh);
+		}
+
 		push(@videos, $video);
 	}
 
