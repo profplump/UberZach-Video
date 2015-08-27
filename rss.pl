@@ -68,7 +68,7 @@ for my $entry ($feed->entries()) {
 	if (defined($ep->{'title'})) {
 		$title = $ep->{'title'};
 	}
-	my $title = $hs->parse($title);
+	$title = $hs->parse($title);
 	$hs->eof();
 	$title =~ s/^\s+//;
 	$title =~ s/\s+$//;
@@ -78,7 +78,7 @@ for my $entry ($feed->entries()) {
 	if (defined($ep->{'description'})) {
 		$desc = $ep->{'description'};
 	}
-	my $desc = $hs->parse($desc);
+	$desc = $hs->parse($desc);
 	$hs->eof();
 	$desc =~ s/^\s+//;
 	$desc =~ s/\s+$//;
