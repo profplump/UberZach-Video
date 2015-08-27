@@ -64,13 +64,21 @@ for my $entry ($feed->entries()) {
 	my $ep = $entry->unwrap();
 
 	# Title
-	my $title = $hs->parse($ep->{'title'});
+	my $title = '';
+	if (defined($ep->{'title'})) {
+		$title = $ep->{'title'};
+	}
+	my $title = $hs->parse($title);
 	$hs->eof();
 	$title =~ s/^\s+//;
 	$title =~ s/\s+$//;
 
 	# Description
-	my $desc = $hs->parse($ep->{'description'});
+	my $desc = '';
+	if (defined($ep->{'description'})) {
+		$desc = $ep->{'description'};
+	}
+	my $desc = $hs->parse($desc);
 	$hs->eof();
 	$desc =~ s/^\s+//;
 	$desc =~ s/\s+$//;
