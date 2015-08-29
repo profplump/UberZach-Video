@@ -126,10 +126,12 @@ for my $entry ($feed->entries()) {
 		my $itunes = $ep->{'http://www.itunes.com/dtds/podcast-1.0.dtd'};
 
 		if (exists($itunes->{'duration'})) {
-			if ($itunes->{'duration'} =~ /(\d{1,2})\:(\d{1,2})\:(\d{1,2})/) {
+			if ($itunes->{'duration'} =~ /(\d+)\:(\d\d)\:(\d\d)/) {
 				$duration = (3600 * int($1)) + (60 * int($2)) + int($3);
-			} else {
-				$duration = int($itunes->{'duration'});
+			} elsif ($itunes->{'duration'} =~ /(\d+)\:(\d\d)/) {
+				$duration = (60 * int($1)) + int($2);
+			} elsif ($DEBUG) {
+				print STDERR 'Unknown duration format: ' . $itunes->{'duration'} . "\n";
 			}
 		}
 		if (!$desc && exists($itunes->{'summary'})) {
