@@ -214,7 +214,7 @@ if (-e $RULE_FILE) {
 	localRules(\%episodes);
 } else {
 	foreach my $time (sort(keys(%episodes))) {
-		$episodes{$time}->{'title'} = time2str('%Y-%m-%d', $time) . ' - 1 - ' . $episodes{$time}->{'title'};
+		$episodes{$time}->{'title'} = time2str('%Y-%m-%d', $time) . ' - ' . $episodes{$time}->{'title'};
 	}
 }
 foreach my $time (keys(%episodes)) {
@@ -295,6 +295,7 @@ foreach my $time (sort(@need)) {
 		$tags->title($ep->{'title'});
 		$tags->year(time2str('%Y', $ep->{'time'}));
 		$tags->comment($ep->{'description'});
+		$tags->track(1);
 		$tags->album($SERIES);
 		$tags->artist($SERIES);
 		$tags->genre($GENRE);
