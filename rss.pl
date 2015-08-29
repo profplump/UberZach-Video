@@ -121,19 +121,28 @@ for my $entry ($feed->entries()) {
 
 	# iTunes data, if available (and useful)
 	my $duration = undef();
-	if (exists($ep->{'itunes:duration'})) {
-		if ($ep->{'itunes:duration'} =~ /(\d{1,2})\:(\d{1,2})\:(\d{1,2})/) {
-			$duration = (3600 * int($1)) + (60 * int($2)) + int($3);
-		} else {
-			$duration = int($ep->{'itunes:duration'});
+	if ($ep->{'http://www.itunes.com/dtds/podcast-1.0.dtd'}) {
+		my $itunes = $ep->{'http://www.itunes.com/dtds/podcast-1.0.dtd'};
+
+		if (exists($itunes->{'duration'})) {
+			if ($itunes->{'duration'} =~ /(\d{1,2})\:(\d{1,2})\:(\d{1,2})/) {
+				$duration = (3600 * int($1)) + (60 * int($2)) + int($3);
+			} else {
+				$duration = int($itunes->{'duration'});
+			}
+		}
+		if (!$desc && exists($itunes->{'summary'})) {
+			$desc = $itunes->{'summary'};
+			$desc =~ s/^\s+//;
+			$desc =~ s/\s+$//;
+		}
+		if (!$author && exists($itunes->{'author'})) {
+			$author = $itunes->{'author'};
+			$author =~ s/^\s+//;
+			$author =~ s/\s+$//;
 		}
 	}
-	if (!$desc && exists($ep->{'itunes:summary'})) {
-		$desc = $ep->{'itunes:summary'};
-		$desc =~ s/^\s+//;
-		$desc =~ s/\s+$//;
-	}
-	
+
 	# Collect extracted, cleaned data
 	if ($title && $desc && $time && $url && $ext) {
 		my %tmp = (
@@ -202,7 +211,7 @@ if (-e $RULE_FILE) {
 	localRules(\%episodes);
 } else {
 	foreach my $time (sort(keys(%episodes))) {
-		$episodes{$time}->{'title'} = time2str('%Y-%m-%d', $time) . ' - ' . $episodes{$time}->{'title'};
+		$episodes{$time}->{'title'} = time2str('%Y-%m-%d', $time) . ' - 1 - ' . $episodes{$time}->{'title'};
 	}
 }
 foreach my $time (keys(%episodes)) {
@@ -218,7 +227,7 @@ foreach my $time (sort(@need)) {
 	if ($dlCount >= $DL_LIMIT) {
 		die('Download limit (' . $DL_LIMIT . ') reached: ' . $SERIES . "\n");
 	}
-	
+
 	# Build a file path
 	my $ep   = $episodes{$time};
 	my $file = $OUT_DIR . '/' . $ep->{'title'} . ' (' . int($time) . ').' . $ep->{'ext'};
