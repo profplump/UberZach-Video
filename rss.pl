@@ -33,6 +33,7 @@ my %episodes = ();
 my %have     = ();
 my @need     = ();
 my $hs       = HTML::Strip->new();
+MP3::Tag->config('write_v24' => 1);
 
 # Skip if there is a season_done file
 if (-e $OUT_DIR . '/season_done') {
