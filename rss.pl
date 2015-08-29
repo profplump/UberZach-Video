@@ -108,7 +108,7 @@ for my $entry ($feed->entries()) {
 					$ext = 'mp3';
 				} elsif ($enc->{'type'} =~ /video\//i) {
 					if ($DEBUG > 1) {
-						print STDERR 'Skipping video file: ' . $time . "\n";
+						print STDERR 'Skipping video file: ' . time2str('%Y-%m-%d', $time) . "\n";
 					}
 				} else {
 					print STDERR 'Unknown MIME type: ' . $enc->{'type'} . "\n";
@@ -149,20 +149,50 @@ for my $entry ($feed->entries()) {
 	}
 
 	# Collect extracted, cleaned data
-	if ($title && $desc && $time && $url && $ext) {
+	if ($title && $time && $url && $ext && $desc) {
 		my %tmp = (
 			'title'       => $title,
-			'description' => $desc,
 			'time'        => $time,
 			'url'         => $url,
 			'ext'         => $ext,
+			'description' => $desc,
 			'size'        => $size,
 			'duration'    => $duration,
 			'author'      => $author,
 		);
 		$episodes{$time} = \%tmp;
 	} elsif ($DEBUG) {
-		print STDERR 'Skipping incomplete entry: ' . $title . ': ' . $time . "\n";
+		print STDERR "Skipping incomplete entry:\n";
+		print STDERR "\tTitle: ";
+		if ($title) {
+			print STDERR $title . "\n";
+		} else {
+			print STDERR "<missing>\n";
+		}
+		print STDERR "\tTime: ";
+		if ($time) {
+			print STDERR time2str('%Y-%m-%d', $time) . "\n";
+		} else {
+			print STDERR "<missing>\n";
+		}
+		print STDERR "\tURL: ";
+		if ($url) {
+			print STDERR $url . "\n";
+		} else {
+			print STDERR "<missing>\n";
+		}
+		print STDERR "\tExtension: ";
+		if ($ext) {
+			print STDERR $ext . "\n";
+		} else {
+			print STDERR "<missing>\n";
+		}
+		print STDERR "\tDescription: ";
+		if ($desc) {
+			print STDERR substr($desc, 0, 20) . "\n";
+		} else {
+			print STDERR "<missing>\n";
+		}
 	}
 }
 
@@ -202,9 +232,12 @@ foreach my $time (keys(%episodes)) {
 	if (!exists($have{$time})) {
 		push(@need, $time);
 		if ($DEBUG > 1) {
-			print STDERR 'Will fetch: ' . $time . "\n";
+			print STDERR 'Will fetch: ' . time2str('%Y-%m-%d', $time) . "\n";
 		}
 	}
+}
+if ($DEBUG) {
+	print STDERR 'Need/Total: ' . scalar(@need) . '/' . scalar(keys(%episodes)) . "\n";
 }
 
 # Apply naming rules
@@ -242,7 +275,7 @@ foreach my $time (sort(@need)) {
 
 	# Debug
 	if ($DEBUG) {
-		print STDERR 'Fetching (' . $time . '): ' . $ep->{'title'} . ' => ' . $ep->{'url'} . "\n";
+		print STDERR 'Fetching (' . time2str('%Y-%m-%d', $time) . '): ' . $ep->{'title'} . ' => ' . $ep->{'url'} . "\n";
 	}
 
 	# Fetch
