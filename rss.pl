@@ -130,6 +130,8 @@ for my $entry ($feed->entries()) {
 				$duration = (3600 * int($1)) + (60 * int($2)) + int($3);
 			} elsif ($itunes->{'duration'} =~ /(\d+)\:(\d\d)/) {
 				$duration = (60 * int($1)) + int($2);
+			} elsif ($itunes->{'duration'} =~ /(\d+)/) {
+				$duration = int($1);
 			} elsif ($DEBUG) {
 				print STDERR 'Unknown duration format: ' . $itunes->{'duration'} . "\n";
 			}
