@@ -4,7 +4,7 @@ $AUTH_ERR = '';
 
 # Always start a session, unless we're on the CLI
 if (php_sapi_name() != 'cli') {
-	#session_set_cookie_params(0, '/tv', $_SERVER['HTTP_HOST'], true, true);
+	session_set_cookie_params(30 * 86400, '/tv', $_SERVER['HTTP_HOST'], true, true);
 	session_start();
 }
 
