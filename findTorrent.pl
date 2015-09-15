@@ -1305,23 +1305,16 @@ sub findSE($) {
 		$seasonBlock = $1;
 		my ($month, $day);
 		($season, $month, $day) = $seasonBlock =~ /(20\d\d)(?:\.|\-)([01]?\d)(?:\.|\-)([0-3]?\d)/;
-		$season = int($season);
 		$episode = sprintf('%04d-%02d-%02d', $season, $month, $day);
 	} elsif ($name =~ /(?:\b|_)(S(?:eason)?[_\s\.\-]*\d{1,2}[_\s\.\-]*E(?:pisode)?[_\s\.]*\d{1,3}(?:E\d{1,3})?)(?:\b|_)/i) {
 		$seasonBlock = $1;
 		($season, $episode) = $seasonBlock =~ /S(?:eason)?[_\s\.\-]*(\d{1,2})[_\s\.\-]*E(?:pisode)?[_\s\.\-]*(\d{1,3})/i;
-		$season = int($season);
-		$episode = sprintf('%02d', int($episode));
 	} elsif ($name =~ /[\[\_\.](\d{1,2}x\d{2,3})[\]\_\.]/i) {
 		$seasonBlock = $1;
 		($season, $episode) = $seasonBlock =~ /(\d+)x(\d+)/i;
-		$season = int($season);
-		$episode = sprintf('%02d', int($episode));
 	} elsif ($name =~ /(?:\b|_)([01]?\d[_\s\.]?[0-3]\d)(?:\b|_)/i) {
 		$seasonBlock = $1;
 		($season, $episode) = $seasonBlock =~ /(?:\b|_)([01]?\d)[_\s\.]?([0-3]\d)/i;
-		$season = int($season);
-		$episode = sprintf('%02d', int($episode));
 	}
 
 	# Return something valid and INTy or UNDEF
@@ -1331,7 +1324,13 @@ sub findSE($) {
 		}
 		$season  = undef();
 		$episode = undef();
+	} elsif ($episode =~ /^20\d{2}\-\d{2}\-\d{2}$/) {
+		# Episode-by-date
+		$season = int($season);
 	} else {
+		# Catchall
+		# This will warn and return undef() (which is valid) on error
+		$season = int($season);
 		$episode = int($episode);
 	}
 	return ($season, $episode);
