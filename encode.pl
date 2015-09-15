@@ -809,7 +809,7 @@ sub findBestAudioTrack($$) {
 sub isValidSubLanguage($) {
 	my ($lang, $iso) = @_;
 
-	if (scalar(keys(%LANG_INCLUDE_ISO)) && $LANG_INCLUDE_ISO{$iso}) {
+	if (scalar(keys(%LANG_INCLUDE_ISO)) && defined($iso) && exists($LANG_INCLUDE_ISO{$iso}) && $LANG_INCLUDE_ISO{$iso}) {
 		return 1;
 	} elsif ($SUB_INCLUDE_REGEX && $lang =~ /${SUB_INCLUDE_REGEX}/i) {
 		return 1;
