@@ -94,7 +94,7 @@ sub findVideos($);
 sub findFiles($);
 sub buildNFO($);
 sub buildSeriesNFO($);
-sub getSubscriptions($$);
+sub getSubscriptions($);
 sub saveSubscriptions($$);
 sub saveChannel($);
 sub getChannel($);
@@ -227,13 +227,9 @@ if ($ID =~ /^\s*None\s*$/i) {
 if ($SUBSCRIPTIONS) {
 	my %subs = ();
 	foreach my $user (keys(%USERS)) {
-		my $tmp = getSubscriptions($user, $USERS{$user});
+		my $tmp = getSubscriptions($USERS{$user});
 		foreach my $sub (keys(%{$tmp})) {
-			if (exists($subs{$sub})) {
-				$subs{$sub} .= ', ' . $tmp->{$sub};
-			} else {
-				$subs{$sub} = $tmp->{$sub};
-			}
+			$subs{$sub} = $tmp->{$sub};
 		}
 	}
 	saveSubscriptions($DIR, \%subs);
@@ -696,8 +692,8 @@ sub fetchParse($$) {
 	return $data;
 }
 
-sub getSubscriptions($$) {
-	my ($user, $id) = @_;
+sub getSubscriptions($) {
+	my ($id) = @_;
 	our $NAME;
 
 	# Loop through until we have all the entries
@@ -741,7 +737,7 @@ sub getSubscriptions($$) {
 			if ($DEBUG) {
 				print STDERR $item->{'snippet'}->{'title'} . ' => ' . $item->{'snippet'}->{'resourceId'}->{'channelId'} . "\n";
 			}
-			$subs{ $item->{'snippet'}->{'title'} . ' (' . $item->{'snippet'}->{'resourceId'}->{'channelId'} . ')' } = $user;
+			$subs{ $item->{'snippet'}->{'resourceId'}->{'channelId'} } = $item->{'snippet'}->{'title'};
 		}
 
 		# Loop if there are results left to fetch
@@ -750,7 +746,7 @@ sub getSubscriptions($$) {
 		}
 	}
 
-	# Return the list of subscribed usernames
+	# Return the list of subscribed channel IDs
 	return \%subs;
 }
 
@@ -775,19 +771,23 @@ sub saveSubscriptions($$) {
 			next;
 		}
 
-		# Skip "None" directories
-		if ($file =~ /\s+\(None\)$/) {
+		# Extract the YTID
+		my ($id) = $file =~ /\(([\w\-]+)\)$/;
+		if (!$id) {
+			warn('Skipping invalid local subscription: ' . $file . "\n");
+			next;
+		}
+
+		# Skip "None" directories (i.e. non-channel subscriptions)
+		if ($id eq 'None') {
 			if ($DEBUG) {
 				print STDERR 'Ignoring non-channel subscription: ' . $file . "\n";
 			}
 			next;
 		}
 
-		# YT has some trouble with case
-		my $lcFile = lc($file);
-
 		# Anything else should be in the list
-		if (!$subs->{$file} && !$subs->{$lcFile}) {
+		if (!$subs->{$id}) {
 			my (undef(), undef(), $hour) = localtime(time);
 			if ($hour == 0 || $DEBUG) {
 				print STDERR 'Missing YT subscription for: ' . $file . "\n";
@@ -795,15 +795,16 @@ sub saveSubscriptions($$) {
 		}
 
 		# Note local subscriptions
-		$locals{$lcFile} = 1;
+		$locals{$id} = 1;
 	}
 	closedir($fh);
 
 	# Check for YT subscriptions missing locally
-	foreach my $sub (keys(%{$subs})) {
-		if (!exists($locals{ lc($sub) })) {
-			print STDERR 'Adding local subscription for: ' . $sub . ' => ' . $subs->{$sub} . "\n";
-			mkdir($folder . '/' . $sub);
+	foreach my $id (keys(%{$subs})) {
+		if (!exists($locals{ $id })) {
+			my $dir = $subs->{$id} . ' (' . $id . ')';
+			print STDERR 'Adding local subscription for: ' . $dir . "\n";
+			mkdir($folder . '/' . $dir);
 		}
 	}
 }
