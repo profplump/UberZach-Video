@@ -821,7 +821,7 @@ sub isValidSubLanguage($) {
 sub isValidAudioLanguage($) {
 	my ($lang, $iso) = @_;
 
-	if (scalar(keys(%LANG_INCLUDE_ISO)) && $LANG_INCLUDE_ISO{$iso}) {
+	if (scalar(keys(%LANG_INCLUDE_ISO)) && defined($iso) && $LANG_INCLUDE_ISO{$iso}) {
 		return 1;
 	} elsif ($AUDIO_EXCLUDE_REGEX && $lang =~ /${AUDIO_EXCLUDE_REGEX}/i) {
 		return 0;
