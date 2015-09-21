@@ -89,7 +89,22 @@ for infile in $FILES; do
 	# Don't get hung up on file extensions
 	nobase="`echo "${infile}" | sed 's%\....$%%'`"
 
-	# Skip files that exist
+	# Copy NFO and other metadata, if present
+	OLD_IFS="${IFS}"
+	IFS=" "
+	for meta in "${nobase}.nfo" tvshow.nfo poster.jpg poster.png; do
+		if [ -e "${IN_DIR}/${meta}" ]; then
+			if [ ! -e "${OUT_DIR}/${meta}" ]; then
+				if [ $DEBUG -gt 0 ]; then
+					echo "Copying: ${IN_DIR}/${meta}" 1>&2
+				fi
+				cp "${IN_DIR}/${meta}" "${OUT_DIR}/"
+			fi
+		fi
+	done
+	IFS="${OLD_IFS}"
+
+	# Skip video files that exist
 	if ls "${OUT_DIR}/${nobase}".* >/dev/null 2>&1; then
 		if [ $DEBUG -gt 0 ]; then
 			echo "Exists: ${SUB_DIR}/${infile}" 1>&2

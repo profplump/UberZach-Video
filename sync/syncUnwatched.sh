@@ -127,6 +127,22 @@ for i in $OLD_FILES; do
 		continue
 	fi
 
+	# Skip tvshow.nfo and poster.* if other files exist in the directory
+	NOEXT="`basename "${FILE}" | sed 's%\....$%%'`"
+	if [ "${NOEXT}" == "tvshow" ] || [ "${NOEXT}" == "poster" ]; then
+		DIRNAME="`dirname "${FILE}"`"
+		if ls "${DIRNAME}" | grep -v 'tvshow\.nfo$' | grep -qv 'poster\....$'; then
+			if [ $DEBUG -gt 0 ]; then
+				echo "Skipping active metadata file: ${FILE}" 1>&2
+			fi
+			continue
+		else
+			if [ $DEBUG -gt 0 ]; then
+				echo "Inactive metadata file: ${FILE}" 1>&2
+			fi
+		fi
+	fi
+
 	# Skip files under 1H old to avoid churn and provide a no-delete signal for other conditions (e.g. filename encoding)
 	STAT="`stat -f '%m' "${FILE}" 2>/dev/null`"
 	if [ -z "${STAT}" ]; then
