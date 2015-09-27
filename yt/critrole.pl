@@ -6,6 +6,7 @@ use File::Basename;
 
 # Parameters
 my $TOP_URL  = 'http://geekandsundry.com/shows/critical-role/';
+my $PG_MATCH = qr/\<link rel=\'next\' href=\'([^\']+\/page\/\d+\/)\'/;
 my $EP_MATCH = qr/^https?\:\/\/[^\/]+\/critical\-role\-episode/i;
 my $INI_PATH = `~/bin/video/mediaPath` . '/YouTube/Critical Role (None)/extra_videos.ini';
 my $UA_STR   = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
@@ -53,16 +54,26 @@ my %old_ytids = ();
 # Use the top-level page to find episode-specific pages
 my @episodes = ();
 {
-	my $response = $ua->get($TOP_URL);
-	if (!$response->is_success()) {
-		die(basename($0) . ": Unable to fetch top-level page\n");
-	}
-	foreach my $link (split(/\<a\s+/, $response->decoded_content())) {
-		if ($link =~ /\s+href=\"([^\"]+)\"/) {
-			my $href = $1;
-			if ($href =~ $EP_MATCH) {
-				push(@episodes, $href);
+	my $url = $TOP_URL;
+	NEXT_PAGE: {
+		if ($DEBUG) {
+			print STDERR 'Loading top page: ' . $url . "\n";
+		}
+		my $response = $ua->get($url);
+		if (!$response->is_success()) {
+			die(basename($0) . ": Unable to fetch top-level page\n");
+		}
+		foreach my $link (split(/\<a\s+/, $response->decoded_content())) {
+			if ($link =~ /\s+href=\"([^\"]+)\"/) {
+				my $href = $1;
+				if ($href =~ $EP_MATCH) {
+					push(@episodes, $href);
+				}
 			}
+		}
+		if ($response->decoded_content() =~ $PG_MATCH) {
+			$url = $1;
+			redo NEXT_PAGE;
 		}
 	}
 }
