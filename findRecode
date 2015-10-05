@@ -69,7 +69,7 @@ for i in ${FILES}; do
 
 	# We do not want to recode videos that we already encoded
 	HANDBRAKE=0
-	STRINGS="`head -c 10000000 "${i}" | strings -n 100`"
+	STRINGS="`head -c 250M "${i}" | strings -n 100`"
 	if echo "${STRINGS}" | grep -q HandBrake; then
 		HANDBRAKE=1
 	elif echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125|129|130|142)' | grep -Eq 'crf=2[0-5]\.[0-9]'; then
