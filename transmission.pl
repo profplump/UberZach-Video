@@ -257,7 +257,7 @@ sub getSSE($) {
 		($season, $episode) = $seasonBlock =~ /S(?:eason)?[_\s\.\-]*(\d{1,2})[_\s\.\-]*E(?:pisode)?[_\s\.\-]*(\d{1,3})/i;
 		$season = int($season);
 		$episode = sprintf('%02d', int($episode));
-	} elsif ($name =~ /[\[\_\.](\d{1,2}x\d{2,3})[\]\_\.]/i) {
+	} elsif ($name =~ /\b(\d{1,2}x\d{2,3})\b/i) {
 		$seasonBlock = $1;
 		($season, $episode) = $seasonBlock =~ /(\d+)x(\d+)/i;
 		$season = int($season);
