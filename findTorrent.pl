@@ -961,6 +961,20 @@ foreach my $tor (@tors) {
 		}
 		next;
 
+		# Skip Spanish files
+	} elsif ($tor->{'title'} =~ /Español/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "Español": ' . $tor->{'title'} . "\n";
+		}
+		next;
+
+		# Skip Castellano files
+	} elsif ($tor->{'title'} =~ /Castellano/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "Castellano": ' . $tor->{'title'} . "\n";
+		}
+		next;
+
 		# Skip unedited files
 	} elsif ($tor->{'title'} =~ /unedited/i) {
 		if ($DEBUG) {
