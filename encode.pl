@@ -589,6 +589,11 @@ sub audioOptions($) {
 					print STDERR 'Skipping track ' . $index . ' due to language: ' . $tracks{$index}->{'language'} . "\n";
 				}
 				next;
+			} elsif ($FORCE_MP4 && $tracks{$index}->{'codec'} =~ /DTS/i) {
+				if ($DEBUG) {
+					print STDERR 'Skipping track ' . $index . " due to DTS codec and FORCE_MP4 flag\n";
+				}
+				next;
 			} else {
 				my %track = ('index' => $index, 'encoder' => 'copy');
 				push(@audio_tracks, \%track);
