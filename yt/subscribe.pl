@@ -1080,7 +1080,7 @@ sub getVideoData($) {
 		localMetadata($video->{'id'}, $video);
 
 		# Save
-		$found{$video->{'id'}} = 1;
+		$found{ $video->{'id'} } = 1;
 		push(@videos, $video);
 	}
 
