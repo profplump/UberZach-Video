@@ -286,7 +286,7 @@ foreach my $title (keys(%titles)) {
 		}
 	}
 
-	# Force MKV muxing if the output contains DTS audio (technically MP4 is supported buy QuickTime hates it)
+	# Force MKV muxing if the output contains DTS audio (technically MP4 supports it but QuickTime hates it)
 	foreach my $track (values(%{ $scan->{'audio_selected'} })) {
 		if ($track->{'codec'} =~ /DTS/i) {
 			$FORMAT = 'mkv';
