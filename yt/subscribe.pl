@@ -35,7 +35,19 @@ my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
 my $API_ST_REL    = 0.50;
 my $API_ST_ABS    = 5;
-my %API           = (
+my %VIDEO_FIELDS  = (
+	'id'          => '',
+	'title'       => '',
+	'description' => '',
+	'creator'     => '',
+	'publishedAt' => '',
+	'channelId'   => '',
+	'rawDuration' => '',
+	'date',       => '',
+	'season'      => '',
+	'duration'    => '',
+);
+my %API = (
 
 	#https://www.googleapis.com/youtube/v3/channels?part=id&forUsername={channelName}&key={YOUR_API_KEY}
 	'channelID' => {
@@ -90,6 +102,7 @@ my %API           = (
 
 # Prototypes
 sub getVideoData($);
+sub localMetadata($$);
 sub findVideos($);
 sub findFiles($);
 sub buildNFO($);
@@ -103,6 +116,7 @@ sub saveString($$);
 sub readExcludes();
 sub readExtras();
 sub parseVideoData($);
+sub calcVideoData($);
 sub dropExcludes($);
 sub addExtras($);
 sub updateNFOData($$$);
@@ -280,7 +294,7 @@ if (!$NO_FILES) {
 
 # Deal with unknown videos
 foreach my $id (keys(%{$files})) {
-	if (!exists($videos->{$id}) && $files->{$id}->{'season'} > 0) {
+	if ((!exists($videos->{$id}) || !$videos->{$id}->{'date'}) && $files->{$id}->{'season'} > 0) {
 
 		# Check the ID specifically to find things the APIv3 fuzzy search misses
 		if ($DEBUG) {
@@ -812,7 +826,7 @@ sub saveSubscriptions($$) {
 
 	# Check for YT subscriptions missing locally
 	foreach my $id (keys(%{$subs})) {
-		if (!exists($locals{ $id })) {
+		if (!exists($locals{$id})) {
 			my $dir = $subs->{$id} . ' (' . $id . ')';
 			print STDERR 'Adding local subscription for: ' . $dir . "\n";
 			mkdir($folder . '/' . $dir);
@@ -945,6 +959,9 @@ sub readExtras() {
 
 sub parseVideoData($) {
 	my ($data) = @_;
+	my %video = %VIDEO_FIELDS;
+
+	# Sanity check
 	if (   !exists($data->{'id'})
 		|| !exists($data->{'snippet'})
 		|| ref($data->{'snippet'}) ne 'HASH'
@@ -959,26 +976,36 @@ sub parseVideoData($) {
 	}
 
 	# Direct extraction
-	my %video = (
-		'id'          => $data->{'id'},
-		'title'       => $data->{'snippet'}->{'title'},
-		'description' => $data->{'snippet'}->{'description'},
-		'creator'     => $data->{'snippet'}->{'channelTitle'},
-		'publishedAt' => $data->{'snippet'}->{'publishedAt'},
-		'channelId'   => $data->{'snippet'}->{'channelId'},
-		'rawDuration' => $data->{'contentDetails'}->{'duration'},
-	);
+	$video{'id'}          = $data->{'id'};
+	$video{'title'}       = $data->{'snippet'}->{'title'};
+	$video{'description'} = $data->{'snippet'}->{'description'};
+	$video{'creator'}     = $data->{'snippet'}->{'channelTitle'};
+	$video{'publishedAt'} = $data->{'snippet'}->{'publishedAt'};
+	$video{'channelId'}   = $data->{'snippet'}->{'channelId'};
+	$video{'rawDuration'} = $data->{'contentDetails'}->{'duration'};
 
-	# Convert datetime formats
-	$video{'date'} = str2time($video{'publishedAt'});
-	$video{'season'} = time2str('%Y', $video{'date'});
-	if ($video{'rawDuration'} =~ /PT(\d+)M(\d+)S/) {
-		$video{'duration'} = ($1 * 60) + $2;
-	} elsif ($video{'rawDuration'} =~ /PT(\d+)S/) {
-		$video{'duration'} = $1;
-	}
+	# Convert dates and whatnot
+	calcVideoData(\%video);
 
 	return \%video;
+}
+
+sub calcVideoData($) {
+	my ($video) = @_;
+
+	if ($video->{'publishedAt'}) {
+		$video->{'date'} = str2time($video->{'publishedAt'});
+	}
+	if ($video->{'date'}) {
+		$video->{'season'} = time2str('%Y', $video->{'date'});
+	} else {
+		$video->{'season'} = 0;
+	}
+	if ($video->{'rawDuration'} =~ /PT(\d+)M(\d+)S/) {
+		$video->{'duration'} = ($1 * 60) + $2;
+	} elsif ($video->{'rawDuration'} =~ /PT(\d+)S/) {
+		$video->{'duration'} = $1;
+	}
 }
 
 sub dropExcludes($) {
@@ -1017,6 +1044,7 @@ sub getVideoData($) {
 	my ($ids) = @_;
 	my @videos = ();
 	our $NAME;
+	my %found = ();
 
 	# Do a batch request for the entire batch of video data
 	my $data = fetchParse('video', { 'id' => join(',', @{$ids}) });
@@ -1048,42 +1076,60 @@ sub getVideoData($) {
 			die($NAME . ": Unable to parse video data\n");
 		}
 
-		# Allow local overrides to metadata
-		{
-			my $id   = $video->{'id'};
-			my $meta = $id . '.meta';
-			if (!-r $meta) {
-				next;
-			}
-			my $fh = undef();
-			open($fh, '<', $meta)
-			  or warn('Unable to open local metadata file: ' . $meta . ': ' . $! . ". Skipping...\n");
-			while (<$fh>) {
-				if (/^\s*#/ || /^\s*$/) {
-					next;
-				}
-				if (/^\s*([^\s\=][^\=]*[^\s\=])\s*=\>?\s*(\S.*\S)\s*$/) {
-					if (exists($video->{$1})) {
-						if ($DEBUG) {
-							print STDERR 'Using local metadata line (' . $id . '): ' . $1 . ' => ' . $2 . "\n";
-						}
-						$video->{$1} = $2;
-					} else {
-						die('Invalid local metadata attribute (' . $1 . '): ' . $meta . "\n");
-					}
-				} else {
-					die('Invalid local metdata line (' . $meta . '): ' . chomp($_) . "\n");
-				}
-			}
-			close($fh);
-		}
+		# Allow local metadata overrides
+		localMetadata($video->{'id'}, $video);
 
 		# Save
+		$found{$video->{'id'}} = 1;
 		push(@videos, $video);
+	}
+
+	# Load local metadata even for videos YT doesn't know anything about
+	foreach my $id (@{$ids}) {
+		if ($found{$id}) {
+			next;
+		}
+
+		my %video = %VIDEO_FIELDS;
+		$video{'id'} = $id;
+		localMetadata($id, \%video);
+
+		# Save
+		$found{$id} = 1;
+		push(@videos, \%video);
 	}
 
 	# Parse the video data
 	return \@videos;
+}
+
+sub localMetadata($$) {
+	my ($id, $video) = @_;
+	my $meta = $id . '.meta';
+	if (!-r $meta) {
+		return;
+	}
+	my $fh = undef();
+	open($fh, '<', $meta)
+	  or warn('Unable to open local metadata file: ' . $meta . ': ' . $! . ". Skipping...\n");
+	while (<$fh>) {
+		if (/^\s*#/ || /^\s*$/) {
+			next;
+		}
+		if (/^\s*([^\s\=][^\=]*[^\s\=])\s*=\>?\s*(\S.*\S)\s*$/) {
+			if (exists($video->{$1})) {
+				if ($DEBUG) {
+					print STDERR 'Using local metadata line (' . $id . '): ' . $1 . ' => ' . $2 . "\n";
+				}
+				$video->{$1} = $2;
+			} else {
+				die('Invalid local metadata attribute (' . $1 . '): ' . $meta . "\n");
+			}
+		} else {
+			die('Invalid local metdata line (' . $meta . '): ' . chomp($_) . "\n");
+		}
+	}
+	close($fh);
 }
 
 sub findVideos($) {
