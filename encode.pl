@@ -120,6 +120,11 @@ if ($ENV{'NO_CROP'}) {
 	$NO_CROP = 1;
 }
 
+# Enable greyscale mode
+if ($ENV{'GREYSCALE'}) {
+	push(@video_params, '--grayscale');
+}
+
 # Additional arguments for HandBrake, to allow options not supported directly by this script
 # Split on spaces; if you need spaces you'll have to work out something else
 if ($ENV{'HANDBRAKE_ARGS'}) {
