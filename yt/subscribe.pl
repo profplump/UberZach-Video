@@ -43,9 +43,9 @@ my %VIDEO_FIELDS  = (
 	'publishedAt' => '',
 	'channelId'   => '',
 	'rawDuration' => '',
-	'date',       => '',
-	'season'      => '',
-	'duration'    => '',
+	'date',       => 0,
+	'season'      => 0,
+	'duration'    => 0,
 );
 my %API = (
 
