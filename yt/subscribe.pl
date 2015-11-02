@@ -154,6 +154,14 @@ if ($NAME =~ /^(.*)\s\(([\w\-]+)\)$/) {
 	die('Invalid folder: ' . $DIR . "\n");
 }
 
+# Allow folders to disable themselves
+if (-e "${DIR}/season_done") {
+	if ($DEBUG) {
+		print STDERR "Folder disabled. Exiting...\n";
+	}
+	exit(0);
+}
+
 # Move to the target directory so we can use relative paths later
 chdir($DIR) or die('Unable to chdir to: ' . $DIR . "\n");
 
