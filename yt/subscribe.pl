@@ -127,6 +127,17 @@ sub renameVideo($$$$$$);
 sub parseFilename($);
 sub fetch($$);
 
+# Debug
+my $DEBUG = 0;
+if ($ENV{'DEBUG'}) {
+	if ($ENV{'DEBUG'} =~ /(\d+)/) {
+		$DEBUG = $1;
+	} else {
+		$DEBUG = 1;
+	}
+	$DELAY /= 2;
+}
+
 # Sanity check
 if (scalar(@ARGV) < 1) {
 	die('Usage: ' . basename($0) . " output_directory\n");
@@ -166,15 +177,6 @@ if (-e "${DIR}/season_done") {
 chdir($DIR) or die('Unable to chdir to: ' . $DIR . "\n");
 
 # Environmental parameters (debug)
-my $DEBUG = 0;
-if ($ENV{'DEBUG'}) {
-	if ($ENV{'DEBUG'} =~ /(\d+)/) {
-		$DEBUG = $1;
-	} else {
-		$DEBUG = 1;
-	}
-	$DELAY /= 2;
-}
 my $NO_FETCH = 0;
 if ($ENV{'NO_FETCH'}) {
 	$NO_FETCH = 1;
