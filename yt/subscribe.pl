@@ -14,6 +14,7 @@ use JSON;
 use XML::LibXML;
 use IPC::System::Simple qw( system run capture EXIT_ANY $EXITVAL );
 use IPC::Cmd qw( can_run );
+use Cwd qw( abs_path );
 use PrettyPrint;
 
 # Paramters
@@ -149,6 +150,7 @@ if ($0 =~ /subscription/i) {
 
 # Command-line parameters
 our ($DIR) = @ARGV;
+$DIR = Cwd::abs_path($DIR);
 $DIR =~ s/\/+$//;
 if (!-d $DIR) {
 	die('Invalid output directory: ' . $DIR . "\n");
@@ -262,8 +264,8 @@ if ($ID =~ /^\s*None\s*$/i) {
 
 # Run the local "update" script if any
 {
-	my @update = ($DIR . '/update', '');
-	if (-x $update[0]) {
+	my @update = ('./update', '');
+	if (can_run($update[0])) {
 		if ($DEBUG) {
 			print STDERR "Executing local update script...\n";
 		}
