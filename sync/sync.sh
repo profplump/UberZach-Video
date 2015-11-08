@@ -105,7 +105,7 @@ for infile in $FILES; do
 	IFS="${OLD_IFS}"
 
 	# Skip video files that exist
-	if ls "${OUT_DIR}/${nobase}".* >/dev/null 2>&1; then
+	if ls "${OUT_DIR}/${nobase}.m"[4k]v >/dev/null 2>&1; then
 		if [ $DEBUG -gt 0 ]; then
 			echo "Exists: ${SUB_DIR}/${infile}" 1>&2
 		fi
