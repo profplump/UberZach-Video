@@ -64,9 +64,14 @@ if [ ! -e "${tmpFile}" ] || [ `stat -f '%z' "${tmpFile}"` -lt 1000 ]; then
 	echo "`basename "${0}"`: Error creating output file for input: ${inFile}" 1>&2
 
 	# Try to recode (with Handbrake/ffmpeg) if mkvmerge fails
-	echo "`basename "${0}"`: Attempting recode instead..." 1>&2
-	~/bin/video/recode "${inFile}"
-	exit "${?}"
+	if ~/bin/video/canRecode.sh; then
+		echo "`basename "${0}"`: Attempting recode instead..." 1>&2
+		~/bin/video/recode "${inFile}"
+		exit "${?}"
+	else
+		echo "`basename "${0}"`: Unable to recode." 1>&2
+		exit 1
+	fi
 fi
 
 # Move into place, dropping the original

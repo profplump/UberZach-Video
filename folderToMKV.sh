@@ -18,19 +18,23 @@ if [ `ps auwx | grep -v grep | grep "${me}" | wc -l` -gt 10 ]; then
 	exit 0
 fi
 
-# Prefer recoding to rewrapping if the file is overrate
-~/bin/video/findRecode0 "${inFolder}" | xargs -0 -n1 ~/bin/video/recode
+# Skip recoding if the host is not capable
+if ~/bin/video/canRecode.sh; then
 
-# MPEGs must be recoded, not just re-wrapped
-for i in "${inFolder}/"*.[mM][pP][gG] "${inFolder}/"*.[mM][pP][eE][gG]; do
-	# Make sure the file is reasonable
-	if [ ! -e "${i}" ]; then
-		continue
-	fi
+	# Prefer recoding to rewrapping if the file is overrate
+	~/bin/video/findRecode0 "${inFolder}" | xargs -0 -n1 ~/bin/video/recode
 
-	# Recode
-	~/bin/video/recode "${i}"
-done
+	# MPEGs must be recoded, not just re-wrapped
+	for i in "${inFolder}/"*.[mM][pP][gG] "${inFolder}/"*.[mM][pP][eE][gG]; do
+		# Make sure the file is reasonable
+		if [ ! -e "${i}" ]; then
+			continue
+		fi
+
+		# Recode
+		~/bin/video/recode "${i}"
+	done
+fi
 
 # Move to the input folder
 inFolder="`cd "${inFolder}" && pwd`"
