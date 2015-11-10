@@ -87,7 +87,16 @@ for infile in $FILES; do
 	fi
 
 	# Don't get hung up on file extensions
+	base="`echo "${infile}" | sed 's%^.*\.\(.*\)$%\1%'`"
 	nobase="`echo "${infile}" | sed 's%\....$%%'`"
+
+	# Skip things that are clearly not video files
+	if [ "${base}" == "fake" ]; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Non-video file: ${SUB_DIR}/${infile}" 1>&2
+		fi
+		continue
+	fi
 
 	# Copy NFO and other metadata, if present
 	OLD_IFS="${IFS}"
