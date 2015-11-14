@@ -78,6 +78,20 @@ OLD_FILES="`find "${DEST_DIR}" -type f | sed "s%^${BASE_DIR}/%%"`"
 # Always include special files
 IFS=$'\n'
 for i in `cat ~/.sync_extras`; do
+	# Skip comments and empty lines
+	if [[ "${i}" =~ ^# ]] || [[ "${i}" =~ ^$ ]]; then
+		continue
+	fi
+
+	# Skip files not inside $DIR
+	if ! [[ "${i}" =~ ^${DIR} ]]; then
+		if [ $DEBUG -gt 0 ]; then
+			echo "Skipping sync_extra from alternate path: ${i}" 1>&2
+		fi
+		continue
+	fi
+
+	# Sync anything elser that matches
 	~/bin/video/sync/sync.sh "${MEDIA_PATH}/${i}"*
 	OLD_FILES="`echo "${OLD_FILES}" | grep -v "^${i}"`"
 done
