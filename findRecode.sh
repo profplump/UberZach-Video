@@ -6,6 +6,8 @@ MIN_RATE=275000
 MIN_SIZE="425M"
 MIN_HEIGHT=500
 NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg|m4v)$"
+SCAN_DEPTH_FAST=10
+SCAN_DEPTH_SLOW=250
 
 # Command-line overrides
 if [ -n "${1}" ]; then
@@ -69,12 +71,26 @@ for i in ${FILES}; do
 
 	# We do not want to recode videos that we already encoded
 	HANDBRAKE=0
-	STRINGS="`head -c $(( 125 * 1024 * 1024 )) "${i}" | strings -n 100`"
-	if echo "${STRINGS}" | grep -q HandBrake; then
-		HANDBRAKE=1
-	elif echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125|129|130|142)' | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		HANDBRAKE=1
-	fi
+	SCAN_DEPTH=$SCAN_DEPTH_FAST
+	while [ $HANDBRAKE -lt 1 ]; do
+
+		# Scan for a header that suggests this file matches our local transcoder settings
+		STRINGS="`head -c $(( $SCAN_DEPTH * 1024 * 1024 )) "${i}" | strings -n 100`"
+		if echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125|129|130|142)' | grep -Eq 'crf=2[0-5]\.[0-9]'; then
+			HANDBRAKE=1
+		elif echo "${STRINGS}" | grep -q HandBrake; then
+			echo "Matched literal 'HandBrake': ${i}" 1>&2
+			HANDBRAKE=1
+		fi
+
+		# Try a deeper scan if the first one fails
+		if [ $HANDBRAKE -lt 1 ] && [ $SCAN_DEPTH -lt $SCAN_DEPTH_SLOW ]; then
+			echo "Trying slow scan for: ${i}" 1>&2
+			SCAN_DEPTH=$SCAN_DEPTH_SLOW
+		else
+			break
+		fi
+	done
 	if [ $HANDBRAKE -eq 1 ]; then
 		continue
 	fi
