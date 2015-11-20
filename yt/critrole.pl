@@ -18,6 +18,26 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'} =~ /(\d+)/) {
 	$DEBUG = $1;
 }
 
+# ENV Parameters
+if (exists($ENV{'TOP_URL'})) {
+	$TOP_URL = $ENV{'TOP_URL'};
+	if ($DEBUG) {
+		print STDERR 'Using ENV TOP_URL: ' . $TOP_URL . "\n";
+	}
+}
+if (exists($ENV{'EP_MATCH'})) {
+	$EP_MATCH = qr/${ENV{'EP_MATCH'}}/i;
+	if ($DEBUG) {
+		print STDERR 'Using ENV EP_MATCH: qr/' . $ENV{'EP_MATCH'} . "/i\n";
+	}
+}
+if (exists($ENV{'INI_PATH'})) {
+	$INI_PATH = $ENV{'INI_PATH'};
+	if ($DEBUG) {
+		print STDERR 'Using ENV INI_PATH: ' . $INI_PATH . "\n";
+	}
+}
+
 # Setup LWP
 my $ua = LWP::UserAgent->new();
 if (!$ua) {

@@ -264,7 +264,7 @@ if ($ID =~ /^\s*None\s*$/i) {
 
 # Run the local "update" script if any
 {
-	my @update = ('./update', '');
+	my @update = ('./update', $DIR);
 	if (can_run($update[0])) {
 		if ($DEBUG) {
 			print STDERR "Executing local update script...\n";
