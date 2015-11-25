@@ -49,6 +49,11 @@ fi
 # Find large video files that match the regex filter
 FILES="`find "${FOLDER}" -type f -maxdepth 1 -size "+${MIN_SIZE}" | grep -iE "${NAME_REGEX}"`"
 
+# Record the last scan start time, in a temp file
+if [ -n "${LAST_RECODE_FILE}" ]; then
+	touch "${LAST_RECODE_FILE}.tmp" >/dev/null 2>&1
+fi
+
 # Loop with newline-as-IFS
 OLDIFS="${IFS}"
 IFS=$'\n'
@@ -69,28 +74,22 @@ for i in ${FILES}; do
 		continue
 	fi
 
-	# We do not want to recode videos that we already encoded
+	# Find the x264 header, if present. Scan deeper if the fast scan fails.
+	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
+	if ! echo "${STRINGS}" | grep -Eq '^x264 - core'; then
+		STRINGS="`head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n 100`"
+	fi
+
+	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
-	SCAN_DEPTH=$SCAN_DEPTH_FAST
-	while [ $HANDBRAKE -lt 1 ]; do
+	if echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125|129|130|142)' | grep -Eq 'crf=2[0-5]\.[0-9]'; then
+		HANDBRAKE=1
+	elif echo "${STRINGS}" | grep -q HandBrake; then
+		echo "Matched literal 'HandBrake': ${i}" 1>&2
+		HANDBRAKE=1
+	fi
 
-		# Scan for a header that suggests this file matches our local transcoder settings
-		STRINGS="`head -c $(( $SCAN_DEPTH * 1024 * 1024 )) "${i}" | strings -n 100`"
-		if echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125|129|130|142)' | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-			HANDBRAKE=1
-		elif echo "${STRINGS}" | grep -q HandBrake; then
-			echo "Matched literal 'HandBrake': ${i}" 1>&2
-			HANDBRAKE=1
-		fi
-
-		# Try a deeper scan if the first one fails
-		if [ $HANDBRAKE -lt 1 ] && [ $SCAN_DEPTH -lt $SCAN_DEPTH_SLOW ]; then
-			echo "Trying slow scan for: ${i}" 1>&2
-			SCAN_DEPTH=$SCAN_DEPTH_SLOW
-		else
-			break
-		fi
-	done
+	# We do not want to recode videos that we already encoded
 	if [ $HANDBRAKE -eq 1 ]; then
 		continue
 	fi
@@ -133,7 +132,8 @@ for i in ${FILES}; do
 done
 IFS="${OLDIFS}"
 
-# Record the last scan time
+# Move the temporary timestamp file into place
 if [ -n "${LAST_RECODE_FILE}" ]; then
-	touch "${LAST_RECODE_FILE}" >/dev/null 2>&1
+	mv "${LAST_RECODE_FILE}.tmp" "${LAST_RECODE_FILE}"
 fi
+
