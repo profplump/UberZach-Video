@@ -7,7 +7,7 @@ MIN_SIZE="425M"
 MIN_HEIGHT=500
 NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg|m4v)$"
 SCAN_DEPTH_FAST=10
-SCAN_DEPTH_SLOW=250
+SCAN_DEPTH_SLOW=100
 
 # Command-line overrides
 if [ -n "${1}" ]; then
