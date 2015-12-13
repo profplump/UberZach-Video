@@ -7,11 +7,12 @@ function cleanSeries($series) {
 	# Clearly unreasonable characters
 	$series = preg_replace('/[\0\n\r]/', ' ', $series);
 
-	# Not allowed on our filesystem
+	# Not allowed by the SMB filesystem
 	$series = preg_replace('/\s*[\/\:]\s*/', ' - ', $series);
 
 	# General string cleanup
 	$series = preg_replace('/\s+/', ' ', $series);
+	$series = trim($series);
 
 	# Ensure we don't go out-of-scope
 	$series = basename($series);
