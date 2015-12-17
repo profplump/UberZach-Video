@@ -21,7 +21,7 @@ if [ -z "${PMS_URL}" ]; then
 	if [ -z "${PMS_PORT}" ]; then
 		PMS_PORT=32400
 	fi
-	PMS_URL="http://${PMS_HOST}:${PMS_PORT}"
+	PMS_URL="https://${PMS_HOST}:${PMS_PORT}"
 fi
 if [ -z "${PMS_TOKEN}" ]; then
 	echo "No PMS_TOKEN provided" 1>&2
@@ -75,7 +75,7 @@ for i in $SERIES; do
 	FILES="`curl ${CURL_OPTS[@]} "${PMS_URL}/library/metadata/${i}/${URL2_POST}" 2>/dev/null | \
 		grep '<Part ' | \
 		head -n "${MAX_RESULTS}" | \
-		sed 's%^.*file="\([^\"]*\)".*$%\1%' | \
+		sed 's%^.* file="\([^\"]*\)".*$%\1%' | \
 		sed "s%^.*/media/%%"`"
 
 	SEASON_COUNTS=()
