@@ -1013,7 +1013,9 @@ sub calcVideoData($) {
 	} else {
 		$video->{'season'} = 0;
 	}
-	if ($video->{'rawDuration'} =~ /PT(\d+)M(\d+)S/) {
+	if ($video->{'rawDuration'} =~ /PT(\d+)H(\d+)M(\d+)S/) {
+		$video->{'duration'} = ($1 * 3600) + ($2 * 60) + $2;
+	} elsif ($video->{'rawDuration'} =~ /PT(\d+)M(\d+)S/) {
 		$video->{'duration'} = ($1 * 60) + $2;
 	} elsif ($video->{'rawDuration'} =~ /PT(\d+)S/) {
 		$video->{'duration'} = $1;
