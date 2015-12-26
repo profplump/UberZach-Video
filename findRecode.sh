@@ -50,8 +50,9 @@ fi
 FILES="`find "${FOLDER}" -type f -maxdepth 1 -size "+${MIN_SIZE}" | grep -iE "${NAME_REGEX}"`"
 
 # Record the last scan start time, in a temp file
+LAST_RECODE_TMP=""
 if [ -n "${LAST_RECODE_FILE}" ]; then
-	touch "${LAST_RECODE_FILE}.tmp" >/dev/null 2>&1
+	LAST_RECODE_TMP="`mktemp "${LAST_RECODE_FILE}.XXXXXX"`"
 fi
 
 # Loop with newline-as-IFS
@@ -133,7 +134,7 @@ done
 IFS="${OLDIFS}"
 
 # Move the temporary timestamp file into place
-if [ -n "${LAST_RECODE_FILE}" ]; then
-	mv "${LAST_RECODE_FILE}.tmp" "${LAST_RECODE_FILE}"
+if [ -n "${LAST_RECODE_TMP}" ]; then
+	mv "${LAST_RECODE_TMP}" "${LAST_RECODE_FILE}"
 fi
 
