@@ -211,7 +211,7 @@ while (my $file = readdir($fh)) {
 			if (exists($episodes{$time}->{'size'}) && $episodes{$time}->{'size'}) {
 				(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($path);
 				my $ratio = ($size / $episodes{$time}->{'size'});
-				if ($ratio < (1 - $ERR_RATIO) || $ratio > (1 + $ERR_RATIO)) {
+				if ($ratio < (1 - $ERR_RATIO)) {
 					print STDERR 'Invalid output file size (' . $size . '/' . $episodes{$time}->{'size'} . '): ' . $file . "\n";
 				}
 			}
@@ -295,7 +295,7 @@ foreach my $time (sort(@need)) {
 	if ($ep->{'size'}) {
 		(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($file);
 		my $ratio = $size / $ep->{'size'};
-		if ($ratio < (1 - $ERR_RATIO) || $ratio > (1 + $ERR_RATIO)) {
+		if ($ratio < (1 - $ERR_RATIO)) {
 			$err = 'Invalid download size (' . $size . '/' . $ep->{'size'} . '): ' . $file;
 			goto OUT;
 		}
