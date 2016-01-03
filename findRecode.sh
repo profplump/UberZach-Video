@@ -52,7 +52,7 @@ FILES="`find "${FOLDER}" -type f -maxdepth 1 -size "+${MIN_SIZE}" | grep -iE "${
 # Record the last scan start time, in a temp file
 LAST_RECODE_TMP=""
 if [ -n "${LAST_RECODE_FILE}" ]; then
-	LAST_RECODE_TMP="`mktemp "${LAST_RECODE_FILE}.XXXXXX"`"
+	LAST_RECODE_TMP="`mktemp "${LAST_RECODE_FILE}.XXXXXX" 2>/dev/null`"
 fi
 
 # Loop with newline-as-IFS
@@ -137,4 +137,3 @@ IFS="${OLDIFS}"
 if [ -n "${LAST_RECODE_TMP}" ]; then
 	mv "${LAST_RECODE_TMP}" "${LAST_RECODE_FILE}"
 fi
-
