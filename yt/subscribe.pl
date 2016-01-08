@@ -1144,6 +1144,7 @@ sub localMetadata($$) {
 		}
 	}
 	close($fh);
+	calcVideoData($video);
 }
 
 sub findVideos($) {
