@@ -1005,7 +1005,7 @@ sub parseVideoData($) {
 sub calcVideoData($) {
 	my ($video) = @_;
 
-	if ($video->{'publishedAt'}) {
+	if ($video->{'publishedAt'} && !$video->{'date'}) {
 		$video->{'date'} = str2time($video->{'publishedAt'});
 	}
 	if ($video->{'date'}) {
