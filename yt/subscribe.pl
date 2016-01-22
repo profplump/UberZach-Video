@@ -1174,7 +1174,6 @@ sub findVideos($) {
 		if (   exists($data->{'pageInfo'})
 			&& ref($data->{'pageInfo'}) eq 'HASH'
 			&& exists($data->{'pageInfo'}->{'totalResults'})
-			&& $data->{'pageInfo'}->{'totalResults'} > 0
 			&& exists($data->{'pageInfo'}->{'resultsPerPage'})
 			&& exists($data->{'items'})
 			&& ref($data->{'items'}) eq 'ARRAY')
