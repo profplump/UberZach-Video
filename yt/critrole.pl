@@ -111,7 +111,7 @@ my %ytids = ();
 		}
 		if ($response->decoded_content() =~ /data-ytid=\"([^\"]+)\"/) {
 			$ytids{$1} = $url;
-		} else {
+		} elsif ($DEBUG > 0) {
 			print STDERR 'No YTID found on: ' .$url . "\n";
 			if ($DEBUG > 1) {
 				print STDERR "\tPage content:\n" . $response->decoded_content() . "\n\n";
