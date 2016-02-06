@@ -348,7 +348,9 @@ foreach my $time (sort(@need)) {
 
 	# Cleanup
 	if (defined($err)) {
-		print STDERR 'Unable to download ' . $ep->{'url'} . ': ' . $err . "\n";
+		if ($DEBUG || ($err != '403' && $err != '404')) {
+			print STDERR 'Unable to download ' . $ep->{'url'} . ': ' . $err . "\n";
+		}
 		if (-e $file) {
 			unlink($file);
 		}
