@@ -1152,7 +1152,7 @@ sub getHash($) {
 
 	# Save back to the tor, if provided
 	if (defined($tor)) {
-		$tor->{'hash'} = $hash;
+		$tor->{'hash'} = lc($hash);
 	}
 
 	# Always return the hash, or undef() if none can be found
