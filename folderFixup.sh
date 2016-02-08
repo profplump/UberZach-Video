@@ -65,6 +65,8 @@ find "${inFolder}" -mindepth 1 -type d -exec ~/bin/video/folderToMKV.sh {} \; 1>
 
 # Filter the output
 cat "${tmp}" | \
+	grep -Ev "/update: Permission denied$" | \
+	grep -Ev "/update.disabled: Permission denied$" | \
 	grep -Ev "^cp: .*: could not copy extended attributes to .*: Operation not permitted$" | \
 	grep -v "GetFileInfo: could not get info about file (-1401)" | \
 	grep -v "ERROR: Unexpected Error. (-1401)  on file: " | \
