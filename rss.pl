@@ -348,7 +348,7 @@ foreach my $time (sort(@need)) {
 
 	# Cleanup
 	if (defined($err)) {
-		if ($DEBUG || ($err ne '403' && $err ne '404')) {
+		if ($DEBUG || ! ($err =~ /\b40[34]$/)) {
 			print STDERR 'Unable to download ' . $ep->{'url'} . ': ' . $err . "\n";
 		}
 		if (-e $file) {
