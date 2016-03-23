@@ -41,7 +41,7 @@ inFolder="`cd "${inFolder}" && pwd`"
 cd "${inFolder}"
 
 # Cycle through the folder looking for certain video files that should be converted to better containers
-for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV] *.[mM][pP]4 *.3[gG][pP]; do
+for i in *.[aA][vV][iI] *.[wW][mM][vV] *.[dD][iI][vV][xX] *.[fF][lL][vV] *.[mM][pP]4 *.3[gG][pP] *.[wW][eE][bB][mM]; do
 	# Bail if the load is high
 	if ! ~/bin/video/checkLoad.sh; then
 		continue
