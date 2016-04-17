@@ -5,6 +5,21 @@ if [ -z "${MIN_AVI_SIZE}" ]; then
 	MIN_AVI_SIZE=$(( 450 * 1024 * 1024 ))
 fi
 
+# Functions
+function tryRecode() {
+	file="${1}"
+
+	# Try to recode with Handbrake/ffmpeg
+	if ~/bin/video/canRecode.sh; then
+		echo "`basename "${0}"`: Attempting recode instead..." 1>&2
+		~/bin/video/recode "${file}"
+		exit "${?}"
+	else
+		echo "`basename "${0}"`: Unable to recode." 1>&2
+		exit 1
+	fi
+}
+
 # Command line
 inFile="${1}"
 outFile="${2}"
@@ -23,7 +38,9 @@ if [ -z "${VCODECS}" ]; then
 		exit 3
 	fi
 	echo "`basename "${0}"`: Could not determine video codec: ${inFile}" 1>&2
-	exit 2
+
+	# Try to recode -- this does not return
+	tryRecode "${inFile}"
 fi
 
 # Exclude files with MPEG-1/2 streams
@@ -63,15 +80,8 @@ echo "${OUT}" | grep -v "The AVC video track is missing the 'CTTS' atom for fram
 if [ ! -e "${tmpFile}" ] || [ `stat -f '%z' "${tmpFile}"` -lt 1000 ]; then
 	echo "`basename "${0}"`: Error creating output file for input: ${inFile}" 1>&2
 
-	# Try to recode (with Handbrake/ffmpeg) if mkvmerge fails
-	if ~/bin/video/canRecode.sh; then
-		echo "`basename "${0}"`: Attempting recode instead..." 1>&2
-		~/bin/video/recode "${inFile}"
-		exit "${?}"
-	else
-		echo "`basename "${0}"`: Unable to recode." 1>&2
-		exit 1
-	fi
+	# Try to recode -- this does not return
+	tryRecode "${inFile}"
 fi
 
 # Move into place, dropping the original
