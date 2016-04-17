@@ -1102,6 +1102,10 @@ foreach my $episode (keys(%tors)) {
 	my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $tors{$episode} };
 	my $max = undef();
 	foreach my $tor (@sorted) {
+		if (!$tor->{'hash'} || $EXCLUDES{ $tor->{'hash'} }) {
+			print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+			next;
+		}
 		if (!defined($max) || $tor->{'adj_count'} > $max) {
 			if ($urls{$episode} = resolveSecondary($tor)) {
 				$max = $tor->{'adj_count'};
