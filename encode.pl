@@ -32,7 +32,6 @@ my $MAX_CROP_DIFF    = .1;
 my $MAX_DURA_DIFF    = 5;
 my $NO_CROP          = 0;
 my @CODEC_ORDER      = ('DTS-HD', 'FLAC', 'DTS', 'AC3', 'PCM', 'VORBIS', $MIXDOWN_CODEC, 'OTHER');
-my %LANG_INCLUDE_ISO = ('639-1' => 1, '639-2' => 1);
 my $HB_EXEC          = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG            = 0;
 
@@ -819,9 +818,7 @@ sub findBestAudioTrack($$) {
 sub isValidSubLanguage($) {
 	my ($lang, $iso) = @_;
 
-	if (scalar(keys(%LANG_INCLUDE_ISO)) && defined($iso) && exists($LANG_INCLUDE_ISO{$iso}) && $LANG_INCLUDE_ISO{$iso}) {
-		return 1;
-	} elsif ($SUB_INCLUDE_REGEX && $lang =~ /${SUB_INCLUDE_REGEX}/i) {
+	if ($SUB_INCLUDE_REGEX && $lang =~ /${SUB_INCLUDE_REGEX}/i) {
 		return 1;
 	}
 
@@ -831,9 +828,7 @@ sub isValidSubLanguage($) {
 sub isValidAudioLanguage($) {
 	my ($lang, $iso) = @_;
 
-	if (scalar(keys(%LANG_INCLUDE_ISO)) && defined($iso) && $LANG_INCLUDE_ISO{$iso}) {
-		return 1;
-	} elsif ($AUDIO_EXCLUDE_REGEX && $lang =~ /${AUDIO_EXCLUDE_REGEX}/i) {
+	if ($AUDIO_EXCLUDE_REGEX && $lang =~ /${AUDIO_EXCLUDE_REGEX}/i) {
 		return 0;
 	}
 
