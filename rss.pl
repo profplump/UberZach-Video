@@ -211,7 +211,7 @@ while (my $file = readdir($fh)) {
 			if (exists($episodes{$time}->{'size'}) && $episodes{$time}->{'size'}) {
 				(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($path);
 				my $ratio = ($size / $episodes{$time}->{'size'});
-				if ($ratio < (1 - $ERR_RATIO)) {
+				if ($ratio < (1 - $ERR_RATIO) && $DEBUG) {
 					print STDERR 'Invalid output file size (' . $size . '/' . $episodes{$time}->{'size'} . '): ' . $file . "\n";
 				}
 			}
