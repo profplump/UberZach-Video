@@ -149,5 +149,14 @@ if ($DEBUG) {
 	close($fh);
 }
 
+# Autodate
+my @autodate = ($ENV{'HOME'} . '/bin/video/yt/autodate.sh');
+if (can_run($autodate[0])) {
+	if ($DEBUG) {
+		print STDERR "Executing autodate script...\n";
+	}
+	system(@autodate);
+}
+
 # Cleanup
 exit(0);
