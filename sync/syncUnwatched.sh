@@ -91,7 +91,7 @@ for i in `cat ~/.sync_extras`; do
 		continue
 	fi
 
-	# Sync anything elser that matches
+	# Sync anything else that matches
 	~/bin/video/sync/sync.sh "${MEDIA_PATH}/${i}"*
 	OLD_FILES="`echo "${OLD_FILES}" | grep -v "^${i}"`"
 done
