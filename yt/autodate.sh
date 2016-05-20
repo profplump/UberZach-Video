@@ -35,3 +35,6 @@ for i in *.mp4 *.mkv *.m4v; do
 	echo "date = ${DATE}" >> "${META}"
 	touch -r "${i}" "${META}"
 done
+
+# Cleanup
+exit 0

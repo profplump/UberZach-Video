@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use LWP::UserAgent;
 use File::Basename;
+use IPC::Cmd qw( can_run );
 
 # Parameters
 my $TOP_URL  = 'http://geekandsundry.com/shows/critical-role/';
