@@ -253,14 +253,6 @@ if ($SUBSCRIPTIONS) {
 	exit(0);
 }
 
-# Disable all processing if the "skip" file exists
-if (-e 'skip') {
-	if ($DEBUG) {
-		warn("Exiting due to \"skip\" file\n");
-	}
-	exit 0;
-}
-
 # Disable channel fetching if the ID channel is "None"
 if ($ID =~ /^\s*None\s*$/i) {
 	if ($DEBUG) {
