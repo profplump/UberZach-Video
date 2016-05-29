@@ -424,7 +424,7 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 				sleep($DELAY);
 				my $file = capture(EXIT_ANY, @name);
 				if ($EXITVAL != 0) {
-					warn('Error executing youtube-dl for name: ' . $id . ' (' . $EXITVAL . ")\n");
+					warn('Error executing youtube-dl for name: ' . $NAME . '/' . $id . ' (' . $EXITVAL . ")\n");
 					next FETCH_LOOP;
 				}
 				$file =~ s/^\s+//;
@@ -432,7 +432,7 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 
 				# Sanity check
 				if (!$file) {
-					warn('No file name available for video: ' . $id . "\n");
+					warn('No file name available for video: ' . $NAME . '/' . $id . "\n");
 					next FETCH_LOOP;
 				}
 
@@ -443,17 +443,17 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 				sleep($DELAY);
 				my $exit = run(EXIT_ANY, @fetch);
 				if ($exit != 0) {
-					warn('Error executing youtube-dl for video: ' . $file . "\n");
+					warn('Error executing youtube-dl for video: ' . $NAME . '/' . $id . "\n");
 					next FETCH_LOOP;
 				}
 
 				# Ensure we found something useful
 				if (-e $file . '.part') {
-					warn('Partial download detected: ' . $file . "\n");
+					warn('Partial download detected: ' . $NAME . '/' . $file . "\n");
 					next FETCH_LOOP;
 				}
 				if (!-s $file) {
-					warn('No output video file: ' . $file . "\n");
+					warn('No output video file: ' . $NAME . '/' . $file . "\n");
 					next FETCH_LOOP;
 				}
 
