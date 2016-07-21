@@ -15,7 +15,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('TPB' => 0, 'ISO' => 1, 'KICK' => 1, 'Z' => 0);
+my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 1, 'Z' => 0);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -1360,7 +1360,7 @@ sub initSources() {
 
 	# The Pirate Bay
 	if ($ENABLE_SOURCE{'TPB'}) {
-		my @proxies = ('thepiratebay.mn/search/', 'pirateproxy.la/search/', 'tpb.unblocked.co/search/');
+		my @proxies = ('thepiratebay.org/search/', 'pirateproxy.la/search/', 'tpb.unblocked.co/search/');
 		my $source = findProxy(\@proxies, '\bPirate Search\b');
 		if ($source) {
 			$source->{'weight'}        = 1.00;
