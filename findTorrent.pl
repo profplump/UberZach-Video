@@ -20,7 +20,7 @@ my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
 # Selection parameters
 my $MIN_COUNT        = 10;
 my $MIN_SIZE         = 100;
-my $SIZE_BONUS       = 7;
+my $SIZE_BONUS       = 5;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEED_RATIO   = .25;
@@ -1119,19 +1119,32 @@ foreach my $tor (@tors) {
 }
 
 # Find the average torrent size for each episode
-my %avg = ();
-foreach my $episode (keys(%tors)) {
-	my $count = 0;
-	$avg{$episode} = 0.001;
-	foreach my $tor (@{ $tors{$episode} }) {
-		$avg{$episode} += $tor->{'size'};
-		$count++;
-	}
-	if ($count > 0) {
-		$avg{$episode} /= $count;
-	}
-	if ($DEBUG) {
-		print STDERR 'Episode ' . $episode . ' average size: ' . int($avg{$episode}) . " MiB\n";
+my %size = ();
+{
+	my %max = ();
+	my %avg = ();
+
+	foreach my $episode (keys(%tors)) {
+		my $count = 0;
+		$avg{$episode} = 0.001;
+		$max{$episode} = 0.001;
+		foreach my $tor (@{ $tors{$episode} }) {
+			$count++;
+			$avg{$episode} += $tor->{'size'};
+
+			if ($tor->{'size'} > $max{$episode}) {
+				$max{$episode} = $tor->{'size'};
+			}
+		}
+		if ($count > 0) {
+			$avg{$episode} /= $count;
+		}
+		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
+
+		if ($DEBUG) {
+			print STDERR 'Episode ' . $episode . ' max/avg/cmp size: ' .
+				int($max{$episode}) . '/' . int($avg{$episode}) . '/' . int($size{$episode}) . " MiB\n";
+		}
 	}
 }
 
@@ -1145,8 +1158,8 @@ foreach my $episode (keys(%tors)) {
 
 		# Adjust based on file size
 		{
-			my $size_ratio = $tor->{'size'} / $avg{$episode};
-			if ($tor->{'size'} >= $avg{$episode}) {
+			my $size_ratio = $tor->{'size'} / $size{$episode};
+			if ($tor->{'size'} >= $size{$episode}) {
 				$tor->{'adj_count'} *= $SIZE_BONUS * $size_ratio;
 			} else {
 				$tor->{'adj_count'} *= (1 / $SIZE_PENALTY) * $size_ratio;
