@@ -15,7 +15,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 1, 'Z' => 0);
+my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -54,7 +54,7 @@ use Fetch;
 sub getHash($);
 sub resolveSecondary($);
 sub resolveTrackers($);
-sub splitTags($$$);
+sub splitTags($$$$);
 sub findSE($);
 sub initSources();
 sub findProxy($$);
@@ -575,7 +575,7 @@ foreach my $content (@html_content) {
 	if ($content =~ /\<title\>The Pirate Bay/i) {
 
 		# Find TR elements from TPB
-		my @trs = splitTags($content, 'TR', 'TH');
+		my @trs = splitTags($content, 'TR', 'TH', undef());
 		foreach my $tr (@trs) {
 
 			# Find the show title
@@ -645,7 +645,7 @@ foreach my $content (@html_content) {
 	} elsif ($content =~ /\<title\>[^\<\>]*\bisoHunt\b[^\<\>]*\<\/title\>/i) {
 
 		# Find each TR element from ISOHunt
-		my @trs = splitTags($content, 'TR', 'TH');
+		my @trs = splitTags($content, 'TR', 'TH', undef());
 		foreach my $tr (@trs) {
 
 			# Split each TD element from the row
@@ -699,7 +699,7 @@ foreach my $content (@html_content) {
 				$leaches = $1;
 			}
 
-			# Fetch the detail page for the URL
+			# Build the detail page URL
 			my $url = $SOURCES->{'ISO'}->{'protocol'} . '://' . $SOURCES->{'ISO'}->{'host'} . '/torrent_details/' . $id;
 
 			if ($DEBUG) {
@@ -723,7 +723,7 @@ foreach my $content (@html_content) {
 	} elsif ($content =~ /Kickass\s*Torrents\<\/title\>/i) {
 
 		# Find each TR element from Kickass
-		my @trs = splitTags($content, 'TR', 'TH');
+		my @trs = splitTags($content, 'TR', 'TH', undef());
 		foreach my $tr (@trs) {
 
 			# Split each TD element from the row
@@ -813,7 +813,7 @@ foreach my $content (@html_content) {
 		my $hs = HTML::Strip->new();
 
 		# Find each DL element from Torrentz
-		my @dls = splitTags($content, 'DL', undef());
+		my @dls = splitTags($content, 'DL', undef(), undef());
 		foreach my $dl (@dls) {
 
 			# Skip ads
@@ -875,6 +875,77 @@ foreach my $content (@html_content) {
 				'size'    => $size,
 				'url'     => $url,
 				'source'  => 'Z'
+			);
+			push(@tors, \%tor);
+		}
+
+	} elsif ($content =~ /ExtraTorrent\.cc The World\'s Largest BitTorrent System\<\/title\>/i) {
+
+		# Find TR elements from ET
+		my @trs = splitTags($content, 'TR', undef(), '\/torrent\/');
+		foreach my $tr (@trs) {
+
+			# Find the show title
+			my ($title) = $tr =~ /title\=\"Download\s+([^\"]*)\s+torrent\"/i;
+			if (!defined($title) || length($title) < 1) {
+				if ($DEBUG) {
+					print STDERR "Unable to find show title in TR\n\t" . $tr . "\n";
+				}
+				next;
+			}
+			$title =~ s/^\s+//;
+
+			# Extract the season and episode numbers
+			my ($fileSeason, $episode) = findSE($title);
+
+			# Extract the ID
+			my ($id) = $tr =~ /\<a\s+href\=\"\/torrent\/(\d+)\/[^\"]*\"/i;
+			if (!defined($id) || length($id) < 1) {
+				if ($DEBUG) {
+					print STDERR "Skipping TR with no ID\n";
+				}
+				next;
+			}
+
+			# Count the sum of seeders and leachers
+			my $seeds   = 0;
+			my $leaches = 0;
+			if ($tr =~ /\<td\s+class=\"sy\">(\d+)\<\/td\>/) {
+				$seeds = $1;
+			}
+			if ($tr =~ /\<td\s+class=\"ly\">(\d+)\<\/td\>/) {
+				$leaches = $1;
+			}
+
+			# Extract the size (from separate column or inline)
+			my $size = 0;
+			my $unit = 'M';
+			if ($tr =~ /\<td\>(\d+(?:\.\d+)?)\&nbsp\;(G|M)B\<\/td\>/) {
+				$size = $1;
+				$unit = $2;
+			}
+			if ($unit eq 'G') {
+				$size *= 1024;
+			}
+			$size = int($size);
+
+			# Build the detail page URL
+			my $url = $SOURCES->{'ET'}->{'protocol'} . '://' . $SOURCES->{'ET'}->{'host'} . '/torrent/' . $id . '/';
+
+			if ($DEBUG) {
+				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+			}
+
+			# Save the extracted data
+			my %tor = (
+				'title'   => $title,
+				'season'  => $fileSeason,
+				'episode' => $episode,
+				'seeds'   => $seeds,
+				'leaches' => $leaches,
+				'size'    => $size,
+				'url'     => $url,
+				'source'  => 'ET'
 			);
 			push(@tors, \%tor);
 		}
@@ -1102,12 +1173,12 @@ foreach my $episode (keys(%tors)) {
 	my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $tors{$episode} };
 	my $max = undef();
 	foreach my $tor (@sorted) {
-		if (!$tor->{'hash'} || $EXCLUDES{ $tor->{'hash'} }) {
-			print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
-			next;
-		}
 		if (!defined($max) || $tor->{'adj_count'} > $max) {
 			if ($urls{$episode} = resolveSecondary($tor)) {
+				if (!$tor->{'hash'} || $EXCLUDES{ $tor->{'hash'} }) {
+					print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+					next;
+				}
 				$max = $tor->{'adj_count'};
 			}
 			if ($DEBUG) {
@@ -1168,7 +1239,7 @@ sub resolveSecondary($) {
 	my ($tor) = @_;
 
 	# Fetch the torrent-specific page and extract the magent link
-	if ($tor->{'source'} eq 'ISO') {
+	if ($tor->{'source'} eq 'ISO' || $tor->{'source'} eq 'ET') {
 		if ($DEBUG) {
 			print STDERR 'Secondary fetch with URL: ' . $tor->{'url'} . "\n";
 			$fetch->file('/tmp/findTorrent-secondary.html');
@@ -1281,8 +1352,8 @@ sub resolveTrackers($) {
 
 }
 
-sub splitTags($$$) {
-	my ($content, $tag, $header) = @_;
+sub splitTags($$$$) {
+	my ($content, $tag, $header, $match) = @_;
 
 	# Find each tag element
 	my @out = ();
@@ -1301,6 +1372,14 @@ sub splitTags($$$) {
 		if (defined($header) && $part =~ /<${header}(?:\s+[^\>]*)?\>/i) {
 			if ($DEBUG > 2) {
 				print STDERR 'Skipping header line: ' . $part . "\n\n";
+			}
+			next;
+		}
+
+		# Skip non-matches
+		if (defined($match) && !($part =~ m/${match}/i)) {
+			if ($DEBUG > 2) {
+				print STDERR 'Skipping non-match line: ' . $part . "\n\n";
 			}
 			next;
 		}
@@ -1343,12 +1422,14 @@ sub findSE($) {
 		$season  = undef();
 		$episode = undef();
 	} elsif ($episode =~ /^20\d{2}\-\d{2}\-\d{2}$/) {
+
 		# Episode-by-date
 		$season = int($season);
 	} else {
+
 		# Catchall
 		# This will warn and return undef() (which is valid) on error
-		$season = int($season);
+		$season  = int($season);
 		$episode = int($episode);
 	}
 	return ($season, $episode);
@@ -1406,6 +1487,18 @@ sub initSources() {
 				$source->{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
 			}
 			$sources{'Z'} = $source;
+		}
+	}
+
+	# ExtraTorrent
+	if ($ENABLE_SOURCE{'ET'}) {
+		my @proxies = ('http://extratorrent.cc/search/?search=', 'http://etmirror.com/search/?search=', 'http://etproxy.com/search/?search=', 'http://extratorrentlive.com/search/?search=');
+		my $source = findProxy(\@proxies, '/search/');
+		if ($source) {
+			$source->{'weight'}        = 0.75;
+			$source->{'quote'}         = 1;
+			$source->{'search_suffix'} = '&new=1&x=0&y=0&srt=seeds&order=desc';
+			$sources{'ET'}             = $source;
 		}
 	}
 
