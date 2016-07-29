@@ -651,8 +651,10 @@ foreach my $content (@html_content) {
 			# Split each TD element from the row
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
 			my $numCols = scalar(@tds) - 1;
-			if ($numCols > 9 && $numCols < 8) {
-				print STDERR 'Invalid ISO TR: ' . $tr . "\n";
+			if ($numCols > 9 || $numCols < 8) {
+				if ($DEBUG > 1) {
+					print STDERR 'Skipping invalid ISO TR: ' . $tr . "\n";
+				}
 				next;
 			}
 
@@ -667,7 +669,7 @@ foreach my $content (@html_content) {
 			# Find the torrent ID and show title
 			my ($id, $title) = $tds[2] =~ /\<a(?:\s+[^\>]*)?href=\"\/torrent_details\/(\d+\/[^\"]+)\"\>\<span\>([^\>]+)\<\/span\>/i;
 			if (!defined($id) || length($id) < 1 || !defined($title) || length($title) < 1) {
-				if ($DEBUG) {
+				if ($DEBUG > 1) {
 					print STDERR "Unable to find show ID or title in TD:\n\t" . $tds[2] . "\n";
 				}
 				next;
