@@ -1444,7 +1444,7 @@ sub initSources() {
 		my @proxies = ('thepiratebay.org/search/', 'pirateproxy.la/search/', 'tpb.unblocked.co/search/');
 		my $source = findProxy(\@proxies, '\bPirate Search\b');
 		if ($source) {
-			$source->{'weight'}        = 1.00;
+			$source->{'weight'}        = 0.85;
 			$source->{'quote'}         = 0;
 			$source->{'search_suffix'} = '/0/7/0';
 			$sources{'TPB'}            = $source;
@@ -1468,7 +1468,7 @@ sub initSources() {
 		my @proxies = ('kat.cr/usearch/', 'kickass.unblocked.pw/usearch/', 'kickass.to/usearch/');
 		my $source = findProxy(\@proxies, '/usearch/');
 		if ($source) {
-			$source->{'weight'}        = 0.50;
+			$source->{'weight'}        = 1.00;
 			$source->{'quote'}         = 1;
 			$source->{'search_suffix'} = '/';
 			$sources{'KICK'}           = $source;
@@ -1480,7 +1480,7 @@ sub initSources() {
 		my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
 		my $source = findProxy(\@proxies, 'Indexing [\d\,]+ active torrents');
 		if ($source) {
-			$source->{'weight'}        = 0.75;
+			$source->{'weight'}        = 0.85;
 			$source->{'quote'}         = 1;
 			$source->{'search_suffix'} = '';
 			if (!$NO_QUALITY_CHECKS) {
