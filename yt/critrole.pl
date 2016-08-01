@@ -8,7 +8,7 @@ use IPC::Cmd qw( can_run );
 # Parameters
 my $TOP_URL  = 'http://geekandsundry.com/shows/critical-role/';
 my $PG_MATCH = qr/\<link rel=\'next\' href=\'([^\']+\/page\/\d+\/)\'/;
-my $EP_MATCH = qr/^https?\:\/\/[^\/]+\/critical\-role\-episode/i;
+my $EP_MATCH = qr/^https?\:\/\/[^\/]+\/(?:critical\-role\-episode\-\d+|\d{4,}\-\d\/)/i;
 my $INI_PATH = `~/bin/video/mediaPath` . '/YouTube/Critical Role (None)/extra_videos.ini';
 my $UA_STR   = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
 my $TIMEOUT  = 10;
