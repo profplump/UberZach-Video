@@ -25,7 +25,8 @@ function login($username, $password) {
 	if ($authenticated) {
 		$authorized = myplexAuthorize($token);
 		if (!$authorized) {
-			$AUTH_ERR = 'Not Authorized';
+			$AUTH_ERR = 'Invalid Credentials';
+			#$AUTH_ERR = 'Not Authorized';
 		}
 	}
 
