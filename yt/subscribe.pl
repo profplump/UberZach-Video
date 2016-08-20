@@ -143,6 +143,9 @@ if ($ENV{'DEBUG'}) {
 if (scalar(@ARGV) < 1) {
 	die('Usage: ' . basename($0) . " output_directory\n");
 }
+if (!defined($API_KEY) || length($API_KEY) < 1) {
+	die("No API key provided\n");
+}
 my $SUBSCRIPTIONS = 0;
 if ($0 =~ /subscription/i) {
 	$SUBSCRIPTIONS = 1;
