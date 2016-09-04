@@ -669,10 +669,10 @@ foreach my $content (@html_content) {
 
 			# Split each TD element from the row
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
-			my $numCols = scalar(@tds) - 1;
-			if ($numCols > 9 || $numCols < 8) {
-				if ($DEBUG > 1) {
-					print STDERR 'Skipping invalid ISO TR: ' . $tr . "\n";
+			if (scalar(@tds) > 10 || scalar(@tds) < 9) {
+				print STDERR 'Skipping invalid ISO TR: ' . $tr . "\n";
+				for (my $i = 0; $i < scalar(@tds); $i++) {
+					print STDERR 'TD' . $i . ': ' . $tds[$i] . "\n";
 				}
 				next;
 			}
@@ -749,9 +749,11 @@ foreach my $content (@html_content) {
 
 			# Split each TD element from the row
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
-			my $numCols = scalar(@tds) - 1;
-			if ($numCols > 9 && $numCols < 8) {
-				print STDERR 'Invalid KICK TR: ' . $tr . "\n";
+			if (scalar(@tds) != 6) {
+				print STDERR "Invalid KICK TR:\n";
+				for (my $i = 0; $i < scalar(@tds); $i++) {
+					print STDERR 'TD' . $i . ': ' . $tds[$i] . "\n";
+				}
 				next;
 			}
 
@@ -802,11 +804,11 @@ foreach my $content (@html_content) {
 
 			# Count the sum of seeders and leachers
 			my $seeds = 0;
-			if ($tds[5] =~ /(\d+)\<\/td\>/i) {
+			if ($tds[4] =~ /(\d+)\<\/td\>/i) {
 				$seeds = $1;
 			}
 			my $leaches = 0;
-			if ($tds[6] =~ /(\d+)\<\/td\>/i) {
+			if ($tds[5] =~ /(\d+)\<\/td\>/i) {
 				$leaches = $1;
 			}
 
