@@ -4,7 +4,7 @@ use warnings;
 
 # Defaults
 my $DEBUG               = 0;
-my $SYSLOG              = 0;
+my $SYSLOG              = 1;
 my $NO_QUALITY_CHECKS   = 0;
 my $MORE_NUMBER_FORMATS = 0;
 my $MIN_DAYS_BACK       = 0;
