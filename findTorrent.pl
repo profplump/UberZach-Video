@@ -671,7 +671,7 @@ foreach my $content (@html_content) {
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
 			if (scalar(@tds) > 10 || scalar(@tds) < 9) {
 				print STDERR 'Skipping invalid ISO TR: ' . $tr . "\n";
-				for (my $i = 0; $i < scalar(@tds); $i++) {
+				for (my $i = 0 ; $i < scalar(@tds) ; $i++) {
 					print STDERR 'TD' . $i . ': ' . $tds[$i] . "\n";
 				}
 				next;
@@ -751,7 +751,7 @@ foreach my $content (@html_content) {
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
 			if (scalar(@tds) != 6) {
 				print STDERR "Invalid KICK TR:\n";
-				for (my $i = 0; $i < scalar(@tds); $i++) {
+				for (my $i = 0 ; $i < scalar(@tds) ; $i++) {
 					print STDERR 'TD' . $i . ': ' . $tds[$i] . "\n";
 				}
 				next;
