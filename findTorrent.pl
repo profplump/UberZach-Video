@@ -1079,21 +1079,19 @@ foreach my $tor (@tors) {
 	}
 
 	# Skip files that contain a word from the series exclude list
-	{
-		my $exclude = undef();
-		foreach my $ex (keys(%TITLE_EXCLUDES)) {
-			$ex = quotemeta($ex);
-			if ($tor->{'title'} =~ m/${ex}/i) {
-				$exclude = $ex;
-				last;
-			}
+	my $exclude = undef();
+	foreach my $ex (keys(%TITLE_EXCLUDES)) {
+		$ex = quotemeta($ex);
+		if ($tor->{'title'} =~ m/${ex}/i) {
+			$exclude = $ex;
+			last;
 		}
-		if (defined($exclude)) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
-			}
-			next;
+	}
+	if (defined($exclude)) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
 		}
+		next;
 	}
 
 	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
