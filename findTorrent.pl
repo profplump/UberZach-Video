@@ -44,7 +44,7 @@ use URI::Encode qw(uri_encode);
 use HTML::Entities;
 use HTML::Strip;
 use JSON;
-use Sys::Syslog qw(:standard :macros);;
+use Sys::Syslog qw(:standard :macros);
 use File::Temp;
 use File::Spec;
 use File::Basename;
@@ -240,7 +240,8 @@ if (-e $dir . '/more_number_formats') {
 }
 
 # Read the search excludes file, if any
-my $exclude = '';
+my $exclude        = '';
+my %TITLE_EXCLUDES = ();
 if (-e $dir . '/excludes') {
 	local $/ = undef;
 	open(EX, $dir . '/excludes')
@@ -251,14 +252,17 @@ if (-e $dir . '/excludes') {
 	$ex =~ s/^\s+//;
 	$ex =~ s/\s+$//;
 	my @excludes = split(/\s*,\s*/, $ex);
-
 	foreach my $ex (@excludes) {
+		$TITLE_EXCLUDES{$ex} = 1;
+
 		if (length($exclude)) {
 			$exclude .= ' ';
 		}
 		$exclude .= '-"' . $ex . '"';
 	}
+
 	$exclude = uri_encode(' ' . $exclude);
+
 }
 
 # Setup our sources
@@ -992,6 +996,7 @@ my $showRegex = undef();
 	$showClean =~ s/[\W_]+/\[\\W_\].*/g;
 	$showRegex = qr/^${showClean}[\W_]/i;
 }
+
 foreach my $tor (@tors) {
 
 	# Extract the BTIH, if available
@@ -1067,6 +1072,24 @@ foreach my $tor (@tors) {
 			print STDERR 'Skipping file: Title contains "unedited": ' . $tor->{'title'} . "\n";
 		}
 		next;
+	}
+
+	# Skip files that contain a word from the series exclude list
+	{
+		my $exclude = undef();
+		foreach my $ex (keys(%TITLE_EXCLUDES)) {
+			$ex = quotemeta($ex);
+			if ($tor->{'title'} =~ m/${ex}/i) {
+				$exclude = $ex;
+				last;
+			}
+		}
+		if (defined($exclude)) {
+			if ($DEBUG) {
+				print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
+			}
+			next;
+		}
 	}
 
 	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
@@ -1157,8 +1180,7 @@ my %size = ();
 		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
 
 		if ($DEBUG) {
-			print STDERR 'Episode ' . $episode . ' max/avg/cmp size: ' .
-				int($max{$episode}) . '/' . int($avg{$episode}) . '/' . int($size{$episode}) . " MiB\n";
+			print STDERR 'Episode ' . $episode . ' max/avg/cmp size: ' . int($max{$episode}) . '/' . int($avg{$episode}) . '/' . int($size{$episode}) . " MiB\n";
 		}
 	}
 }
