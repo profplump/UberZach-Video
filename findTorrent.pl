@@ -4,6 +4,7 @@ use warnings;
 
 # Defaults
 my $DEBUG               = 0;
+my $SYSLOG              = 0;
 my $NO_QUALITY_CHECKS   = 0;
 my $MORE_NUMBER_FORMATS = 0;
 my $MIN_DAYS_BACK       = 0;
@@ -43,6 +44,7 @@ use URI::Encode qw(uri_encode);
 use HTML::Entities;
 use HTML::Strip;
 use JSON;
+use Sys::Syslog qw(:standard :macros);;
 use File::Temp;
 use File::Spec;
 use File::Basename;
@@ -98,6 +100,14 @@ if (defined($ENV{'MAX_DAYS_BACK'})) {
 }
 if (defined($ENV{'NEXT_EPISODES'})) {
 	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
+}
+if (defined($ENV{'SYSLOG'})) {
+	$SYSLOG = $ENV{'SYSLOG'};
+}
+
+# Open the log if enabled
+if ($SYSLOG) {
+	openlog(basename($0), '', LOG_DAEMON);
 }
 
 # Read the torrent excludes list
@@ -187,6 +197,9 @@ my %need          = ();
 
 	if ($DEBUG) {
 		print STDERR 'Checking directory: ' . $dir . "\n";
+	}
+	if ($SYSLOG) {
+		syslog(LOG_NOTICE, $show);
 	}
 }
 
@@ -1210,6 +1223,9 @@ foreach my $episode (keys(%tors)) {
 	if (defined($urls{$episode})) {
 		$urls{$episode} = resolveTrackers($urls{$episode});
 		print $urls{$episode} . "\n";
+		if ($SYSLOG) {
+			syslog(LOG_NOTICE, $show . ': ' . getHash($urls{$episode}));
+		}
 		if ($DEBUG) {
 			print STDERR 'Final URL: ' . $urls{$episode} . "\n";
 		}
@@ -1220,6 +1236,9 @@ foreach my $episode (keys(%tors)) {
 
 # Cleanup
 unlink($cookies);
+if ($SYSLOG) {
+	closelog();
+}
 exit(0);
 
 sub getHash($) {

@@ -74,9 +74,10 @@ if [ $LOCAL_LINK -eq 0 ] && [ $FORCE -eq 0 ] && ~/bin/video/isMediaMounted; then
 fi
 
 # Check for connectivity and server live-ness
-if ! ~/bin/video/timeout -t "${TIMEOUT}" nc -z "${HOST}" 139 >/dev/null 2>&1; then
-	echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
-	OFFLINE=1
+if ! ~/bin/video/timeout -t "${TIMEOUT}" nc -z "${HOST}" 548 >/dev/null 2>&1 || \
+	! ~/bin/video/timeout -t "${TIMEOUT}" nc -z "${HOST}" 139 >/dev/null 2>&1; then
+		echo "`basename "${0}"`: Host not available: ${HOST}" 1>&2
+		OFFLINE=1
 fi
 
 # Drop local links if we're online
