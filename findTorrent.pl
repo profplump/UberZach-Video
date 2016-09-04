@@ -262,7 +262,6 @@ if (-e $dir . '/excludes') {
 	}
 
 	$exclude = uri_encode(' ' . $exclude);
-
 }
 
 # Setup our sources
@@ -479,7 +478,10 @@ if (scalar(@urls) < 1) {
 
 				# Calculate the compete search prefix and suffix to simplify later concatenations
 				my $prefix = $source->{'search_url'} . $quote . $urlShow . $quote;
-				my $suffix = $exclude;
+				my $suffix = '';
+				if ($source->{'search_exclude'}) {
+					$suffix .= $exclude;
+				}
 				if ($source->{'search_suffix'}) {
 					$suffix .= $source->{'search_suffix'};
 				}
@@ -493,29 +495,29 @@ if (scalar(@urls) < 1) {
 
 					# SXEY
 					if ($season_long ne $season || $episode_long ne $episode) {
-						$url = $prefix . '+s' . $season . 'e' . $episode . $exclude . $suffix;
+						$url = $prefix . '+s' . $season . 'e' . $episode . $suffix;
 						push(@urls, $url);
 					}
 
 					# SXX EYY
-					$url = $prefix . '+s' . $season_long . '+e' . $episode_long . $exclude . $suffix;
+					$url = $prefix . '+s' . $season_long . '+e' . $episode_long . $suffix;
 					push(@urls, $url);
 
 					# Season XX Episode YY
-					$url = $prefix . '+season+' . $season_long . '+episode+' . $episode_long . $exclude . $suffix;
+					$url = $prefix . '+season+' . $season_long . '+episode+' . $episode_long . $suffix;
 					push(@urls, $url);
 
 					# Series X Episode Y
-					$url = $prefix . '+series+' . $season . '+episode+' . $episode . $exclude . $suffix;
+					$url = $prefix . '+series+' . $season . '+episode+' . $episode . $suffix;
 					push(@urls, $url);
 
 					# SxEE
-					$url = $prefix . '+' . $season . 'x' . $episode_long . $exclude . $suffix;
+					$url = $prefix . '+' . $season . 'x' . $episode_long . $suffix;
 					push(@urls, $url);
 
 					# Season X
 					if ($NO_QUALITY_CHECKS) {
-						$url = $prefix . '+Season+' . $season . $exclude . $suffix;
+						$url = $prefix . '+Season+' . $season . $suffix;
 						push(@urls, $url);
 					}
 				}
@@ -1500,10 +1502,11 @@ sub initSources() {
 		my @proxies = ('thepiratebay.org/search/', 'pirateproxy.la/search/', 'tpb.unblocked.co/search/');
 		my $source = findProxy(\@proxies, '\bPirate Search\b');
 		if ($source) {
-			$source->{'weight'}        = 1.00;
-			$source->{'quote'}         = 0;
-			$source->{'search_suffix'} = '/0/7/0';
-			$sources{'TPB'}            = $source;
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 1;
+			$source->{'search_suffix'}  = '/0/7/0';
+			$sources{'TPB'}             = $source;
 		}
 	}
 
@@ -1512,10 +1515,11 @@ sub initSources() {
 		my @proxies = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
 		my $source = findProxy(\@proxies, 'Last\s+\d+\s+files\s+indexed');
 		if ($source) {
-			$source->{'weight'}        = 0.25;
-			$source->{'quote'}         = 1;
-			$source->{'search_suffix'} = '';
-			$sources{'ISO'}            = $source;
+			$source->{'weight'}         = 0.25;
+			$source->{'quote'}          = 1;
+			$source->{'search_exclude'} = 1;
+			$source->{'search_suffix'}  = '';
+			$sources{'ISO'}             = $source;
 		}
 	}
 
@@ -1524,10 +1528,11 @@ sub initSources() {
 		my @proxies = ('kickass.cd/search.php?q=', 'kickass.mx/search.php?q=');
 		my $source = findProxy(\@proxies, '/search.php');
 		if ($source) {
-			$source->{'weight'}        = 1.00;
-			$source->{'quote'}         = 1;
-			$source->{'search_suffix'} = '/';
-			$sources{'KICK'}           = $source;
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 1;
+			$source->{'search_exclude'} = 1;
+			$source->{'search_suffix'}  = '/';
+			$sources{'KICK'}            = $source;
 		}
 	}
 
@@ -1536,9 +1541,10 @@ sub initSources() {
 		my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
 		my $source = findProxy(\@proxies, 'Indexing [\d\,]+ active torrents');
 		if ($source) {
-			$source->{'weight'}        = 1.00;
-			$source->{'quote'}         = 1;
-			$source->{'search_suffix'} = '';
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 1;
+			$source->{'search_exclude'} = 1;
+			$source->{'search_suffix'}  = '';
 			if (!$NO_QUALITY_CHECKS) {
 				$source->{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
 			}
@@ -1551,10 +1557,11 @@ sub initSources() {
 		my @proxies = ('extratorrent.cc/search/?search=', 'etmirror.com/search/?search=', 'etproxy.com/search/?search=', 'extratorrentlive.com/search/?search=');
 		my $source = findProxy(\@proxies, '/search/');
 		if ($source) {
-			$source->{'weight'}        = 1.00;
-			$source->{'quote'}         = 1;
-			$source->{'search_suffix'} = '&new=1&x=0&y=0&srt=seeds&order=desc';
-			$sources{'ET'}             = $source;
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 1;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '&new=1&x=0&y=0&srt=seeds&order=desc';
+			$sources{'ET'}              = $source;
 		}
 	}
 
