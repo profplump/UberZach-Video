@@ -43,7 +43,7 @@ while read -d $'\0' SERIES ; do
 	fi
 
 	# Search and download
-	"${VIDEO_DIR}/findTorrent.sh" "${SERIES}"
+	DEBUG=-1 "${VIDEO_DIR}/findTorrent.sh" "${SERIES}"
 	if [ $? -ne 0 ]; then
 		echo "Skipping: ${SERIES}" 1>&2
 		continue
