@@ -670,6 +670,9 @@ foreach my $content (@html_content) {
 			# Split each TD element from the row
 			my @tds = split(/\<td(?:\s+[^\>]*)?\>/i, $tr);
 			if (scalar(@tds) > 10 || scalar(@tds) < 9) {
+				if ($tds[1] =~ /No results found/) {
+					next;
+				}
 				print STDERR 'Skipping invalid ISO TR: ' . $tr . "\n";
 				for (my $i = 0 ; $i < scalar(@tds) ; $i++) {
 					print STDERR 'TD' . $i . ': ' . $tds[$i] . "\n";
