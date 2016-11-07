@@ -976,9 +976,13 @@ foreach my $content (@html_content) {
 			push(@tors, \%tor);
 		}
 
+	} elsif ($content =~ /\<title\>Sorry/) {
+		if ($DEBUG) {
+			print STDERR "ISO offline\n";
+		}
 	} elsif ($content =~ /Database\s+maintenance/i) {
 		if ($DEBUG) {
-			print STDERR "Source down for maintenance\n";
+			print STDERR "TPB offline\n";
 		}
 	} elsif ($content =~ /^\s*$/) {
 		if ($DEBUG) {
