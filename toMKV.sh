@@ -2,7 +2,7 @@
 
 # Defaults
 if [ -z "${MIN_AVI_SIZE}" ]; then
-	MIN_AVI_SIZE=$(( 350 * 1024 * 1024 ))
+	MIN_AVI_SIZE=$(( 250 * 1024 * 1024 ))
 fi
 
 # Functions
