@@ -37,7 +37,8 @@ my $HB_EXEC         = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG           = 0;
 
 # General parameters for HandBrake
-my @video_params = ('--markers', '--large-file', '--optimize', '--encoder', 'x264', '--detelecine', '--decomb', '--loose-anamorphic', '--modulus', '16', '--encopts', 'b-adapt=2:rc-lookahead=50');
+my @video_params =
+  ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic', '--encoder', 'x265', '--encoder-preset', 'slow');
 my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3');
 
 # Use CoreAudio where available
