@@ -93,12 +93,18 @@ if ($ENV{'FORCE_MP4'}) {
 
 # Allow overrides for video quality
 if ($ENV{'QUALITY'}) {
+    if (!($ENV{'QUALITY'} =~ /^\d+$/)) {
+        die($0 . ': Invalid QUALITY: ' . $ENV{'QUALITY'} . "\n");
+    }
     $QUALITY    = $ENV{'QUALITY'};
     $HD_QUALITY = $ENV{'QUALITY'};
 }
 
 # Allow overrides for audio bitrate
 if ($ENV{'AUDIO_BITRATE'}) {
+    if (!($ENV{'AUDIO_BITRATE'} =~ /^\d+$/)) {
+        die($0 . ': Invalid AUDIO_BITRATE: ' . $ENV{'AUDIO_BITRATE'} . "\n");
+    }
     $AUDIO_BITRATE = $ENV{'AUDIO_BITRATE'};
 }
 
@@ -106,22 +112,31 @@ if ($ENV{'AUDIO_BITRATE'}) {
 if ($ENV{'OUT_DIR'}) {
     $OUT_DIR = $ENV{'OUT_DIR'};
     $OUT_DIR =~ s/\/+$//;
+    if (!-d $OUT_DIR) {
+        die($0 . ': Invalid OUT_DIR: ' . $OUT_DIR . "\n");
+    }
 }
 
 # Allow overrides for video height and width. The default is "same as source".
 if ($ENV{'HEIGHT'}) {
+    if (!($ENV{'HEIGHT'} =~ /^\d+$/)) {
+        die($0 . ': Invalid HEIGHT: ' . $ENV{'HEIGHT'} . "\n");
+    }
     push(@video_params, '--maxHeight', $ENV{'HEIGHT'});
 }
 if ($ENV{'WIDTH'}) {
+    if (!($ENV{'WIDTH'} =~ /^\d+$/)) {
+        die($0 . ': Invalid WIDTH: ' . $ENV{'WIDTH'} . "\n");
+    }
     push(@video_params, '--maxWidth', $ENV{'WIDTH'});
 }
 
-# Disable cropping
+# Allow autocrop disable
 if ($ENV{'NO_CROP'}) {
     $NO_CROP = 1;
 }
 
-# Enable greyscale mode
+# Allow greyscale mode
 if ($ENV{'GREYSCALE'}) {
     push(@video_params, '--grayscale');
 }
@@ -329,7 +344,11 @@ foreach my $title (keys(%titles)) {
     push(@args, '--quality', $title_quality);
     push(@args, '--crop',    join(':', @{ $scan->{'crop'} }));
     push(@args, @video_params);
-    push(@args, @subs);
+
+    # Include subtitles if available
+    if (scalar(@subs)) {
+        push(@args, @subs);
+    }
 
     # Include audio unless specifically excluded
     if (!$VIDEO_ONLY) {
