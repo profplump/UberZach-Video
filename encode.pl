@@ -25,6 +25,11 @@ my $OUT_DIR           = undef();
 my $MIXDOWN_CODEC     = 'AAC';
 my $MIXDOWN_CHANNELS  = 2.0;
 my $AAC_ENCODER       = 'ffaac';
+my $VIDEO_ENCODER     = 'x265';
+my %ENCODER_OPTS      = (
+    'x264' => [ '--encopts',        'b-adapt=2:rc-lookahead=50' ],
+    'x265' => [ '--encoder-preset', 'slow' ],
+);
 
 # Applicaton configuration
 my $HD_WIDTH        = 1350;
@@ -37,8 +42,7 @@ my $HB_EXEC         = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG           = 0;
 
 # General parameters for HandBrake
-my @video_params =
-  ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic', '--encoder', 'x265', '--encoder-preset', 'slow');
+my @video_params = ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic');
 my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3');
 
 # Use CoreAudio where available
@@ -59,6 +63,7 @@ if ($ENV{'MOBILE'}) {
     $ENV{'WIDTH'}         = 1280;
     $ENV{'AUDIO_BITRATE'} = 128;
     $ENV{'STEREO_ONLY'}   = 1;
+    $ENV{'ENCODER'}       = 'x264';
 }
 
 # Allow overrides for audio languages
@@ -140,6 +145,15 @@ if ($ENV{'NO_CROP'}) {
 if ($ENV{'GREYSCALE'}) {
     push(@video_params, '--grayscale');
 }
+
+# Allow selection of video encoder
+if ($ENV{'ENCODER'}) {
+    if (!exists($ENCODER_OPTS{ $ENV{'ENCODER'} })) {
+        die($0 . ': Invalid ENCODER: ' . $ENV{'ENCODER'} . "\n");
+    }
+    $VIDEO_ENCODER = $ENV{'ENCODER'};
+}
+push(@video_params, '--encoder', $VIDEO_ENCODER, @{ $ENCODER_OPTS{$VIDEO_ENCODER} });
 
 # Additional arguments for HandBrake, to allow options not supported directly by this script
 # Split on spaces; if you need spaces you'll have to work out something else
