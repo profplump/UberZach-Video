@@ -75,16 +75,20 @@ for i in ${FILES}; do
 		continue
 	fi
 
-	# Find the x264 header, if present. Scan deeper if the fast scan fails.
+	# Find the x264/Nx265 header, if present. Scan deeper if the fast scan fails.
 	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
-	if ! echo "${STRINGS}" | grep -Eq '^x264 - core'; then
+	if ! echo "${STRINGS}" | grep -Eq '^(x264|Nx265)'; then
 		STRINGS="`head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n 100`"
 	fi
 
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
-	if echo "${STRINGS}" | grep -E '^x264 - core (79|112|120|125|129|130|142)' | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		HANDBRAKE=1
+	if echo "${STRINGS}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
+		if echo "${STRINGS}" | grep -Eq '^x264 - core (79|112|120|125|129|130|142)'; then
+			HANDBRAKE=1
+		elif echo "${STRINGS}" | grep -Eq '^Nx265 \(build 95\)'; then
+			HANDBRAKE=1
+		fi
 	elif echo "${STRINGS}" | grep -q HandBrake; then
 		echo "Matched literal 'HandBrake': ${i}" 1>&2
 		HANDBRAKE=1
