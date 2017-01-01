@@ -37,13 +37,13 @@ my $MIN_VIDEO_WIDTH = 100;
 my $MAX_CROP_DIFF   = .1;
 my $MAX_DURA_DIFF   = 5;
 my $NO_CROP         = 0;
-my @CODEC_ORDER     = ('DTS-HD', 'FLAC', 'DTS', 'AC3', 'PCM', 'VORBIS', $MIXDOWN_CODEC, 'OTHER');
+my @CODEC_ORDER     = ('DTS-HD', 'FLAC', 'DTS', 'E-AC3', 'AC3', 'PCM', 'VORBIS', $MIXDOWN_CODEC, 'OTHER');
 my $HB_EXEC         = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG           = 0;
 
 # General parameters for HandBrake
 my @video_params = ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic');
-my @audio_params = ('--audio-copy-mask', 'dtshd,dts,ac3,aac', '--audio-fallback', 'ffac3');
+my @audio_params = ('--audio-copy-mask', 'dtshd,dts,eac3,ac3,aac', '--audio-fallback', 'ffac3');
 
 # Use CoreAudio where available
 my ($OS) = POSIX::uname();
