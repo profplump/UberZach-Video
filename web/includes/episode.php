@@ -20,7 +20,10 @@ function findEpisodes($series, $season) {
 		}
 
 		# Record the episode number
-		if (preg_match('/^(?:S\d+E)?(\d+)\s*\-\s*(\S.*\.\w{2,4})$/i', $episode, $matches)) {
+		if (preg_match('/^(20\d\d)\-(\d\d)\-(\d\d)\s*\-\s*(\S.*\.\w{2,4})$/i', $episode, $matches)) {
+			$episode_num = intval($matches[1] . $matches[2] . $matches[3]);
+			$retval[ $episode_num ] = $matches[4];
+		} elseif (preg_match('/^(?:S\d+E)?(\d+)\s*\-\s*(\S.*\.\w{2,4})$/i', $episode, $matches)) {
 			$episode_num = intval($matches[1]);
 			$retval[ $episode_num ] = $matches[2];
 		}
