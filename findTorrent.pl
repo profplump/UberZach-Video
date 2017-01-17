@@ -37,7 +37,7 @@ my $UA            = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/5
 my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Static tracker list, appended to all magnet URIs
-my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce');
+my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce', 'udp://tracker.istole.it:80/announce', 'udp://tracker.btzoo.eu:80/announce', 'udp://coppersurfer.tk:6969/announce');
 
 # Includes
 use URI::Encode qw(uri_encode);
