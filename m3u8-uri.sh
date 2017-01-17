@@ -3,13 +3,13 @@
 # Command-line parameters
 URI="${1}"
 if [ -z "${URI}" ]; then
-	wcho "Usage: ${0} uri" 1>&2
+	echo "Usage: ${0} uri" 1>&2
 	exit 1
 fi
 
 # Fetch the M3U8
 M3U8="`mktemp -t 'M3U8'`"
-curl -o "${M3U8}" "${URI}"
+curl -4 -s -o "${M3U8}" "${URI}"
 PREFIX="`echo "${URI}" | sed 's%^\(.*\)\/.*$%\1%'`"
 
 # Find the highest-resolution/highest-bandwidth stream
