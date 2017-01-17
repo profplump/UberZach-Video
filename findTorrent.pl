@@ -16,7 +16,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
+my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 0);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -1519,7 +1519,7 @@ sub initSources() {
 
 	# ISOhunt
 	if ($ENABLE_SOURCE{'ISO'}) {
-		my @proxies = ('isohunters.net/torrents/?ihq=', 'isohunt.to/torrents/?ihq=');
+		my @proxies = ('isohunt.to/torrents/?ihq=', 'isohunters.net/torrents/?ihq=');
 		my $source = findProxy(\@proxies, 'Last\s+\d+\s+files\s+indexed');
 		if ($source) {
 			$source->{'weight'}         = 0.25;
