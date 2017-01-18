@@ -955,7 +955,7 @@ foreach my $content (@html_content) {
 	} elsif ($content =~ /ExtraTorrent\.cc The World\'s Largest BitTorrent System\<\/title\>/i) {
 
 		# Find TR elements from ET
-		my @trs = splitTags($content, 'TR', undef(), '\/torrent\/');
+		my @trs = splitTags($content, 'TR', undef(), 'magnet\:');
 		foreach my $tr (@trs) {
 
 			# Find the show title
@@ -968,17 +968,18 @@ foreach my $content (@html_content) {
 			}
 			$title =~ s/^\s+//;
 
-			# Extract the season and episode numbers
-			my ($fileSeason, $episode) = findSE($title);
-
-			# Extract the ID
-			my ($id) = $tr =~ /\<a\s+href\=\"\/torrent\/(\d+)\/[^\"]*\"/i;
-			if (!defined($id) || length($id) < 1) {
+			# Find the magnet URL
+			my ($url) = $tr =~ /\<a\s+href=\"(magnet\:[^\"]+\")/i;
+			if (!defined($url) || length($url) < 1) {
 				if ($DEBUG) {
-					print STDERR "Skipping TR with no ID\n";
+					print STDERR "Skipping TR with no magnet URL\n";
 				}
 				next;
 			}
+			$url = decode_entities($url);
+
+			# Extract the season and episode numbers
+			my ($fileSeason, $episode) = findSE($title);
 
 			# Count the sum of seeders and leachers
 			my $seeds   = 0;
@@ -1001,9 +1002,6 @@ foreach my $content (@html_content) {
 				$size *= 1024;
 			}
 			$size = int($size);
-
-			# Build the detail page URL
-			my $url = $SOURCES->{'ET'}->{'protocol'} . '://' . $SOURCES->{'ET'}->{'host'} . '/torrent/' . $id . '/';
 
 			if ($DEBUG) {
 				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
@@ -1372,7 +1370,7 @@ sub resolveSecondary($) {
 	my ($tor) = @_;
 
 	# Fetch the torrent-specific page and extract the magent link
-	if ($tor->{'source'} eq 'ISO' || $tor->{'source'} eq 'ET') {
+	if ($tor->{'source'} eq 'ISO') {
 		if ($DEBUG) {
 			print STDERR 'Secondary fetch with URL: ' . $tor->{'url'} . "\n";
 			$fetch->file('/tmp/findTorrent-secondary.html');
