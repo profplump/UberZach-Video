@@ -10,6 +10,7 @@ DMX:
 	Time::HiRes
 
 Other:
+	Capture::Tiny
 	URI::Encode
 	HTML::Strip
 	MP3::Tag

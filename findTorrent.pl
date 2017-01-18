@@ -969,7 +969,7 @@ foreach my $content (@html_content) {
 			$title =~ s/^\s+//;
 
 			# Find the magnet URL
-			my ($url) = $tr =~ /\<a\s+href=\"(magnet\:[^\"]+\")/i;
+			my ($url) = $tr =~ /\<a\s+href=\"(magnet\:[^\"]+)\"/i;
 			if (!defined($url) || length($url) < 1) {
 				if ($DEBUG) {
 					print STDERR "Skipping TR with no magnet URL\n";
