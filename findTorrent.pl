@@ -29,15 +29,18 @@ my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
 
 # App config
-my $DELAY         = 10;
-my $TIMEOUT       = 15;
-my $ERR_DELAY     = $TIMEOUT * 2;
-my $ERR_RETRIES   = 3;
-my $UA            = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41';
+my $DELAY       = 10;
+my $TIMEOUT     = 15;
+my $ERR_DELAY   = $TIMEOUT * 2;
+my $ERR_RETRIES = 3;
+my $UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41';
 my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Static tracker list, appended to all magnet URIs
-my @TRACKERS = ('udp://open.demonii.com:1337/announce', 'udp://tracker.publicbt.com:80/announce', 'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce');
+my @TRACKERS = (
+	'udp://open.demonii.com:1337/announce',         'udp://tracker.publicbt.com:80/announce',
+	'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce'
+);
 
 # Includes
 use URI::Encode qw(uri_encode);
@@ -532,7 +535,7 @@ foreach my $url (@urls) {
 
 	# Fetch the page
 	my $errCount = 0;
-	HTTP_ERR_LOOP: {
+  HTTP_ERR_LOOP: {
 		if ($DEBUG) {
 			print STDERR 'Searching with URL: ' . $url . "\n";
 			$fetch->file('/tmp/findTorrent-lastPage.html');
@@ -1112,7 +1115,9 @@ foreach my $tor (@tors) {
 			next;
 
 			# Skip files that don't contain a needed episode number, unless there is no episode number and NO_QUALITY_CHECKS is set
-		} elsif ((defined($tor->{'episode'}) && !$need{ $tor->{'episode'} }) || (!defined($tor->{'episode'}) && !$NO_QUALITY_CHECKS)) {
+		} elsif ((defined($tor->{'episode'}) && !$need{ $tor->{'episode'} })
+			|| (!defined($tor->{'episode'}) && !$NO_QUALITY_CHECKS))
+		{
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
 			}
@@ -1135,7 +1140,10 @@ foreach my $tor (@tors) {
 		# Skip torrents with too few seeders/leachers
 		if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $MIN_COUNT) {
 			if ($DEBUG) {
-				print STDERR 'Skipping file: Insufficient seeder/leacher count (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'title'} . "\n";
+				print STDERR 'Skipping file: Insufficient seeder/leacher count ('
+				  . $tor->{'seeds'} . '/'
+				  . $tor->{'leaches'} . '): '
+				  . $tor->{'title'} . "\n";
 			}
 			next;
 
@@ -1145,7 +1153,10 @@ foreach my $tor (@tors) {
 			&& $tor->{'seeds'} > $tor->{'leaches'} * $MAX_SEED_RATIO)
 		{
 			if ($DEBUG) {
-				print STDERR 'Skipping file: Unusual seeder/leacher ratio (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . '): ' . $tor->{'title'} . "\n";
+				print STDERR 'Skipping file: Unusual seeder/leacher ratio ('
+				  . $tor->{'seeds'} . '/'
+				  . $tor->{'leaches'} . '): '
+				  . $tor->{'title'} . "\n";
 			}
 			next;
 
@@ -1161,7 +1172,13 @@ foreach my $tor (@tors) {
 	# Save good torrents
 	push(@{ $tors{ $tor->{'episode'} } }, $tor);
 	if ($DEBUG) {
-		print STDERR 'Possible URL (' . $tor->{'seeds'} . '/' . $tor->{'leaches'} . ' seeds/leaches, ' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
+		print STDERR 'Possible URL ('
+		  . $tor->{'seeds'} . '/'
+		  . $tor->{'leaches'}
+		  . ' seeds/leaches, '
+		  . $tor->{'size'}
+		  . ' MiB): '
+		  . $tor->{'title'} . "\n";
 	}
 }
 
@@ -1189,7 +1206,13 @@ my %size = ();
 		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
 
 		if ($DEBUG) {
-			print STDERR 'Episode ' . $episode . ' max/avg/cmp size: ' . int($max{$episode}) . '/' . int($avg{$episode}) . '/' . int($size{$episode}) . " MiB\n";
+			print STDERR 'Episode '
+			  . $episode
+			  . ' max/avg/cmp size: '
+			  . int($max{$episode}) . '/'
+			  . int($avg{$episode}) . '/'
+			  . int($size{$episode})
+			  . " MiB\n";
 		}
 	}
 }
@@ -1335,7 +1358,7 @@ sub resolveSecondary($) {
 		goto OUT;
 	}
 
-	OUT:
+  OUT:
 	return $tor->{'url'};
 }
 
@@ -1561,7 +1584,10 @@ sub initSources() {
 
 	# ExtraTorrent
 	if ($ENABLE_SOURCE{'ET'}) {
-		my @proxies = ('extratorrent.cc/search/?search=', 'etmirror.com/search/?search=', 'etproxy.com/search/?search=', 'extratorrentlive.com/search/?search=');
+		my @proxies = (
+			'extratorrent.cc/search/?search=', 'etmirror.com/search/?search=',
+			'etproxy.com/search/?search=',     'extratorrentlive.com/search/?search='
+		);
 		my $source = findProxy(\@proxies, '/search/');
 		if ($source) {
 			$source->{'weight'}         = 1.00;
