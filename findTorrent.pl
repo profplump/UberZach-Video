@@ -16,7 +16,7 @@ my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 0);
+my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -42,12 +42,38 @@ my @TRACKERS = (
 	'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce'
 );
 
+# PhantomJS
+my $PHANTOM        = '/usr/local/bin/phantomjs';
+my $PHANTOM_CONFIG = "var system = require('system');
+var page = require('webpage').create();
+var resources = [];
+
+page.open(system.args[1], function(status)
+{
+    console.log(resources[0].status);
+    console.log(page.content);
+    phantom.exit();
+});
+
+// Add responses for completed text/html resources
+page.onResourceReceived = function(response) {
+    if (response.stage !== 'end') return;
+    if (response.headers.filter(function(header) {
+        if (header.name == 'Content-Type' && header.value.indexOf('text/html') == 0) {
+            return true;
+        }
+        return false;
+    }).length > 0)
+        resources.push(response);
+};";
+
 # Includes
 use URI::Encode qw(uri_encode);
 use HTML::Entities;
 use HTML::Strip;
 use JSON;
 use Sys::Syslog qw(:standard :macros);
+use Capture::Tiny ':all';
 use File::Temp;
 use File::Spec;
 use File::Basename;
@@ -63,6 +89,7 @@ sub splitTags($$$$);
 sub findSE($);
 sub initSources();
 sub findProxy($$);
+sub phantomFetch($);
 
 # Command line
 my ($dir, $search) = @ARGV;
@@ -77,6 +104,13 @@ my $fetch   = Fetch->new(
 	'timeout'    => $TIMEOUT,
 	'uas'        => $UA
 );
+
+# Phantom setup
+my $script = mktemp('/tmp/findTorrent.phantom.XXXXXXXX');
+open(my $fh, '>', $script)
+  or die('Unable to open PhantomJS script file: ' . $! . "\n");
+print $fh $PHANTOM_CONFIG;
+close($fh);
 
 # Environment
 if ($ENV{'DEBUG'}) {
@@ -533,41 +567,51 @@ my @html_content = ();
 my @json_content = ();
 foreach my $url (@urls) {
 
-	# Fetch the page
+	# Fetch the page via PhantomJS
 	my $errCount = 0;
+	my $content  = '';
   HTTP_ERR_LOOP: {
+		my $code = 0;
 		if ($DEBUG) {
 			print STDERR 'Searching with URL: ' . $url . "\n";
-			$fetch->file('/tmp/findTorrent-lastPage.html');
 		}
+
+		# Delay and fetch
 		sleep($DELAY * (rand(2) + 0.5));
-		$fetch->url($url);
-		$fetch->fetch('nocheck' => 1);
+		($content, $code) = phantomFetch($url);
+		if ($DEBUG) {
+			open(my $fh, '>', '/tmp/findTorrent-lastPhantom.html')
+			  or warn('Unable to open phantom debug file: ' . $! . "\n");
+			if ($fh) {
+				print $fh $content;
+				close($fh);
+			}
+		}
 
 		# Check for useful errors
-		if ($fetch->status_code() == 404) {
+		if ($code == 404) {
 			if ($DEBUG) {
 				print STDERR "Skipping content from 404 response\n";
 			}
 			next;
 		}
 
-		# Check for errors
-		if ($fetch->status_code() != 200) {
-			if ($fetch->status_code() >= 500 && $fetch->status_code() <= 599) {
+		# Check for less useful errors
+		if ($code != 200) {
+			if ($code >= 500 && $code <= 599) {
 				if ($errCount > $ERR_RETRIES) {
 					print STDERR 'Unable to fetch URL: ' . $url . "\n";
 					$errCount = 0;
 					next;
 				}
 				if ($DEBUG) {
-					print STDERR 'Retrying URL (' . $fetch->status_code() . '): ' . $url . "\n";
+					print STDERR 'Retrying URL (' . $code . '): ' . $url . "\n";
 				}
 				$errCount++;
 				sleep($ERR_DELAY);
 				redo HTTP_ERR_LOOP;
 			} else {
-				print STDERR 'Error fetching URL (' . $fetch->status_code() . '): ' . $url . "\n";
+				print STDERR 'Error fetching URL (' . $code . '): ' . $url . "\n";
 			}
 			next;
 		}
@@ -575,17 +619,17 @@ foreach my $url (@urls) {
 
 	# Save the content, discriminating by data type
 	if ($DEBUG) {
-		print STDERR 'Fetched ' . length($fetch->content()) . " bytes\n";
+		print STDERR 'Fetched ' . length($content) . " bytes\n";
 	}
-	if ($fetch->content() =~ /^\s*{/) {
-		my $json = eval { decode_json($fetch->content()); };
+	if ($content =~ /^\s*{/) {
+		my $json = eval { decode_json($content); };
 		if (defined($json) && ref($json)) {
 			push(@json_content, \@{ $json->{'items'}->{'list'} });
 		} elsif ($DEBUG) {
-			print STDERR 'JSON parsing failure on: ' . $fetch->content() . "\n";
+			print STDERR 'JSON parsing failure on: ' . $content . "\n";
 		}
 	} else {
-		push(@html_content, scalar($fetch->content()));
+		push(@html_content, scalar($content));
 	}
 }
 
@@ -1290,6 +1334,7 @@ foreach my $episode (keys(%tors)) {
 
 # Cleanup
 unlink($cookies);
+unlink($script);
 if ($SYSLOG) {
 	closelog();
 }
@@ -1647,4 +1692,21 @@ sub findProxy($$) {
 
 	# Return undef if we didn't find any working proxies
 	return undef();
+}
+
+sub phantomFetch($) {
+	my ($url) = @_;
+
+	# Capture STDOUT, drop STDERR
+	my @cmd = ($PHANTOM, $script, $url);
+	my ($content, undef(), undef()) = capture { system(@cmd); };
+
+	# Try to get the response status code, fake one if we cannot
+	my ($code) = $content =~ /^(\d\d\d)$/m;
+	if (!defined($code)) {
+		warn("Unable to retrive HTTP status code. Faking success...\n");
+		$code = 200;
+	}
+
+	return ($content, $code);
 }
