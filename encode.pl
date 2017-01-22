@@ -18,7 +18,7 @@ my $VIDEO_ONLY    = 0;
 my $HEIGHT        = undef();
 my $WIDTH         = undef();
 my $AUDIO_EXCLUDE_REGEX =
-  '\b(?:Chinese|Czech|Deutsch|Espanol|Francais|Italiano|Japanese|Korean|Magyar|Polish|Portugues|Russian|Thai|Turkish|Ukrainian)\b';
+  '\b(?:Chinese|Czech|Deutsch|Espanol|español|Francais|Italiano|Japanese|Korean|Magyar|Polish|Portugues|Russian|Thai|Turkish|Ukrainian)\b';
 my $SUB_INCLUDE_REGEX = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4         = 0;
 my $OUT_DIR           = undef();
@@ -43,7 +43,7 @@ my $DEBUG           = 0;
 
 # General parameters for HandBrake
 my @video_params = ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic');
-my @audio_params = ('--audio-copy-mask', 'dtshd,dts,eac3,ac3,aac', '--audio-fallback', 'ffac3');
+my @audio_params = ('--audio-copy-mask', 'dtshd,dts,eac3,ac3,aac', '--audio-fallback', 'eac3');
 
 # Use CoreAudio where available
 my ($OS) = POSIX::uname();
