@@ -28,7 +28,7 @@ my $AAC_ENCODER       = 'ffaac';
 my $VIDEO_ENCODER     = 'x265';
 my %ENCODER_OPTS      = (
     'x264' => [ '--encopts',        'b-adapt=2:rc-lookahead=50' ],
-    'x265' => [ '--encoder-preset', 'slow' ],
+    'x265' => [ '--encoder-preset', 'medium' ],
 );
 
 # Applicaton configuration
