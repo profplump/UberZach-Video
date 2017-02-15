@@ -638,7 +638,7 @@ sub findFiles($) {
 						}
 						warn("\tDeleting: " . $file . "\n");
 						if ($SUDO_CHATTR) {
-							system('sudo', 'chattr', '-i', $file);
+							system('sudo', 'chattr', '-i', Cwd::abs_path($file));
 						}
 						unlink($file);
 						next;
@@ -654,7 +654,7 @@ sub findFiles($) {
 						}
 						warn("\tDeleting: " . $del . "\n");
 						if ($SUDO_CHATTR) {
-							system('sudo', 'chattr', '-i', $del);
+							system('sudo', 'chattr', '-i', Cwd::abs_path($del));
 						}
 						unlink($del);
 						next;
@@ -1325,7 +1325,7 @@ sub renameVideo($$$$$$) {
 				die($NAME . ': Rename: Target exists: ' . $videoNew . "\n");
 			}
 			if ($SUDO_CHATTR) {
-				system('sudo', 'chattr', '-i', $video);
+				system('sudo', 'chattr', '-i', Cwd::abs_path($video));
 			}
 			rename($video, $videoNew)
 			  or die($NAME . ': Unable to rename: ' . $video . ': ' . $! . "\n");
@@ -1347,7 +1347,7 @@ sub renameVideo($$$$$$) {
 
 		# Write a new NFO and unlink the old one
 		if ($SUDO_CHATTR) {
-			system('sudo', 'chattr', '-i', $nfo);
+			system('sudo', 'chattr', '-i', Cwd::abs_path($nfo));
 		}
 		saveString($nfoNew, $nfoData);
 		if ($nfo ne $nfoNew) {
