@@ -25,6 +25,7 @@ my $YTDL_BIN      = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
 my @YTDL_ARGS     = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
 my @YTDL_QUIET    = ('--quiet', '--no-warnings');
 my @YTDL_DEBUG    = ('--verbose');
+my $CHATTR        = '/usr/bin/chattr';
 my $BATCH_SIZE    = 50;
 my $MAX_INDEX     = 25000;
 my $FETCH_LIMIT   = 50;
@@ -217,7 +218,7 @@ if ($ENV{'NO_RENAME'}) {
 
 # Environmental parameters (functional)
 my $SUDO_CHATTR = 1;
-if ($ENV{'NO_CHATTR'} || !can_run('sudo') || !can_run('chattr')) {
+if ($ENV{'NO_CHATTR'} || !can_run('sudo') || !can_run($CHATTR)) {
 	$SUDO_CHATTR = 0;
 }
 if ($ENV{'MAX_INDEX'} && $ENV{'MAX_INDEX'} =~ /(\d+)/) {
@@ -638,7 +639,7 @@ sub findFiles($) {
 						}
 						warn("\tDeleting: " . $file . "\n");
 						if ($SUDO_CHATTR) {
-							system('sudo', 'chattr', '-i', $file);
+							system('sudo', $CHATTR, '-i', Cwd::abs_path($file));
 						}
 						unlink($file);
 						next;
@@ -654,7 +655,7 @@ sub findFiles($) {
 						}
 						warn("\tDeleting: " . $del . "\n");
 						if ($SUDO_CHATTR) {
-							system('sudo', 'chattr', '-i', $del);
+							system('sudo', $CHATTR, '-i', Cwd::abs_path($del));
 						}
 						unlink($del);
 						next;
@@ -1325,7 +1326,7 @@ sub renameVideo($$$$$$) {
 				die($NAME . ': Rename: Target exists: ' . $videoNew . "\n");
 			}
 			if ($SUDO_CHATTR) {
-				system('sudo', 'chattr', '-i', $video);
+				system('sudo', $CHATTR, '-i', Cwd::abs_path($video));
 			}
 			rename($video, $videoNew)
 			  or die($NAME . ': Unable to rename: ' . $video . ': ' . $! . "\n");
@@ -1347,7 +1348,7 @@ sub renameVideo($$$$$$) {
 
 		# Write a new NFO and unlink the old one
 		if ($SUDO_CHATTR) {
-			system('sudo', 'chattr', '-i', $nfo);
+			system('sudo', $CHATTR, '-i', Cwd::abs_path($nfo));
 		}
 		saveString($nfoNew, $nfoData);
 		if ($nfo ne $nfoNew) {

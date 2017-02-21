@@ -1588,7 +1588,7 @@ sub initSources() {
 		my @proxies = ('isohunt.to/torrents/?ihq=', 'isohunters.net/torrents/?ihq=');
 		my $source = findProxy(\@proxies, 'Last\s+\d+\s+files\s+indexed');
 		if ($source) {
-			$source->{'weight'}         = 0.25;
+			$source->{'weight'}         = 0.75;
 			$source->{'quote'}          = 1;
 			$source->{'search_exclude'} = 1;
 			$source->{'search_suffix'}  = '';

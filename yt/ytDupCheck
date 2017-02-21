@@ -14,7 +14,7 @@ for k in *; do
 	fi
 
 	cd "${BASE_DIR}/${k}"
-	for i in S[0-9]*E[0-9]*.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]; do
+	for i in S[0-9]*E[0-9]*.*; do
 		s="`echo "${i}" | cut -d 'S' -f 2 | cut -d 'E' -f 1`"
 		e="`echo "${i}" | cut -d 'E' -f 2 | cut -d ' ' -f 1`"
 		ext="`echo "${i}" | awk -F '.' '{print $NF}'`"
@@ -34,7 +34,7 @@ for k in *; do
 		if [ "${ext}" == "nfo" ]; then
 			# Missing video
 			n="`echo "${i}" | sed 's%\.'"${ext}"'$%%'`"
-			if [ `ls "${n}".[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9] | grep -v "${i}" | wc -l` -ne 1 ]; then
+			if [ `ls "${n}".* | grep -v "${i}" | wc -l` -ne 1 ]; then
 				echo "Missing video: ${k}/${i}"
 			fi
 		else
@@ -45,12 +45,12 @@ for k in *; do
 			fi
 
 			# Duplicate by type-id
-			if [ `ls S[0-9]*E[0-9]*" - ${id}."[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9] | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
+			if [ `ls S[0-9]*E[0-9]*" - ${id}."* | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
 				echo "Duplicate video by type-id: ${k}/${i}"
 			fi
 
 			# Duplicate by type-season
-			if [ `ls "S${s}E${e} - "*.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9] | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
+			if [ `ls "S${s}E${e} - "*.* | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
 				echo "Duplicate video by type-season: ${k}/${i}"
 			fi
 		fi
