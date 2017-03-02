@@ -1628,8 +1628,8 @@ sub initSources() {
 	# ExtraTorrent
 	if ($ENABLE_SOURCE{'ET'}) {
 		my @proxies = (
-			'extratorrent.cc/search/?search=', 'etmirror.com/search/?search=',
-			'etproxy.com/search/?search=',     'extratorrentlive.com/search/?search='
+			'extra.to/search/?search=',    'etmirror.com/search/?search=',
+			'etproxy.com/search/?search=', 'extratorrentlive.com/search/?search='
 		);
 		my $source = findProxy(\@proxies, '/search/');
 		if ($source) {
