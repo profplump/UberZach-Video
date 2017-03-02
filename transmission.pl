@@ -680,6 +680,7 @@ sub seriesCleanupLocal($) {
 
 sub seriesCleanupCore($) {
 	my ($name) = @_;
+	$name =~ s/^.*\[[^\]]*\]\s+//;
 	$name =~ s/\b(?:and|\&)\b/ /ig;
 	$name =~ s/^\s*The\b//ig;
 	$name =~ s/\[[^\]]*\]//g;
