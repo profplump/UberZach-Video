@@ -19,7 +19,7 @@ fi
 # Allow environmental overrides
 # Provide looser default matching to TS, MPEG, and MPG sources
 if [ -z "${RECODE_SIZE_RATIO}" ]; then
-	RECODE_SIZE_RATIO=30
+	RECODE_SIZE_RATIO=20
 	if echo "${IN}" | grep -E -i -q "\.(ts|mpe?g)$"; then
 		RECODE_SIZE_RATIO=10
 	fi
