@@ -652,6 +652,8 @@ sub findFiles($) {
 							$del = $files{$id}->{'path'};
 						} elsif ($suffix ne 'mp4' && $files{$id}->{'suffix'} eq 'mp4') {
 							$del = $files{$id}->{'path'};
+						} elsif ($suffix ne 'webm' && $files{$id}->{'suffix'} eq 'webm') {
+							$del = $files{$id}->{'path'};
 						}
 						warn("\tDeleting: " . $del . "\n");
 						if ($SUDO_CHATTR) {
