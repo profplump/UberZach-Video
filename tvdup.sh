@@ -2,7 +2,6 @@
 set failglob
 
 cd /mnt/media/TV
-lastNum=0
 while IFS= read -r -d '' lpath; do
 	count=0
 	file="`basename "${lpath}"`"
@@ -12,10 +11,13 @@ while IFS= read -r -d '' lpath; do
 		echo "Error on: ${lpath}" 1>&2
 		continue
 	fi
-	if [ $num -eq $lastNum ]; then
-		continue
-	fi
 	for i in "${dir}/${num} - "*; do
+		if echo "${i}" | grep -q '.nfo$'; then
+			continue
+		fi
+		if echo "${i}" | grep -q '.srt$'; then
+			continue
+		fi
 		count=$(( $count + 1 ))
 	done
 	if [ $count -ne 1 ]; then
