@@ -2,6 +2,7 @@
 set failglob
 
 cd /mnt/media/TV
+declare -A seen
 while IFS= read -r -d '' lpath; do
 	count=0
 	file="`basename "${lpath}"`"
@@ -21,10 +22,14 @@ while IFS= read -r -d '' lpath; do
 		count=$(( $count + 1 ))
 	done
 	if [ $count -ne 1 ]; then
-		lastNum=$num
-		echo "Multiple matches for: ${dir}/${num} - " 1>&2
-		ls -lhtQ "${dir}/${num} - "*
-		sudo chattr -i "${dir}/${num} - "*
-		touch "${dir}/${num} - "*
+		id="${dir}/${num} - "
+		if [ -n "${seen["${id}"]}" ]; then
+			continue
+		fi
+		seen["${id}"]=1
+		echo "Multiple matches for: ${id}" 1>&2
+		ls -lhtQ "${id}"*
+		sudo chattr -i "${id}"*
+		touch "${id}"*
 	fi
 done< <(find . -type f -path '*Season*' -name '[0-9]*.*' -print0)
