@@ -1,7 +1,7 @@
 #!/bin/bash
 set failglob
+BASE="/mnt/media/TV"
 
-cd /mnt/media/TV
 declare -A seen
 while IFS= read -r -d '' lpath; do
 	count=0
@@ -27,9 +27,12 @@ while IFS= read -r -d '' lpath; do
 			continue
 		fi
 		seen["${id}"]=1
+
 		echo "Multiple matches for: ${id}" 1>&2
-		ls -lhtQ "${id}"*
+		short="`echo "${id}" | sed "s%^${BASE}/%%"`"
+		(cd "${BASE}" && ls -lhtQ "${short}"*)
+
 		sudo chattr -i "${id}"*
 		touch "${id}"*
 	fi
-done< <(find . -type f -path '*Season*' -name '[0-9]*.*' -print0)
+done< <(find "${BASE}" -type f -path '*Season*' -name '[0-9]*.*' -print0)
