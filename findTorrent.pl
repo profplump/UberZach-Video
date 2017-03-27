@@ -1572,7 +1572,7 @@ sub initSources() {
 
 	# The Pirate Bay
 	if ($ENABLE_SOURCE{'TPB'}) {
-		my @proxies = ('thepiratebay.org/search/', 'pirateproxy.la/search/', 'tpb.unblocked.co/search/');
+		my @proxies = ('thepiratebay.org/search/', 'tpb.unblocked.co/search/');
 		my $source = findProxy(\@proxies, '\bPirate Search\b');
 		if ($source) {
 			$source->{'weight'}         = 1.00;
