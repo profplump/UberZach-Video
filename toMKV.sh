@@ -91,5 +91,8 @@ tmpOut="`mktemp "${outFile}.XXXXXXXX"`"
 cp -X "${tmpFile}" "${tmpOut}" && rm "${inFile}" && mv "${tmpOut}" "${outFile}"
 rm -f "${tmpFile}" "${srtFile}"
 
+# Re-label undefined audio tracks in files with no English tracks
+~/bin/video/undToEng.pl "${outFile}"
+
 # Exit cleanly
 exit 0
