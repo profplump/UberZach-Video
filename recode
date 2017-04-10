@@ -99,6 +99,10 @@ if [ $KEEP_IN -eq 0 ]; then
 	if [ -e "${SRT}" ]; then
 		rm -f "${SRT}"
 	fi
+	RENAME="`echo "${OUT}" | sed 's%^\(.*\)-recode\(\.[^\.]*\)$%\1\2%'`"
+	if [ "${RENAME}" == "${IN}" ] && [ ! -e "${IN}" ]; then
+		mv "${OUT}" "${IN}"
+	fi
 else
 	echo -e "`basename "${0}"`: Delayed error: Refusing to delete input file.\n" 1>&2
 fi
