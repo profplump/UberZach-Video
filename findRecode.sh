@@ -113,7 +113,7 @@ for i in ${FILES}; do
 		continue
 	fi
 
-	# Skip files is low bitrates
+	# Skip files with low bitrates
 	SIZE="`stat -f %z "${i}" 2>/dev/null`"
 	if [ -z "${SIZE}" ]; then
 		SIZE=1
