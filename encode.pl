@@ -8,7 +8,7 @@ use IPC::Open3;
 use File::Basename;
 
 # Default configuration
-my $FORMAT        = 'mp4';
+my $FORMAT        = 'mkv';
 my $AUDIO_BITRATE = 192;
 my $QUALITY       = 20;
 my $HD_QUALITY    = 22;
@@ -235,13 +235,18 @@ if ($title) {
 }
 
 # Ensure we have an output file name
-# Force MKV output if the output file name is provided and ends in .MKV
+# Force MKV/MP4 output if the output file name is provided and includes an extension
 if (!defined($out_file) || length($out_file) < 1) {
 	$out_file = $in_file;
 } else {
 	my ($force_format) = $out_file =~ /\.(\w{2,4})$/;
-	if (defined($force_format) && lc($force_format) eq 'mkv') {
-		$FORMAT = 'mkv';
+	if (defined($force_format)) {
+		$force_format = lc($force_format);
+		if ($force_format eq 'mkv' || $force_format eq 'mp4') {
+			$FORMAT = $force_format;
+		} elsif ($force_format eq 'm4v') {
+			$FORMAT = 'mp4';
+		}
 	}
 }
 
@@ -332,10 +337,10 @@ foreach my $title (keys(%titles)) {
 	# Select a file name extension that matches the format
 	my $title_out_file = $out_file;
 	$title_out_file =~ s/\.(?:\w{2,4}|dvdmedia)$//i;
-	if ($FORMAT eq 'mkv') {
-		$title_out_file .= '.mkv';
-	} else {
+	if ($FORMAT eq 'mp4') {
 		$title_out_file .= '.m4v';
+	} else {
+		$title_out_file .= '.mkv';
 	}
 
 	# Force the title number into the output file name if there are multiple titles to be encoded
