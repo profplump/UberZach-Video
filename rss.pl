@@ -107,7 +107,7 @@ for my $entry ($feed->entries()) {
         if ($enc && ref($enc) eq 'HASH' && exists($enc->{'url'})) {
             $url = $enc->{'url'};
             if (exists($enc->{'type'})) {
-                if ($enc->{'type'} =~ /audio\/mp4/i) {
+                if ($enc->{'type'} =~ /audio\/mp4/i || $enc->{'type'} =~ /audio\/x-m4a/i) {
                     $ext = 'm4a';
                 } elsif ($enc->{'type'} =~ /audio\/mpeg/i) {
                     $ext = 'mp3';
@@ -360,6 +360,10 @@ foreach my $time (sort(@need)) {
             goto OUT;
         }
         $mp3->close();
+    } elsif ($ep->{'ext'} eq 'm4a') {
+        if ($DEBUG) {
+            print STDERR "MP4 munging not complete\n";
+        }
     } else {
         print STDERR 'Tag munging not available for ' . $ep->{'ext'} . ' files: ' . $file . "\n";
     }
