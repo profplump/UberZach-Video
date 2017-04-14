@@ -79,7 +79,7 @@ for i in ${FILES}; do
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
 	if echo "${STRINGS}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		if echo "${STRINGS}" | grep -Eq '^x264 - core (79|112|120|125|129|130|142)'; then
+		if echo "${STRINGS}" | grep -Eq '^x264 - core (79|112|120|125|129|130|142|148)'; then
 			HANDBRAKE=1
 		elif echo "${STRINGS}" | grep -Eq '^Nx265 \(build 95\)'; then
 			HANDBRAKE=1
