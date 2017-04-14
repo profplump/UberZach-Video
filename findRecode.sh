@@ -70,11 +70,6 @@ for i in ${FILES}; do
 		continue
 	fi
 
-	# Bail if the load is high
-	if ! ~/bin/video/checkLoad.sh; then
-		continue
-	fi
-
 	# Find the x264/Nx265 header, if present. Scan deeper if the fast scan fails.
 	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
 	if ! echo "${STRINGS}" | grep -Eq '^(x264|Nx265)'; then
