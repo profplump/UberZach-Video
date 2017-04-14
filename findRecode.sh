@@ -70,11 +70,6 @@ for i in ${FILES}; do
 		continue
 	fi
 
-	# Bail if the load is high
-	if ! ~/bin/video/checkLoad.sh; then
-		continue
-	fi
-
 	# Find the x264/Nx265 header, if present. Scan deeper if the fast scan fails.
 	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
 	if ! echo "${STRINGS}" | grep -Eq '^(x264|Nx265)'; then
@@ -84,7 +79,7 @@ for i in ${FILES}; do
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
 	if echo "${STRINGS}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		if echo "${STRINGS}" | grep -Eq '^x264 - core (79|112|120|125|129|130|142)'; then
+		if echo "${STRINGS}" | grep -Eq '^x264 - core (79|112|120|125|129|130|142|148)'; then
 			HANDBRAKE=1
 		elif echo "${STRINGS}" | grep -Eq '^Nx265 \(build 95\)'; then
 			HANDBRAKE=1
