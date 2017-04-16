@@ -8,7 +8,7 @@ use IPC::Open3;
 use File::Basename;
 
 # Default configuration
-my $FORMAT        = 'mkv';
+my $FORMAT        = 'av_mkv';
 my $AUDIO_BITRATE = 192;
 my $QUALITY       = 20;
 my $HD_QUALITY    = 22;
@@ -42,6 +42,7 @@ my $HB_EXEC         = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG           = 0;
 
 # General parameters for HandBrake
+# Someday we will also --use-opencl, but not today
 my @video_params = ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic');
 my @audio_params = ('--audio-copy-mask', 'dtshd,dts,truehd,eac3,ac3,aac', '--audio-fallback', 'eac3');
 
@@ -242,10 +243,10 @@ if (!defined($out_file) || length($out_file) < 1) {
 	my ($force_format) = $out_file =~ /\.(\w{2,4})$/;
 	if (defined($force_format)) {
 		$force_format = lc($force_format);
-		if ($force_format eq 'mkv' || $force_format eq 'mp4') {
-			$FORMAT = $force_format;
-		} elsif ($force_format eq 'm4v') {
-			$FORMAT = 'mp4';
+		if ($force_format eq 'mkv') {
+			$FORMAT = 'av_mkv';
+		} elsif ($force_format eq 'mp4' || $force_format eq 'm4v') {
+			$FORMAT = 'av_mp4';
 		}
 	}
 }
@@ -321,7 +322,7 @@ foreach my $title (keys(%titles)) {
 	# Force MKV muxing if the output contains PGS subtitles (there's no support in the MP4 muxer)
 	foreach my $track (values(%{ $scan->{'subtitle_selected'} })) {
 		if ($track->{'type'} eq 'PGS') {
-			$FORMAT = 'mkv';
+			$FORMAT = 'av_mkv';
 			last;
 		}
 	}
@@ -329,7 +330,7 @@ foreach my $title (keys(%titles)) {
 	# Force MKV muxing if the output contains DTS audio (technically MP4 supports it but QuickTime hates it)
 	foreach my $track (values(%{ $scan->{'audio_selected'} })) {
 		if ($track->{'codec'} =~ /DTS/i) {
-			$FORMAT = 'mkv';
+			$FORMAT = 'av_mkv';
 			last;
 		}
 	}
@@ -337,7 +338,7 @@ foreach my $title (keys(%titles)) {
 	# Select a file name extension that matches the format
 	my $title_out_file = $out_file;
 	$title_out_file =~ s/\.(?:\w{2,4}|dvdmedia)$//i;
-	if ($FORMAT eq 'mp4') {
+	if ($FORMAT eq 'av_mp4') {
 		$title_out_file .= '.m4v';
 	} else {
 		$title_out_file .= '.mkv';
@@ -692,7 +693,7 @@ sub scan($) {
 
 	# Fork to scan the file
 	my $child_out = '';
-	my $pid = open3('<&STDIN', $child_out, $child_out, $HB_EXEC, '--previews', '30', '--title', '0', '--input', $in_file);
+	my $pid = open3('<&STDIN', $child_out, $child_out, $HB_EXEC, '--previews', '100:0', '--title', '0', '--input', $in_file);
 
 	# Loop through the output
 	my $scan;
