@@ -5,7 +5,6 @@ if [ -z "${MIN_AVI_SIZE}" ]; then
 	MIN_AVI_SIZE=$(( 350 * 1024 * 1024 ))
 fi
 
-# Functions
 function tryRecode() {
 	file="${1}"
 
