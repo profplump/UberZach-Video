@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Cwd qw(abs_path);
 use MP3::Tag;
+use Audio::M4P::QuickTime;
 use XML::Feed;
 use LWP::Simple;
 use HTML::Strip;
@@ -360,10 +361,31 @@ foreach my $time (sort(@need)) {
             goto OUT;
         }
         $mp3->close();
+
     } elsif ($ep->{'ext'} eq 'm4a') {
-        if ($DEBUG) {
-            print STDERR "MP4 munging not complete\n";
+
+        # Parse the MP3=4
+        my $m4a = Audio::M4P::QuickTime->new(file => $file);
+        if (!$m4a) {
+            $err = 'Unable to parse MP4 tags in: ' . $file . "\n";
+            goto OUT;
         }
+
+        # Update tags
+        $m4a->title($ep->{'title'});
+        $m4a->year(time2str('%Y', $ep->{'time'}));
+        $m4a->comment($ep->{'description'});
+        $m4a->track(1);
+        $m4a->album($SERIES);
+        $m4a->artist($SERIES);
+        $m4a->genre_as_text($GENRE);
+
+        # Save
+        if (!$m4a->WriteFile($file)) {
+            $err = 'Unable to update M4A tags in: ' . $file . "\n";
+            goto OUT;
+        }
+
     } else {
         print STDERR 'Tag munging not available for ' . $ep->{'ext'} . ' files: ' . $file . "\n";
     }
