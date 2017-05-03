@@ -89,6 +89,9 @@ else
 	fi
 fi
 
+# Re-label undefined audio tracks in files with no English tracks
+~/bin/video/undToEng.pl "${OUT}"
+
 # Remove the input file(s) if all is well
 if [ $KEEP_IN -eq 0 ]; then
 	rm -f "${IN}"
