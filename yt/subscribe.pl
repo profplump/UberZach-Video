@@ -1238,12 +1238,12 @@ sub findVideos($) {
 		my $count = scalar(keys(%videos));
 		if ($DEBUG) {
 			print STDERR 'Found ' . $count . " remote videos\n";
+			if (abs(1 - ($count / $totalCount)) > $API_ST_REL && abs($totalCount - $count) > $API_ST_ABS) {
+				print STDERR 'Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) channel-API-reported remote videos.\n";
+			}
 			if ($DEBUG > 1) {
 				print STDERR prettyPrint(\%videos, "\t") . "\n";
 			}
-		}
-		if (abs(1 - ($count / $totalCount)) > $API_ST_REL && abs($totalCount - $count) > $API_ST_ABS) {
-			die($NAME . ': Found only ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%) remote videos. Aborting...\n");
 		}
 	}
 
