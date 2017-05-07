@@ -12,11 +12,13 @@ my $MAX_DAYS_BACK       = 3;
 my $NEXT_EPISODES       = 3;
 
 # Local config
-my $TV_DIR = `~/bin/video/mediaPath` . '/TV';
+my $TV_DIR        = `~/bin/video/mediaPath` . '/TV';
+my $CONF_FILE     = $ENV{'HOME'} . +'/.findTorrent.config';
+my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
+my %ENABLE_SOURCE = ('NCAT' => 0, 'TPB' => 1, 'ISO' => 0, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -27,14 +29,7 @@ my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
-
-# App config
-my $DELAY       = 10;
-my $TIMEOUT     = 15;
-my $ERR_DELAY   = $TIMEOUT * 2;
-my $ERR_RETRIES = 3;
-my $UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41';
-my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
+my $QUALITY_AGE      = (86400 * 365);
 
 # Static tracker list, appended to all magnet URIs
 my @TRACKERS = (
@@ -42,8 +37,16 @@ my @TRACKERS = (
 	'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce'
 );
 
-# PhantomJS
-my $PHANTOM        = '/usr/local/bin/phantomjs';
+# App config
+my $SLEEP       = 1;
+my $DELAY       = 10;
+my $TIMEOUT     = 15;
+my $ERR_DELAY   = $TIMEOUT * 2;
+my $ERR_RETRIES = 3;
+my $COOKIES     = undef();
+my $FETCH       = undef();
+my $PHANTOM     = '/usr/local/bin/phantomjs';
+my $UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41';
 my $PHANTOM_CONFIG = "var system = require('system');
 var page = require('webpage').create();
 var resources = [];
@@ -68,6 +71,7 @@ page.onResourceReceived = function(response) {
 };";
 
 # Includes
+use Date::Parse;
 use URI::Encode qw(uri_encode);
 use HTML::Entities;
 use HTML::Strip;
@@ -89,28 +93,14 @@ sub splitTags($$$$);
 sub findSE($);
 sub initSources();
 sub findProxy($$);
-sub phantomFetch($);
+sub fetch($;$$);
+sub phantomFetch($$);
 
 # Command line
 my ($dir, $search) = @ARGV;
 if (!defined($dir)) {
 	die('Usage: ' . basename($0) . " input_directory [search_string]\n");
 }
-
-# Fetch object
-my $cookies = mktemp('/tmp/findTorrent.cookies.XXXXXXXX');
-my $fetch   = Fetch->new(
-	'cookiefile' => $cookies,
-	'timeout'    => $TIMEOUT,
-	'uas'        => $UA
-);
-
-# Phantom setup
-my $script = mktemp('/tmp/findTorrent.phantom.XXXXXXXX');
-open(my $fh, '>', $script)
-  or die('Unable to open PhantomJS script file: ' . $! . "\n");
-print $fh $PHANTOM_CONFIG;
-close($fh);
 
 # Environment
 if ($ENV{'DEBUG'}) {
@@ -141,6 +131,39 @@ if (defined($ENV{'NEXT_EPISODES'})) {
 if (defined($ENV{'SYSLOG'})) {
 	$SYSLOG = $ENV{'SYSLOG'};
 }
+
+# Read the config file
+my %CONFIG = ();
+if ($CONF_FILE && -r $CONF_FILE) {
+	my $fh;
+	open($fh, '<', $CONF_FILE)
+	  or die('Unable to open config file: ' . $CONF_FILE . ': ' . $! . "\n");
+	while (<$fh>) {
+
+		# Skip blank lines and comments
+		if (/^\s*#/ || /^\s*$/) {
+			next;
+		}
+
+		# Assume everything else is key = val pairs
+		if (my ($key, $val) = $_ =~ /^\s*(\S[^\=]+)\=\>?\s*(\S.*)$/) {
+			$key =~ s/^\s+//;
+			$key =~ s/\s+$//;
+			$val =~ s/^\s+//;
+			$val =~ s/\s+$//;
+			$CONFIG{$key} = $val;
+			if ($DEBUG) {
+				print STDERR 'Adding config: ' . $key . ' => ' . $val . "\n";
+			}
+		} else {
+			warn('Ignoring config line: ' . $_ . "\n");
+		}
+	}
+	close($fh);
+}
+
+# Phantom setup
+my $SCRIPT = undef();
 
 # Open the log if enabled
 if ($SYSLOG) {
@@ -400,7 +423,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 
 	# Debug
 	if ($DEBUG) {
-		print STDERR 'Seaching with date template: ' . $str . "\n";
+		print STDERR 'Searching with date template: ' . $str . "\n";
 	}
 }
 
@@ -507,6 +530,12 @@ if (scalar(@urls) < 1) {
 			my $season_long  = sprintf('%02d', $season);
 			foreach my $source (values(%{$SOURCES})) {
 
+				# Allow custom handling
+				if (defined($source->{'custom_search'}) && ref($source->{'custom_search'}) eq 'CODE') {
+					$source->{'custom_search'}->(\@urls, $urlShow, $season, $episode);
+					next;
+				}
+
 				# Use quotes around the show name if the source needs them
 				my $quote = '%22';
 				if (!$source->{'quote'}) {
@@ -567,7 +596,7 @@ my @html_content = ();
 my @json_content = ();
 foreach my $url (@urls) {
 
-	# Fetch the page via PhantomJS
+	# Fetch the page
 	my $errCount = 0;
 	my $content  = '';
   HTTP_ERR_LOOP: {
@@ -576,17 +605,8 @@ foreach my $url (@urls) {
 			print STDERR 'Searching with URL: ' . $url . "\n";
 		}
 
-		# Delay and fetch
-		sleep($DELAY * (rand(2) + 0.5));
-		($content, $code) = phantomFetch($url);
-		if ($DEBUG) {
-			open(my $fh, '>', '/tmp/findTorrent-lastPhantom.html')
-			  or warn('Unable to open phantom debug file: ' . $! . "\n");
-			if ($fh) {
-				print $fh $content;
-				close($fh);
-			}
-		}
+		# Fetch
+		($content, $code) = fetch($url, 'primary.html');
 
 		# Check for useful errors
 		if ($code == 404) {
@@ -624,7 +644,7 @@ foreach my $url (@urls) {
 	if ($content =~ /^\s*{/) {
 		my $json = eval { decode_json($content); };
 		if (defined($json) && ref($json)) {
-			push(@json_content, \@{ $json->{'items'}->{'list'} });
+			push(@json_content, $json);
 		} elsif ($DEBUG) {
 			print STDERR 'JSON parsing failure on: ' . $content . "\n";
 		}
@@ -1040,7 +1060,97 @@ foreach my $content (@html_content) {
 
 # Handle JSON content
 foreach my $content (@json_content) {
-	print STDERR "Unknown JSON content:\n" . $content . "\n\n";
+	if (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
+		my $list = $content->{'item'};
+		if (!$list || ref($list) ne 'ARRAY') {
+			warn('Invalid NCAT list: ' . $list . "\n");
+			next;
+		}
+
+		foreach my $item (@{$list}) {
+
+			# Ensure the record is sensible
+			my $id = undef();
+			if (   ref($item) eq 'HASH'
+				&& exists($item->{'guid'})
+				&& ref($item->{'guid'}) eq 'HASH'
+				&& exists($item->{'guid'}->{'text'}))
+			{
+				$id = $item->{'guid'}->{'text'};
+			}
+			if (!$id) {
+				warn("Unable to parse NCAT list item\n");
+				next;
+			}
+
+			# NZB URL
+			my $url = undef();
+			if (exists($item->{'link'}) && $item->{'link'}) {
+				$url = $item->{'link'};
+				$url =~ s/^(https?)\:/${PROTOCOL}\:/;
+			}
+
+			# Title
+			my $title = undef();
+			if (exists($item->{'title'}) && $item->{'title'}) {
+				$title = $item->{'title'};
+			} elsif (exists($item->{'description'}) && $item->{'description'}) {
+				$title = $item->{'description'};
+			}
+
+			# Extract the season and episode numbers
+			my ($season, $episode) = findSE($title);
+
+			# Size
+			my $size = 0;
+			if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
+				foreach my $hash (@{ $item->{'newznab:attr'} }) {
+					if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size')
+					{
+						$size = int($hash->{'_value'}) / 1024;
+					}
+				}
+			}
+
+			# Date
+			my $date = undef();
+			if (exists($item->{'pubDate'}) && $item->{'pubDate'}) {
+				$date = str2time($item->{'pubDate'});
+			}
+
+			# Sanity checks
+			if (!$url) {
+				warn('No URL in NCAT item: ' . $id . "\n");
+				next;
+			}
+			if (!$title) {
+				warn('No title in NCAT item: ' . $id . "\n");
+				next;
+			}
+			if (!$size) {
+				warn('No size in NCAT item: ' . $id . "\n");
+				next;
+			}
+
+			if ($DEBUG) {
+				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+			}
+
+			# Save the extracted data
+			my %tor = (
+				'title'   => $title,
+				'season'  => $season,
+				'episode' => $episode,
+				'date'    => $date,
+				'size'    => $size,
+				'url'     => $url,
+				'source'  => 'NCAT'
+			);
+			push(@tors, \%tor);
+		}
+	} else {
+		print STDERR "Unknown JSON content:\n" . $content . "\n\n";
+	}
 }
 
 # Filter for size/count/etc.
@@ -1178,6 +1288,16 @@ foreach my $tor (@tors) {
 
 	# Only apply the quality rules if NO_QUALITY_CHECKS is not in effect
 	if (!$NO_QUALITY_CHECKS) {
+
+		# Proxy publication date to seeder/leacher quality
+		if ($tor->{'date'} && !$tor->{'seeds'}) {
+			if ($tor->{'date'} > time() - $QUALITY_AGE) {
+				$tor->{'seeds'} = $SEED_RATIO_COUNT + 1;
+			} else {
+				$tor->{'seeds'} = ($MIN_COUNT / 2) - 1;
+			}
+			$tor->{'leaches'} = $tor->{'seeds'};
+		}
 
 		# Skip torrents with too few seeders/leachers
 		if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $MIN_COUNT) {
@@ -1331,8 +1451,12 @@ foreach my $episode (keys(%tors)) {
 }
 
 # Cleanup
-unlink($cookies);
-unlink($script);
+if ($COOKIES) {
+	unlink($COOKIES);
+}
+if ($SCRIPT) {
+	unlink($SCRIPT);
+}
 if ($SYSLOG) {
 	closelog();
 }
@@ -1350,14 +1474,16 @@ sub getHash($) {
 		undef($tor);
 	}
 
-	# Extract the BTIH hash, if available
+	# Extract the BTIH hash or NZB ID, if available
 	my $hash = undef();
 	if ($url =~ /\bxt\=urn\:btih\:(\w+)/i) {
+		$hash = lc($1);
+	} elsif ($url =~ /\/getnzb\/(\w+)\.nzb\&/i) {
 		$hash = lc($1);
 	}
 
 	# Save back to the tor, if provided
-	if (defined($tor)) {
+	if (defined($tor) && defined($hash)) {
 		$tor->{'hash'} = lc($hash);
 	}
 
@@ -1371,18 +1497,12 @@ sub resolveSecondary($) {
 
 	# Fetch the torrent-specific page and extract the magent link
 	if ($tor->{'source'} eq 'ISO') {
-		if ($DEBUG) {
-			print STDERR 'Secondary fetch with URL: ' . $tor->{'url'} . "\n";
-			$fetch->file('/tmp/findTorrent-secondary.html');
-		}
-		sleep($DELAY * (rand(2) + 0.5));
-		$fetch->url($tor->{'url'});
-		$fetch->fetch();
-		if ($fetch->status_code() != 200) {
+		my ($content, $code) = fetch($tor->{'url'}, 'secondary.html');
+		if ($code != 200) {
 			print STDERR 'Error fetching secondary URL: ' . $tor->{'url'} . "\n";
 			goto OUT;
 		}
-		my ($magnet) = $fetch->content() =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
+		my ($magnet) = $content =~ /\<a\s+href\=\"(magnet\:\?[^\"]+)\"/i;
 		if (!defined($magnet) || length($magnet) < 1) {
 			if ($DEBUG) {
 				print STDERR 'No secondary URL available from: ' . $tor->{'url'} . "\n";
@@ -1424,20 +1544,14 @@ sub resolveTrackers($) {
 		my $hash    = lc($1);
 		my $baseURL = $SOURCES->{'Z'}->{'protocol'} . '://' . $SOURCES->{'Z'}->{'host'};
 		my $hashURL = $baseURL . '/' . $hash;
-		if ($DEBUG) {
-			print STDERR 'Hashinfo fetch with URL: ' . $hashURL . "\n";
-			$fetch->file('/tmp/findTorrent-hashinfo.html');
-		}
-		sleep($DELAY * (rand(2) + 0.5));
-		$fetch->url($hashURL);
-		$fetch->fetch();
-		if ($fetch->status_code() != 200) {
+		my ($content, $code) = fetch($hashURL, 'hashinfo.html');
+		if ($code != 200) {
 			print STDERR 'Error fetching hashinfo URL: ' . $hashURL . "\n";
 			return $url;
 		}
 
 		# Parse out and fetch the tracker list URL
-		my ($list) = $fetch->content() =~ /\<a rel\=\"nofollow\" href\=\"(\/announcelist_\d+)\"\>/;
+		my ($list) = $content =~ /\<a rel\=\"nofollow\" href\=\"(\/announcelist_\d+)\"\>/;
 		if (!defined($list)) {
 			if ($DEBUG) {
 				print STDERR 'Unable to find tracker list link at: ' . $hashURL . "\n";
@@ -1445,20 +1559,14 @@ sub resolveTrackers($) {
 			return $url;
 		}
 		my $listURL = $baseURL . $list;
-		if ($DEBUG) {
-			print STDERR 'Tracker list fetch with URL: ' . $listURL . "\n";
-			$fetch->file('/tmp/findTorrent-tracker.html');
-		}
-		sleep($DELAY * (rand(2) + 0.5));
-		$fetch->url($listURL);
-		$fetch->fetch();
-		if ($fetch->status_code() != 200) {
+		($content, $code) = fetch($listURL, 'tracker.html');
+		if ($code != 200) {
 			print STDERR 'Error fetching tracker list URL: ' . $listURL . "\n";
 			return $url;
 		}
 
 		# Parse the tracker list and append our URL
-		foreach my $line ($fetch->content()) {
+		foreach my $line ($content) {
 			if ($line =~ /^\s*$/) {
 				next;
 			}
@@ -1567,8 +1675,33 @@ sub findSE($) {
 }
 
 sub initSources() {
-
 	my %sources = ();
+
+	# NZB Cat
+	if ($ENABLE_SOURCE{'NCAT'}) {
+		my @proxies = ('nzb.cat/api');
+		my $source = findProxy(\@proxies, '\bforgottenpassword\b');
+		if ($source) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'NCAT_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'NCAT'} = $source;
+		}
+	}
 
 	# The Pirate Bay
 	if ($ENABLE_SOURCE{'TPB'}) {
@@ -1637,6 +1770,7 @@ sub initSources() {
 			$source->{'quote'}          = 1;
 			$source->{'search_exclude'} = 0;
 			$source->{'search_suffix'}  = '&new=1&x=0&y=0&srt=seeds&order=desc';
+			$source->{'search_url'}     = 'phantomjs:' . $source->{'search_url'};
 			$sources{'ET'}              = $source;
 		}
 	}
@@ -1666,14 +1800,14 @@ sub findProxy($$) {
 			print STDERR 'Could not parse proxy URL: ' . $url . "\n";
 			next;
 		}
-		$fetch->url($protocol . '://' . $host);
-		if ($fetch->fetch('nocheck' => 1) == 200 && $fetch->content() =~ m/${match}/i) {
+		my ($content, $code) = fetch($protocol . '://' . $host, undef(), 1);
+		if ($code == 200 && $content =~ m/${match}/i) {
 			$search_url = $protocol . '://' . $host . $path;
 			last;
 		} elsif ($DEBUG) {
 			print STDERR 'Proxy not available: ' . $host . "\n";
 			if ($DEBUG > 1) {
-				print STDERR $fetch->content() . "\n";
+				print STDERR $content . "\n";
 			}
 		}
 	}
@@ -1692,12 +1826,83 @@ sub findProxy($$) {
 	return undef();
 }
 
-sub phantomFetch($) {
-	my ($url) = @_;
+sub fetch($;$$) {
+	my ($url, $file, $nocheck) = @_;
+	if ($DEBUG) {
+		print STDERR 'Fetch: ' . $url . "\n";
+	}
+
+	# Allow usage with short names
+	if ($file && !($file =~ /^\//)) {
+		$file = '/tmp/findTorrent-' . $file;
+	}
+
+	# Random delay
+	if ($DEBUG > 1) {
+		sleep($SLEEP * 0.25);
+	} else {
+		sleep($DELAY * (rand($SLEEP) + ($SLEEP / 2)));
+	}
+
+	# Allow JS processing
+	if ($url =~ /^phantomjs\:\s*(\S.*)$/i) {
+		return phantomFetch($1, $file);
+	}
+
+	# Fetch object
+	if (!$FETCH) {
+		if (!$COOKIES) {
+			$COOKIES = mktemp('/tmp/findTorrent.cookies.XXXXXXXX');
+		}
+		$FETCH = Fetch->new(
+			'cookiefile' => $COOKIES,
+			'timeout'    => $TIMEOUT,
+			'uas'        => $UA
+		);
+	}
+
+	# Debug as requested
+	if ($DEBUG > 1 && $file) {
+		$FETCH->file($file);
+	} else {
+		$FETCH->file('');
+	}
+
+	# Standard fetch
+	$FETCH->url($url);
+	if ($nocheck) {
+		$FETCH->fetch('nocheck' => 1);
+	} else {
+		$FETCH->fetch();
+	}
+	return (scalar($FETCH->content()), $FETCH->status_code());
+}
+
+sub phantomFetch($$) {
+	my ($url, $file) = @_;
+
+	# Init
+	if (!$SCRIPT) {
+		$SCRIPT = mktemp('/tmp/findTorrent.phantom.XXXXXXXX');
+		open(my $fh, '>', $SCRIPT)
+		  or die('Unable to open PhantomJS script file: ' . $! . "\n");
+		print $fh $PHANTOM_CONFIG;
+		close($fh);
+	}
 
 	# Capture STDOUT, drop STDERR
-	my @cmd = ($PHANTOM, $script, $url);
+	my @cmd = ($PHANTOM, $SCRIPT, $url);
 	my ($content, undef(), undef()) = capture { system(@cmd); };
+
+	# Debug as requested
+	if ($DEBUG > 1 && $file) {
+		open(my $fh, '>', $file)
+		  or warn('Unable to open phantom debug file: ' . $! . "\n");
+		if ($fh) {
+			print $fh $content;
+			close($fh);
+		}
+	}
 
 	# Try to get the response status code, fake one if we cannot
 	my ($code) = $content =~ /^(\d\d\d)$/m;

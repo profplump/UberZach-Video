@@ -48,6 +48,12 @@ if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
 	fi
 fi
 
+# Use NZBget if the URL is an NZB file
+if echo "${URLS}" | head -n 1 | grep -Eqi 'nzb.cat/getnzb/'; then
+	echo "NZBget not available" 1>&2
+	exit 1
+fi
+
 # Use "open", if available, for non-HTTP URLs
 if ! echo "${URLS}" | head -n 1 | grep -Eqi '^http'; then
 	if open >/dev/null 2>&1; then
