@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Config
-AGENT="Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8"
-TRANS_URL="http://vera.uberzach.com:9091/transmission/rpc"
+source ~/.download.config
 TIMEOUT=10
+AGENT="Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8"
 
 # Grab the input URLs
 URLS="`cat -`"
@@ -27,11 +27,11 @@ if [ -z "${DEST}" ]; then
 fi
 
 # Use Transmission if the URL is a magenet link
-if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
+if [ -n "${TRANS_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
 	SESSION_ID=$(curl --silent --max-time "${TIMEOUT}" "${TRANS_URL}" | sed 's/.*<code>//g;s/<\/code>.*//g')
 	if [ -n "${SESSION_ID}" ]; then
-		SLEEP=0
 		IFS=$'\n'
+		SLEEP=0
 		for i in ${URLS}; do
 			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
 			SLEEP="${DELAY}"
@@ -46,12 +46,25 @@ if echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
 	else
 		echo "Transmission not available for magnet link, falling back..." 1>&2
 	fi
-fi
 
-# Use NZBget if the URL is an NZB file
-if echo "${URLS}" | head -n 1 | grep -Eqi 'nzb.cat/getnzb/'; then
-	echo "NZBget not available" 1>&2
-	exit 1
+# Use NZBGet if the URL is an NZB file
+elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi 'nzb.cat/getnzb/'; then
+	if curl --silent --max-time "${TIMEOUT}" "${NZB_URL}" | grep -q 'version'; then
+		IFS=$'\n'
+		SLEEP=0
+		for i in ${URLS}; do
+			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
+			SLEEP="${DELAY}"
+			RESULT="`curl --silent --max-time "${TIMEOUT}" "${NZB_URL}" \
+				-d '{"method":"append","params":["download.sh.nzb","'"${i}"'","",0,false,false,"",0,"force"]}'`"
+			if ! echo "${RESULT}" | grep 'result' | grep -q '[1-9]'; then
+				exit 1
+			fi
+		done
+		exit 0
+	else
+		echo "NZBGet not available for NZB link, falling back..." 1>&2
+	fi
 fi
 
 # Use "open", if available, for non-HTTP URLs
