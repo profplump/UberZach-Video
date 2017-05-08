@@ -28,18 +28,25 @@ sub seriesCleanupCore($);
 sub seriesCleanup($);
 sub readDir($$);
 sub findMediaFiles($$);
+sub available($);
 
 # Parameters
-my $maxAge         = 2.5 * 86400;
-my $tvDir          = `~/bin/video/mediaPath` . '/TV';
-my $monitoredExec  = $ENV{'HOME'} . '/bin/video/torrentMonitored.pl';
-my $host           = 'http://vera.uberzach.com:9091';
-my $url            = $host . '/transmission/rpc';
-my $content        = '{"method":"torrent-get","arguments":{"fields":["hashString","id","addedDate","comment","creator","dateCreated","isPrivate","name","totalSize","pieceCount","pieceSize","downloadedEver","error","errorString","eta","haveUnchecked","haveValid","leftUntilDone","metadataPercentComplete","peersConnected","peersGettingFromUs","peersSendingToUs","rateDownload","rateUpload","recheckProgress","sizeWhenDone","status","trackerStats","uploadedEver","uploadRatio","seedRatioLimit","seedRatioMode","downloadDir","files","fileStats"]}}';
+my $maxAge        = 2.5 * 86400;
+my $tvDir         = `~/bin/video/mediaPath` . '/TV';
+my $monitoredExec = $ENV{'HOME'} . '/bin/video/torrentMonitored.pl';
+my $content =
+    '{"method":"torrent-get","arguments":{"fields":["hashString","id","addedDate","comment","creator",'
+  . '"dateCreated","isPrivate","name","totalSize","pieceCount","pieceSize","downloadedEver","error","errorString",'
+  . '"eta","haveUnchecked","haveValid","leftUntilDone","metadataPercentComplete","peersConnected","peersGettingFromUs",'
+  . '"peersSendingToUs","rateDownload","rateUpload","recheckProgress","sizeWhenDone","status","trackerStats",'
+  . '"uploadedEver","uploadRatio","seedRatioLimit","seedRatioMode","downloadDir","files","fileStats"]}}';
 my $delContent     = '{"method":"torrent-remove","arguments":{"ids":["#_ID_#"], "delete-local-data":"true"}';
-my $delSleep       = 10;
+my $history        = '{"method":"history","params":[]}';
+my $delHistory     = '{"method":"editqueue","params":["historyFinalDelete","",[#_ID_#]]}';
+my $delSleep       = 2;
 my $RAR_MIN_FILES  = 4;
 my $FIND_MAX_DEPTH = 5;
+my $CONF_FILE      = $ENV{'HOME'} . '/.download.config';
 
 # Debug
 my $DEBUG = 0;
@@ -50,166 +57,199 @@ if ($ENV{'DEBUG'}) {
 # Command-line parameters
 my ($force, $maxDays, $hash) = @ARGV;
 
+# Config file
+my %CONFIG = ();
+if ($CONF_FILE && -r $CONF_FILE) {
+	my $fh;
+	open($fh, '<', $CONF_FILE)
+	  or die('Unable to open config file: ' . $CONF_FILE . ': ' . $! . "\n");
+	while (<$fh>) {
+
+		# Skip blank lines and comments
+		if (/^\s*#/ || /^\s*$/) {
+			next;
+		}
+
+		# Assume everything else is bash variables
+		if (my ($key, undef(), $val) = $_ =~ /^\s*(\S[^\=]+)\=([\'\"])(.*)\g{-2}\s*$/) {
+			$CONFIG{$key} = $val;
+			if ($DEBUG) {
+				print STDERR 'Adding config: ' . $key . ' => ' . $val . "\n";
+			}
+		} else {
+			warn('Ignoring config line: ' . $_ . "\n");
+		}
+	}
+	close($fh);
+}
+
 # If a hash is provided, always process matching torrents
 if (defined($hash)) {
 	$force = 1;
 }
 
 # Init
-my $fetch = Fetch->new();
+my $fetch = undef();
 
-# Check availability of web interface
-$fetch->url($host);
-if ($DEBUG) {
-	print STDERR "Checking for torrent web interface\n";
-}
-$fetch->fetch('nocheck' => 1);
-if ($fetch->status_code() != 200) {
+# Tranmission
+if (available($CONFIG{'TRANS_URL'})) {
+
+	# Fetch the list of paused (i.e. completed) torrents
+	$fetch->url($CONFIG{'TRANS_URL'});
+	$fetch->post_content($content);
+	&fetch($fetch);
+
+	my $torrents = decode_json(scalar($fetch->content()));
+	$torrents = $torrents->{'arguments'}->{'torrents'};
+
+	# Process
 	if ($DEBUG) {
-		die("Transmission web interface not available\n");
+		print STDERR "Processing torrents...\n";
 	}
-	exit(0);
-}
+	foreach my $tor (@{$torrents}) {
 
-# Fetch the list of paused (i.e. completed) torrents
-$fetch->url($url);
-$fetch->post_content($content);
-&fetch($fetch);
-
-my $torrents = decode_json($fetch->content());
-$torrents = $torrents->{'arguments'}->{'torrents'};
-
-# Process
-if ($DEBUG) {
-	print STDERR "Processing torrents...\n";
-}
-foreach my $tor (@{$torrents}) {
-
-	# Skip torrents that aren't yet done
-	if ($tor->{'leftUntilDone'} > 0 || $tor->{'metadataPercentComplete'} < 1) {
-		next;
-	}
-
-	# Only process recent files
-	# Torrents created with magnet links have no dateCreated, so fake it with addedDate
-	if ($tor->{'dateCreated'} < 946684800) {
-		$tor->{'dateCreated'} = $tor->{'addedDate'};
-	}
-	if (!$force && $tor->{'dateCreated'} < time() - $maxAge) {
-		my $age = (time() - $tor->{'dateCreated'}) / 86400;
-		if ($DEBUG) {
-			print STDERR 'Skipping old torrent: ' . $tor->{'name'} . ' (' . sprintf('%.0f', $age) . " days)\n";
-		}
-		next;
-	}
-
-	# If a hash is provided, process only that file
-	if (defined($hash) && $tor->{'hashString'} ne $hash) {
-		if ($DEBUG) {
-			printf STDERR 'Skipping torrent with non-matching hash: ' . $tor->{'name'} . ' (' . $tor->{'hashString'} . ")\n";
-		}
-		next;
-	}
-
-	# We've decided to do something about this torrent
-	if ($DEBUG) {
-		print STDERR 'Processing completed torrent: ' . $tor->{'name'} . "\n";
-	}
-
-	# Handle individual files and directories
-	my @files    = ();
-	my @newFiles = ();
-	my $path     = $tor->{'downloadDir'} . '/' . $tor->{'name'};
-	if (!-d $path) {
-		push(@files, $path);
-	} else {
-
-		# State variables
-		my $IS_RAR  = '';
-		my $IS_FAKE = 0;
-
-		# Look for RAR files
-		foreach my $file (@{ $tor->{'files'} }) {
-			if ($file->{'name'} =~ /\.rar$/i) {
-				$IS_RAR = $tor->{'downloadDir'} . '/' . $file->{'name'};
-				last;
-			}
-		}
-
-		# Check for password files
-		foreach my $file (@{ $tor->{'files'} }) {
-			if ($file->{'name'} =~ /passw(?:or)?d/i) {
-				print STDERR 'Password file detected in: ' . $tor->{'name'} . "\n";
-				$IS_FAKE = 1;
-				last;
-			}
-		}
-
-		# Check for single-file RARs
-		if ($IS_RAR && scalar(@{ $tor->{'files'} }) < $RAR_MIN_FILES) {
-			print STDERR 'Single-file RAR detected in: ' . $tor->{'name'} . "\n";
-			$IS_FAKE = 1;
-		}
-
-		# Delete fake torrents and bail
-		if ($IS_FAKE) {
-			if ($DEBUG) {
-				print STDERR 'Deleting fake torrent: ' . $tor->{'name'} . "\n";
-			}
-			delTor($tor);
+		# Skip torrents that aren't yet done
+		if ($tor->{'leftUntilDone'} > 0 || $tor->{'metadataPercentComplete'} < 1) {
 			next;
 		}
 
-		# Unrar if necessary
-		if (defined($IS_RAR) && length($IS_RAR) > 0) {
-			@newFiles = &unrar($IS_RAR, $path);
+		# Only process recent files
+		# Torrents created with magnet links have no dateCreated, so fake it with addedDate
+		if ($tor->{'dateCreated'} < 946684800) {
+			$tor->{'dateCreated'} = $tor->{'addedDate'};
 		}
-
-		# Find all media files, recursively
-		@files = findMediaFiles($path, 0);
-	}
-
-	# Bail if we found no files
-	if (scalar(@files) < 1) {
-		print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
-		next;
-	}
-
-	# Do all the normal file naming/copying/etc. if we found at least one file
-	my $failure = 0;
-	foreach my $file (@files) {
-		my $result = -1;
-		if (defined($file) && length($file) > 0 && -r $file) {
-			$result = &processFile($file, $path);
-		}
-		if (defined($result) && $result == 1) {
+		if (!$force && $tor->{'dateCreated'} < time() - $maxAge) {
+			my $age = (time() - $tor->{'dateCreated'}) / 86400;
 			if ($DEBUG) {
-				print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
+				print STDERR 'Skipping old torrent: ' . $tor->{'name'} . ' (' . sprintf('%.0f', $age) . " days)\n";
 			}
-		} elsif (defined($result) && $result == -1) {
-			if ($DEBUG) {
-				print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
-			}
-			last;
-		} else {
-			print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
-			$failure = 1;
-			last;
+			next;
 		}
-	}
 
-	# Delete any files we added
-	foreach my $file (@newFiles) {
+		# If a hash is provided, process only that file
+		if (defined($hash) && $tor->{'hashString'} ne $hash) {
+			if ($DEBUG) {
+				printf STDERR 'Skipping torrent with non-matching hash: ' . $tor->{'name'} . ' (' . $tor->{'hashString'} . ")\n";
+			}
+			next;
+		}
+
+		# We've decided to do something about this torrent
 		if ($DEBUG) {
-			print STDERR 'Deleting new file: ' . basename($file) . "\n";
+			print STDERR 'Processing completed torrent: ' . $tor->{'name'} . "\n";
 		}
-		unlink($file);
+
+		# Handle individual files and directories
+		my @files    = ();
+		my @newFiles = ();
+		my $path     = $tor->{'downloadDir'} . '/' . $tor->{'name'};
+		if (!-d $path) {
+			push(@files, $path);
+		} else {
+
+			# State variables
+			my $IS_RAR  = '';
+			my $IS_FAKE = 0;
+
+			# Look for RAR files
+			foreach my $file (@{ $tor->{'files'} }) {
+				if ($file->{'name'} =~ /\.rar$/i) {
+					$IS_RAR = $tor->{'downloadDir'} . '/' . $file->{'name'};
+					last;
+				}
+			}
+
+			# Check for password files
+			foreach my $file (@{ $tor->{'files'} }) {
+				if ($file->{'name'} =~ /passw(?:or)?d/i) {
+					print STDERR 'Password file detected in: ' . $tor->{'name'} . "\n";
+					$IS_FAKE = 1;
+					last;
+				}
+			}
+
+			# Check for single-file RARs
+			if ($IS_RAR && scalar(@{ $tor->{'files'} }) < $RAR_MIN_FILES) {
+				print STDERR 'Single-file RAR detected in: ' . $tor->{'name'} . "\n";
+				$IS_FAKE = 1;
+			}
+
+			# Delete fake torrents and bail
+			if ($IS_FAKE) {
+				if ($DEBUG) {
+					print STDERR 'Deleting fake torrent: ' . $tor->{'name'} . "\n";
+				}
+				delTor($tor);
+				next;
+			}
+
+			# Unrar if necessary
+			if (defined($IS_RAR) && length($IS_RAR) > 0) {
+				@newFiles = &unrar($IS_RAR, $path);
+			}
+
+			# Find all media files, recursively
+			@files = findMediaFiles($path, 0);
+		}
+
+		# Bail if we found no files
+		if (scalar(@files) < 1) {
+			print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
+			next;
+		}
+
+		# Do all the normal file naming/copying/etc. if we found at least one file
+		my $failure = 0;
+		foreach my $file (@files) {
+			my $result = -1;
+			if (defined($file) && length($file) > 0 && -r $file) {
+				$result = &processFile($file, $path);
+			}
+			if (defined($result) && $result == 1) {
+				if ($DEBUG) {
+					print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
+				}
+			} elsif (defined($result) && $result == -1) {
+				if ($DEBUG) {
+					print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
+				}
+				last;
+			} else {
+				print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
+				$failure = 1;
+				last;
+			}
+		}
+
+		# Delete any files we added
+		foreach my $file (@newFiles) {
+			if ($DEBUG) {
+				print STDERR 'Deleting new file: ' . basename($file) . "\n";
+			}
+			unlink($file);
+		}
+
+		# Only delete the torrent on success
+		if (!$failure) {
+			delTor($tor);
+			next;
+		}
 	}
 
-	# Only delete the torrent on success
-	if (!$failure) {
-		delTor($tor);
-		next;
+	# NZB
+	if (available($CONFIG{'NZB_URL'})) {
+		
+		# Fetch the list of historical (i.e. completed) NZBs
+		$fetch->url($CONFIG{'NZB_URL'});
+		$fetch->post_content($history);
+		$fetch->fetch();
+
+		my $nzbs = decode_json(scalar($fetch->content()));
+		
+		# Process
+		if ($DEBUG) {
+			print STDERR "Processing NZBs...\n";
+		}
 	}
 }
 
@@ -380,12 +420,18 @@ sub getDest($$$$) {
 				# Bail if the matches do not overlap
 				if ($show =~ m/^${series}\b/) {
 					if ($DEBUG) {
-						print STDERR 'Using longer match (' . $showsCan{$show} . ') in place of shorter match (' . $showsCan{$series} . ")\n";
+						print STDERR 'Using longer match ('
+						  . $showsCan{$show}
+						  . ') in place of shorter match ('
+						  . $showsCan{$series} . ")\n";
 					}
 					$series = $show;
 				} elsif ($series =~ m/^${show}\b/) {
 					if ($DEBUG) {
-						print STDERR 'Using longer match (' . $showsCan{$series} . ') in place of shorter match (' . $showsCan{$show} . ")\n";
+						print STDERR 'Using longer match ('
+						  . $showsCan{$series}
+						  . ') in place of shorter match ('
+						  . $showsCan{$show} . ")\n";
 					}
 					$series = $series;
 				} else {
@@ -577,7 +623,7 @@ sub processFile($$) {
 
 	# Allow multiple guesses at the series/season/episode
 	my $dest = '';
-	LOOP: {
+  LOOP: {
 
 		# Determine the series, season, and episode number
 		my ($series, $season, $episode) = &getSSE($filename);
@@ -771,4 +817,27 @@ sub findMediaFiles($$) {
 		}
 	}
 	return @files;
+}
+
+# Check availability of web interface
+sub available($) {
+	my ($url) = @_;
+	if ($DEBUG) {
+		print STDERR "Checking for interface\n";
+	}
+	
+	# Reset from the last host
+	$fetch = Fetch->new();
+
+	my ($host) = $url =~ /^(\w+\:\/\/[^\/]+\/?)/;
+	$fetch->url($host);
+	if ($fetch->fetch('nocheck' => 1) != 200) {
+		if ($DEBUG) {
+			print STDERR 'Code: ' . $fetch->status_code() . "\n";
+			print STDERR 'Content: ' . $fetch->content() . "\n";
+			warn('Interface not available: ' . $host . "\n");
+		}
+		return 0;
+	}
+	return 1;
 }
