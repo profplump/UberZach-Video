@@ -19,7 +19,9 @@ sub session($);
 sub fetch($);
 sub getSSE($);
 sub getDest($$$$);
+sub readNZB($$);
 sub storeNZB($);
+sub storeTor($);
 sub delNZB($);
 sub delTor($);
 sub guessExt($);
@@ -85,7 +87,7 @@ if ($CONF_FILE && -r $CONF_FILE) {
 	close($fh);
 }
 
-# If a hash is provided, always process matching torrents
+# If a hash is provided force processing of matching torrents/NZBs
 if (defined($hash)) {
 	$force = 1;
 }
@@ -100,7 +102,6 @@ if (available($CONFIG{'TRANS_URL'})) {
 	$fetch->url($CONFIG{'TRANS_URL'});
 	$fetch->post_content($content);
 	&fetch($fetch);
-
 	my $torrents = decode_json(scalar($fetch->content()));
 	$torrents = $torrents->{'arguments'}->{'torrents'};
 
@@ -115,19 +116,6 @@ if (available($CONFIG{'TRANS_URL'})) {
 			next;
 		}
 
-		# Only process recent files
-		# Torrents created with magnet links have no dateCreated, so fake it with addedDate
-		if ($tor->{'dateCreated'} < 946684800) {
-			$tor->{'dateCreated'} = $tor->{'addedDate'};
-		}
-		if (!$force && $tor->{'dateCreated'} < time() - $maxAge) {
-			my $age = (time() - $tor->{'dateCreated'}) / 86400;
-			if ($DEBUG) {
-				print STDERR 'Skipping old torrent: ' . $tor->{'name'} . ' (' . sprintf('%.0f', $age) . " days)\n";
-			}
-			next;
-		}
-
 		# If a hash is provided, process only that file
 		if (defined($hash) && $tor->{'hashString'} ne $hash) {
 			if ($DEBUG) {
@@ -136,106 +124,16 @@ if (available($CONFIG{'TRANS_URL'})) {
 			next;
 		}
 
-		# We've decided to do something about this torrent
+		# Process this torrent
 		if ($DEBUG) {
 			print STDERR 'Processing completed torrent: ' . $tor->{'name'} . "\n";
 		}
-
-		# Handle individual files and directories
-		my @files    = ();
-		my @newFiles = ();
-		my $path     = $tor->{'downloadDir'} . '/' . $tor->{'name'};
-		if (!-d $path) {
-			push(@files, $path);
-		} else {
-
-			# State variables
-			my $IS_RAR  = '';
-			my $IS_FAKE = 0;
-
-			# Look for RAR files
-			foreach my $file (@{ $tor->{'files'} }) {
-				if ($file->{'name'} =~ /\.rar$/i) {
-					$IS_RAR = $tor->{'downloadDir'} . '/' . $file->{'name'};
-					last;
-				}
-			}
-
-			# Check for password files
-			foreach my $file (@{ $tor->{'files'} }) {
-				if ($file->{'name'} =~ /passw(?:or)?d/i) {
-					print STDERR 'Password file detected in: ' . $tor->{'name'} . "\n";
-					$IS_FAKE = 1;
-					last;
-				}
-			}
-
-			# Check for single-file RARs
-			if ($IS_RAR && scalar(@{ $tor->{'files'} }) < $RAR_MIN_FILES) {
-				print STDERR 'Single-file RAR detected in: ' . $tor->{'name'} . "\n";
-				$IS_FAKE = 1;
-			}
-
-			# Delete fake torrents and bail
-			if ($IS_FAKE) {
-				if ($DEBUG) {
-					print STDERR 'Deleting fake torrent: ' . $tor->{'name'} . "\n";
-				}
-				delTor($tor);
-				next;
-			}
-
-			# Unrar if necessary
-			if (defined($IS_RAR) && length($IS_RAR) > 0) {
-				@newFiles = &unrar($IS_RAR, $path);
-			}
-
-			# Find all media files, recursively
-			@files = findMediaFiles($path, 0);
-		}
-
-		# Bail if we found no files
-		if (scalar(@files) < 1) {
-			print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
-			next;
-		}
-
-		# Do all the normal file naming/copying/etc. if we found at least one file
-		my $failure = 0;
-		foreach my $file (@files) {
-			my $result = -1;
-			if (defined($file) && length($file) > 0 && -r $file) {
-				$result = &processFile($file, $path);
-			}
-			if (defined($result) && $result == 1) {
-				if ($DEBUG) {
-					print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
-				}
-			} elsif (defined($result) && $result == -1) {
-				if ($DEBUG) {
-					print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
-				}
-				last;
-			} else {
-				print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
-				$failure = 1;
-				last;
-			}
-		}
-
-		# Delete any files we added
-		foreach my $file (@newFiles) {
-			if ($DEBUG) {
-				print STDERR 'Deleting new file: ' . basename($file) . "\n";
-			}
-			unlink($file);
-		}
-
-		# Only delete the torrent on success
-		if (!$failure) {
+		if (storeTor($tor)) {
 			delTor($tor);
-			next;
+		} else {
+			print STDERR 'Unable to store torrent: ' . $tor->{'name'} . "\n";
 		}
+		next;
 	}
 
 	# NZB
@@ -245,7 +143,6 @@ if (available($CONFIG{'TRANS_URL'})) {
 		$fetch->url($CONFIG{'NZB_URL'});
 		$fetch->post_content($history);
 		$fetch->fetch();
-
 		my $resp = decode_json(scalar($fetch->content()));
 		if (!defined($resp) || ref($resp) ne 'HASH' || !exists($resp->{'result'}) || ref($resp->{'result'}) ne 'ARRAY') {
 			print STDERR 'Invalid NZB response: ' . $fetch->content() . "\n";
@@ -256,66 +153,32 @@ if (available($CONFIG{'TRANS_URL'})) {
 			print STDERR "Processing NZBs...\n";
 		}
 		foreach my $data (@{ $resp->{'result'} }) {
-			my %nzb = ('id' => undef(), 'name' => undef(), 'status' => undef(), 'path' => undef());
-			if (ref($data) ne 'HASH' || !exists($data->{'ID'}) || !int($data->{'ID'})) {
-				print STDERR 'Invalid NZB item: ' . $data . "\n";
-				next;
-			}
-			$nzb{'id'} = int($data->{'ID'});
-
-			# Name
-			if (exists($data->{'Name'})) {
-				$nzb{'name'} = $data->{'Name'};
-			}
-			if (!$nzb{'name'} && exists($data->{'NZBName'})) {
-				$nzb{'name'} = $data->{'NZBName'};
-			}
-			if (!$nzb{'name'} && exists($data->{'NZBNicename'})) {
-				$nzb{'name'} = $data->{'NZBNicename'};
-			}
-			if (!$nzb{'name'}) {
-				print STDERR 'Unable to retrieve name for: ' . $nzb{'id'} . "\n";
+			my $nzb = undef();
+			if (!readNZB(\$nzb, $data)) {
+				warn("Unable to parse NZB\n");
 				next;
 			}
 
-			# Status
-			if (exists($data->{'Status'})) {
-				$nzb{'status'} = $data->{'Status'};
-			}
-			if (!$nzb{'status'}) {
-				print STDERR 'Unable to retrieve status for: ' . $nzb{'id'} . "\n";
-				next;
-			}
-
-			# Path
-			if (exists($data->{'DestDir'})) {
-				$nzb{'path'} = $data->{'DestDir'};
-			}
-			if (!$nzb{'path'}) {
-				print STDERR 'Unable to retrieve path for: ' . $nzb{'id'} . "\n";
-				next;
-			}
-
-			# Debug
-			if ($DEBUG) {
-				print STDERR "\n\n";
-				foreach my $key (keys(%nzb)) {
-					print STDERR $key . ' => ' . $nzb{$key} . "\n";
-				}
-			}
+			# If a hash is provided, process only that file
+			#if (defined($hash) && $nzb->{'has'} ne $hash) {
+			#	if ($DEBUG) {
+			#		printf STDERR 'Skipping NZB with non-matching hash: ' . $nzb->{'name'} . ' (' . $nzb->{'hash'} . ")\n";
+			#	}
+			#	next;
+			#}
 
 			# Delete failed NZBs
-			if ($nzb{'status'} eq 'FAILURE/HEALTH') {
-				delNZB(\%nzb);
+			if ($nzb->{'status'} eq 'FAILURE/HEALTH') {
+				delNZB($nzb);
 				next;
 			}
 
 			# Process sucessful NZBs
-			if ($nzb{'status'} eq 'SUCCESS') {
-				if (storeNZB(\%nzb)) {
-					delNZB(\%nzb);
+			if ($nzb->{'status'} eq 'SUCCESS') {
+				if (storeNZB($nzb)) {
+					delNZB($nzb);
 				} else {
-					print STDERR 'Unable to store NZB: ' . $nzb{'name'} . "\n";
+					print STDERR 'Unable to store NZB: ' . $nzb->{'name'} . "\n";
 				}
 				next;
 			}
@@ -402,7 +265,7 @@ sub getSSE($) {
 sub getDest($$$$) {
 	my ($series, $season, $episode, $ext) = @_;
 	if ($DEBUG) {
-		print STDERR 'Finding destintion for: ' . $series . ' S' . $season . 'E' . $episode . "\n";
+		print STDERR 'Finding destination for: ' . $series . ' S' . $season . 'E' . $episode . "\n";
 	}
 
 	# Input cleanup
@@ -560,6 +423,170 @@ sub getDest($$$$) {
 		print STDERR 'Destination: ' . $dest . "\n";
 	}
 	return $dest;
+}
+
+sub readNZB($$) {
+	my ($nzb, $data) = @_;
+	my %tmp = ('id' => undef(), 'name' => undef(), 'status' => undef(), 'path' => undef());
+
+	# Sanity
+	if (ref($data) ne 'HASH') {
+		print STDERR 'Invalid NZB item: ' . $data . "\n";
+		return 0;
+	}
+
+	# ID
+	if (exists($data->{'ID'})) {
+		$tmp{'id'} = int($data->{'ID'});
+	}
+
+	# Name
+	if (exists($data->{'Name'})) {
+		$tmp{'name'} = $data->{'Name'};
+	}
+	if (!$tmp{'name'} && exists($data->{'NZBName'})) {
+		$tmp{'name'} = $data->{'NZBName'};
+	}
+	if (!$tmp{'name'} && exists($data->{'NZBNicename'})) {
+		$tmp{'name'} = $data->{'NZBNicename'};
+	}
+	if (!$tmp{'name'}) {
+		print STDERR 'Unable to retrieve name for: ' . $tmp{'id'} . "\n";
+		return 0;
+	}
+
+	# Status
+	if (exists($data->{'Status'})) {
+		$tmp{'status'} = $data->{'Status'};
+	}
+	if (!$tmp{'status'}) {
+		print STDERR 'Unable to retrieve status for: ' . $tmp{'id'} . "\n";
+		return 0;
+	}
+
+	# Path
+	if (exists($data->{'DestDir'})) {
+		$tmp{'path'} = $data->{'DestDir'};
+	}
+	if (!$tmp{'path'}) {
+		print STDERR 'Unable to retrieve path for: ' . $tmp{'id'} . "\n";
+		return 0;
+	}
+
+	# Debug
+	if ($DEBUG) {
+		print STDERR "\n\n";
+		foreach my $key (keys(%tmp)) {
+			print STDERR $key . ' => ' . $tmp{$key} . "\n";
+		}
+	}
+
+	# Store the NZB hash and return success
+	${$nzb} = \%tmp;
+	return 1;
+}
+
+sub storeTor($) {
+	my ($tor) = @_;
+	if ($DEBUG) {
+		print STDERR 'Storing torrent: ' . $tor->{'name'} . "\n";
+	}
+
+	# Handle individual files and directories
+	my @files    = ();
+	my @newFiles = ();
+	my $path     = $tor->{'downloadDir'} . '/' . $tor->{'name'};
+	if (!-d $path) {
+		push(@files, $path);
+	} else {
+
+		# State variables
+		my $IS_RAR  = '';
+		my $IS_FAKE = 0;
+
+		# Look for RAR files
+		foreach my $file (@{ $tor->{'files'} }) {
+			if ($file->{'name'} =~ /\.rar$/i) {
+				$IS_RAR = $tor->{'downloadDir'} . '/' . $file->{'name'};
+				last;
+			}
+		}
+
+		# Check for password files
+		foreach my $file (@{ $tor->{'files'} }) {
+			if ($file->{'name'} =~ /passw(?:or)?d/i) {
+				print STDERR 'Password file detected in: ' . $tor->{'name'} . "\n";
+				$IS_FAKE = 1;
+				last;
+			}
+		}
+
+		# Check for single-file RARs
+		if ($IS_RAR && scalar(@{ $tor->{'files'} }) < $RAR_MIN_FILES) {
+			print STDERR 'Single-file RAR detected in: ' . $tor->{'name'} . "\n";
+			$IS_FAKE = 1;
+		}
+
+		# Delete fake torrents and bail
+		if ($IS_FAKE) {
+			if ($DEBUG) {
+				print STDERR 'Deleting fake torrent: ' . $tor->{'name'} . "\n";
+			}
+			delTor($tor);
+			next;
+		}
+
+		# Unrar if necessary
+		if (defined($IS_RAR) && length($IS_RAR) > 0) {
+			@newFiles = &unrar($IS_RAR, $path);
+		}
+
+		# Find all media files, recursively
+		@files = findMediaFiles($path, 0);
+	}
+
+	# Bail if we found no files
+	if (scalar(@files) < 1) {
+		print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
+		next;
+	}
+
+	# Do all the normal file naming/copying/etc. if we found at least one file
+	my $failure = 0;
+	foreach my $file (@files) {
+		my $result = -1;
+		if (defined($file) && length($file) > 0 && -r $file) {
+			$result = &processFile($file, $path);
+		}
+		if (defined($result) && $result == 1) {
+			if ($DEBUG) {
+				print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
+			}
+		} elsif (defined($result) && $result == -1) {
+			if ($DEBUG) {
+				print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
+			}
+			last;
+		} else {
+			print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
+			$failure = 1;
+			last;
+		}
+	}
+
+	# Delete any files we added
+	foreach my $file (@newFiles) {
+		if ($DEBUG) {
+			print STDERR 'Deleting new file: ' . basename($file) . "\n";
+		}
+		unlink($file);
+	}
+	
+	# Return success only if all went well
+	if ($failure) {
+		return 0;
+	}
+	return 1;
 }
 
 sub storeNZB($) {
