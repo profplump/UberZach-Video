@@ -16,10 +16,6 @@ my $TV_DIR        = `~/bin/video/mediaPath` . '/TV';
 my $CONF_FILE     = $ENV{'HOME'} . +'/.findTorrent.config';
 my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
-# Search parameters
-my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('NCAT' => 0, 'TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
-
 # Selection parameters
 my $MIN_COUNT        = 10;
 my $MIN_SIZE         = 100;
@@ -30,12 +26,6 @@ my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
 my $QUALITY_AGE      = (86400 * 365);
-
-# Static tracker list, appended to all magnet URIs
-my @TRACKERS = (
-	'udp://open.demonii.com:1337/announce',         'udp://tracker.publicbt.com:80/announce',
-	'udp://tracker.openbittorrent.com:80/announce', 'udp://9.rarbg.com:2710/announce'
-);
 
 # App config
 my $SLEEP       = 1;
@@ -160,6 +150,29 @@ if ($CONF_FILE && -r $CONF_FILE) {
 		}
 	}
 	close($fh);
+}
+
+# Parse config items
+my $PROTOCOL = 'https';
+if (exists($CONFIG{'PROTOCOL'})) {
+	$PROTOCOL = $CONFIG{'PROTOCOL'};
+}
+my @TRACKERS = ();
+if (exists($CONFIG{'TRACKERS'})) {
+	foreach my $tracker (split(/\s*,\s*/, $CONFIG{'TRACKERS'})) {
+		$tracker =~ s/^\s+//;
+		$tracker =~ s/\s+$//;
+		push(@TRACKERS, $tracker);
+	}
+}
+my %ENABLE_SOURCE = ();
+if (exists($CONFIG{'SOURCES'})) {
+	foreach my $source (split(/\s*,\s*/, $CONFIG{'SOURCES'})) {
+		$source =~ s/^\s+//;
+		$source =~ s/\s+$//;
+		$source = uc($source);
+		$ENABLE_SOURCE{$source} = 1;
+	}
 }
 
 # Phantom setup
