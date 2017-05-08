@@ -19,6 +19,8 @@ sub session($);
 sub fetch($);
 sub getSSE($);
 sub getDest($$$$);
+sub storeNZB($);
+sub delNZB($);
 sub delTor($);
 sub guessExt($);
 sub processFile($$);
@@ -238,17 +240,85 @@ if (available($CONFIG{'TRANS_URL'})) {
 
 	# NZB
 	if (available($CONFIG{'NZB_URL'})) {
-		
+
 		# Fetch the list of historical (i.e. completed) NZBs
 		$fetch->url($CONFIG{'NZB_URL'});
 		$fetch->post_content($history);
 		$fetch->fetch();
 
-		my $nzbs = decode_json(scalar($fetch->content()));
-		
+		my $resp = decode_json(scalar($fetch->content()));
+		if (!defined($resp) || ref($resp) ne 'HASH' || !exists($resp->{'result'}) || ref($resp->{'result'}) ne 'ARRAY') {
+			print STDERR 'Invalid NZB response: ' . $fetch->content() . "\n";
+		}
+
 		# Process
 		if ($DEBUG) {
 			print STDERR "Processing NZBs...\n";
+		}
+		foreach my $data (@{ $resp->{'result'} }) {
+			my %nzb = ('id' => undef(), 'name' => undef(), 'status' => undef(), 'path' => undef());
+			if (ref($data) ne 'HASH' || !exists($data->{'ID'}) || !int($data->{'ID'})) {
+				print STDERR 'Invalid NZB item: ' . $data . "\n";
+				next;
+			}
+			$nzb{'id'} = int($data->{'ID'});
+
+			# Name
+			if (exists($data->{'Name'})) {
+				$nzb{'name'} = $data->{'Name'};
+			}
+			if (!$nzb{'name'} && exists($data->{'NZBName'})) {
+				$nzb{'name'} = $data->{'NZBName'};
+			}
+			if (!$nzb{'name'} && exists($data->{'NZBNicename'})) {
+				$nzb{'name'} = $data->{'NZBNicename'};
+			}
+			if (!$nzb{'name'}) {
+				print STDERR 'Unable to retrieve name for: ' . $nzb{'id'} . "\n";
+				next;
+			}
+
+			# Status
+			if (exists($data->{'Status'})) {
+				$nzb{'status'} = $data->{'Status'};
+			}
+			if (!$nzb{'status'}) {
+				print STDERR 'Unable to retrieve status for: ' . $nzb{'id'} . "\n";
+				next;
+			}
+
+			# Path
+			if (exists($data->{'DestDir'})) {
+				$nzb{'path'} = $data->{'DestDir'};
+			}
+			if (!$nzb{'path'}) {
+				print STDERR 'Unable to retrieve path for: ' . $nzb{'id'} . "\n";
+				next;
+			}
+
+			# Debug
+			if ($DEBUG) {
+				print STDERR "\n\n";
+				foreach my $key (keys(%nzb)) {
+					print STDERR $key . ' => ' . $nzb{$key} . "\n";
+				}
+			}
+
+			# Delete failed NZBs
+			if ($nzb{'status'} eq 'FAILURE/HEALTH') {
+				delNZB(\%nzb);
+				next;
+			}
+
+			# Process sucessful NZBs
+			if ($nzb{'status'} eq 'SUCCESS') {
+				if (storeNZB(\%nzb)) {
+					delNZB(\%nzb);
+				} else {
+					print STDERR 'Unable to store NZB: ' . $nzb{'name'} . "\n";
+				}
+				next;
+			}
 		}
 	}
 }
@@ -490,6 +560,58 @@ sub getDest($$$$) {
 		print STDERR 'Destination: ' . $dest . "\n";
 	}
 	return $dest;
+}
+
+sub storeNZB($) {
+	my ($nzb) = @_;
+	if ($DEBUG) {
+		print STDERR 'Storing NZB: ' . $nzb->{'name'} . "\n";
+	}
+
+	# Find all media files, recursively
+	my @files = findMediaFiles($nzb->{'path'}, 0);
+
+	# Bail if we found no files
+	if (scalar(@files) < 1) {
+		print STDERR 'No media files found in NZB: ' . $nzb->{'name'} . "\n";
+		next;
+	}
+
+	return 0;
+}
+
+sub delNZB($) {
+	my ($nzb) = @_;
+	if ($DEBUG) {
+		print STDERR 'Deleting NZB: ' . $nzb->{'name'} . "\n";
+	}
+
+	# Remove the files, if any
+	if (-e $nzb->{'path'} && -d $nzb->{'path'}) {
+		if ($DEBUG) {
+			print STDERR 'Removing NZB folder: ' . $nzb->{'path'} . "\n";
+		}
+
+		#system('rm -rf ' . $nzb->{'path'});
+
+		# Check for deletion
+		if (-e $nzb->{'path'}) {
+			print STDERR 'Unable to remove NZB folder: ' . $nzb->{'path'} . "\n";
+			return 0;
+		}
+	}
+
+	# Send the command
+	my $id      = $nzb->{'id'};
+	my $content = $delHistory;
+	$content =~ s/\#_ID_\#/${id}/;
+	$fetch->post_content($content);
+	print STDERR 'Delete: ' . $content . "\n";
+
+	#$fetch->fetch();
+
+	# Check the result
+	return 0;
 }
 
 sub delTor($) {
@@ -825,7 +947,7 @@ sub available($) {
 	if ($DEBUG) {
 		print STDERR "Checking for interface\n";
 	}
-	
+
 	# Reset from the last host
 	$fetch = Fetch->new();
 
