@@ -18,7 +18,7 @@ my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('NCAT' => 1, 'TPB' => 0, 'ISO' => 0, 'KICK' => 0, 'Z' => 0, 'ET' => 0);
+my %ENABLE_SOURCE = ('NCAT' => 0, 'TPB' => 1, 'ISO' => 1, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -1684,7 +1684,7 @@ sub initSources() {
 	if ($ENABLE_SOURCE{'NCAT'}) {
 		my @proxies = ('nzb.cat/api');
 		my $source = findProxy(\@proxies, '\bforgottenpassword\b');
-		if ($source) {
+		if ($source && exists($CONFIG{'NCAT_APIKEY'}) && $CONFIG{'NCAT_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
 			$source->{'quote'}          = 0;
 			$source->{'search_exclude'} = 0;
