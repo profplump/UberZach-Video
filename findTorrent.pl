@@ -18,7 +18,7 @@ my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Search parameters
 my $PROTOCOL = 'https';
-my %ENABLE_SOURCE = ('NCAT' => 0, 'TPB' => 1, 'ISO' => 0, 'KICK' => 0, 'Z' => 0, 'ET' => 1);
+my %ENABLE_SOURCE = ('NCAT' => 1, 'TPB' => 0, 'ISO' => 0, 'KICK' => 0, 'Z' => 0, 'ET' => 0);
 
 # Selection parameters
 my $MIN_COUNT        = 10;
@@ -1063,7 +1063,7 @@ foreach my $content (@json_content) {
 	if (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
 		my $list = $content->{'item'};
 		if (!$list || ref($list) ne 'ARRAY') {
-			warn('Invalid NCAT list: ' . $list . "\n");
+			warn("Invalid NCAT list\n");
 			next;
 		}
 
@@ -1096,6 +1096,9 @@ foreach my $content (@json_content) {
 				$title = $item->{'title'};
 			} elsif (exists($item->{'description'}) && $item->{'description'}) {
 				$title = $item->{'description'};
+			}
+			if ($title) {
+				$url .= '#' . $title;
 			}
 
 			# Extract the season and episode numbers

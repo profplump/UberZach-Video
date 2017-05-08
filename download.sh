@@ -55,8 +55,9 @@ elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi 'nzb.cat/getn
 		for i in ${URLS}; do
 			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
 			SLEEP="${DELAY}"
+			NAME="`echo "${i}" | cut -d '#' -f 2-`"
 			RESULT="`curl --silent --max-time "${TIMEOUT}" "${NZB_URL}" \
-				-d '{"method":"append","params":["download.sh.nzb","'"${i}"'","",0,false,false,"",0,"force"]}'`"
+				-d '{"method":"append","params":["'"${NAME}"'.nzb","'"${i}"'","",0,false,false,"",0,"force"]}'`"
 			if ! echo "${RESULT}" | grep 'result' | grep -q '[1-9]'; then
 				exit 1
 			fi
