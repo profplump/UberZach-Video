@@ -54,13 +54,14 @@ my $RAR_MIN_FILES  = 4;
 my $FIND_MAX_DEPTH = 5;
 my $CONF_FILE      = $ENV{'HOME'} . '/.download.config';
 
-# Debug
+# Environment
 my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
-	$DEBUG = int($ENV{'DEBUG'});
-	if (!$DEBUG) {
-		$DEBUG = 1;
-	}
+        if ($ENV{'DEBUG'} =~ /(\d+)/) {
+                $DEBUG = $1;
+        } else {
+                $DEBUG = 1;
+        }
 }
 
 # Command-line parameters
