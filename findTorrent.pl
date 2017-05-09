@@ -1200,6 +1200,13 @@ foreach my $tor (@tors) {
 		}
 		next;
 
+		# Skip leaked files
+	} elsif ($tor->{'title'} =~ /leaked/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "leaked": ' . $tor->{'title'} . "\n";
+		}
+		next;
+
 		# Skip pre-air files
 	} elsif ($tor->{'title'} =~ /preair/i) {
 		if ($DEBUG) {
