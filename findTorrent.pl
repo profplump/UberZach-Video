@@ -22,10 +22,11 @@ my $MIN_SIZE         = 100;
 my $SIZE_BONUS       = 5;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
+my $MAX_SEEDS        = 500;
+my $AGE_PENALTY      = ($MAX_SEEDS / 2) / (86400 * 2);
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
-my $QUALITY_AGE      = (86400 * 365);
 
 # App config
 my $SLEEP       = 1;
@@ -1305,12 +1306,28 @@ foreach my $tor (@tors) {
 	# Only apply the quality rules if NO_QUALITY_CHECKS is not in effect
 	if (!$NO_QUALITY_CHECKS) {
 
+		# Cap seeds/leaches/date
+		if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
+			$tor->{'seeds'} = 0;
+		}
+		if ($tor->{'seeds'} > $MAX_SEEDS) {
+			$tor->{'seeds'} = $MAX_SEEDS;
+		}
+		if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
+			$tor->{'leaches'} = 0;
+		}
+		if ($tor->{'leaches'} > $MAX_SEEDS) {
+			$tor->{'leaches'} = $MAX_SEEDS;
+		}
+
 		# Proxy publication date to seeder/leacher quality
 		if ($tor->{'date'} && !$tor->{'seeds'}) {
-			if ($tor->{'date'} > time() - $QUALITY_AGE) {
-				$tor->{'seeds'} = $SEED_RATIO_COUNT + 1;
-			} else {
-				$tor->{'seeds'} = ($MIN_COUNT / 2) - 1;
+			my $min     = ($MIN_COUNT / 2) - 1;
+			my $penalty = (time() - $tor->{'date'}) * $AGE_PENALTY;
+
+			$tor->{'seeds'} = $MAX_SEEDS - $penalty;
+			if ($tor->{'seeds'} < $min) {
+				$tor->{'seeds'} = $min;
 			}
 			$tor->{'leaches'} = $tor->{'seeds'};
 		}
