@@ -143,7 +143,7 @@ if ($CONF_FILE && -r $CONF_FILE) {
 			$val =~ s/^\s+//;
 			$val =~ s/\s+$//;
 			$CONFIG{$key} = $val;
-			if ($DEBUG) {
+			if ($DEBUG > 1) {
 				print STDERR 'Adding config: ' . $key . ' => ' . $val . "\n";
 			}
 		} else {
@@ -652,7 +652,7 @@ foreach my $url (@urls) {
 	}
 
 	# Save the content, discriminating by data type
-	if ($DEBUG) {
+	if ($DEBUG > 1) {
 		print STDERR 'Fetched ' . length($content) . " bytes\n";
 	}
 	if ($content =~ /^\s*{/) {
@@ -1861,7 +1861,7 @@ sub findProxy($$) {
 
 sub fetch($;$$) {
 	my ($url, $file, $nocheck) = @_;
-	if ($DEBUG) {
+	if ($DEBUG > 1) {
 		print STDERR 'Fetch: ' . $url . "\n";
 	}
 
