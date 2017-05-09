@@ -57,11 +57,11 @@ my $CONF_FILE      = $ENV{'HOME'} . '/.download.config';
 # Environment
 my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
-        if ($ENV{'DEBUG'} =~ /(\d+)/) {
-                $DEBUG = $1;
-        } else {
-                $DEBUG = 1;
-        }
+	if ($ENV{'DEBUG'} =~ /(\d+)/) {
+		$DEBUG = $1;
+	} else {
+		$DEBUG = 1;
+	}
 }
 
 # Command-line parameters
