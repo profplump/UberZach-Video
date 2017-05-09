@@ -7,9 +7,10 @@ use JSON;
 use Date::Parse;
 use File::Copy;
 use File::Touch;
-use File::Temp qw/ :mktemp /;
+use File::Temp 'mktemp';
+use File::Path 'remove_tree';
 use File::Basename;
-use Image::ExifTool qw/ :Public/;
+use Image::ExifTool 'Public';
 use FindBin qw($Bin);
 use lib $Bin;
 use Fetch;
@@ -19,6 +20,7 @@ sub session($);
 sub fetch($);
 sub getSSE($);
 sub getDest($$$$);
+sub storeFiles($$$);
 sub readNZB($$);
 sub storeNZB($);
 sub storeTor($);
@@ -55,7 +57,10 @@ my $CONF_FILE      = $ENV{'HOME'} . '/.download.config';
 # Debug
 my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
-	$DEBUG = 1;
+	$DEBUG = int($ENV{'DEBUG'});
+	if (!$DEBUG) {
+		$DEBUG = 1;
+	}
 }
 
 # Command-line parameters
@@ -77,7 +82,7 @@ if ($CONF_FILE && -r $CONF_FILE) {
 		# Assume everything else is bash variables
 		if (my ($key, undef(), $val) = $_ =~ /^\s*(\S[^\=]+)\=([\'\"])(.*)\g{-2}\s*$/) {
 			$CONFIG{$key} = $val;
-			if ($DEBUG) {
+			if ($DEBUG > 1) {
 				print STDERR 'Adding config: ' . $key . ' => ' . $val . "\n";
 			}
 		} else {
@@ -174,7 +179,7 @@ if (available($CONFIG{'TRANS_URL'})) {
 			}
 
 			# Process sucessful NZBs
-			if ($nzb->{'status'} eq 'SUCCESS') {
+			if ($nzb->{'status'} eq 'SUCCESS/UNPACK') {
 				if (storeNZB($nzb)) {
 					delNZB($nzb);
 				} else {
@@ -425,6 +430,34 @@ sub getDest($$$$) {
 	return $dest;
 }
 
+sub storeFiles($$$) {
+	my ($path, $files, $name) = @_;
+
+	my $failure = 0;
+	foreach my $file (@{$files}) {
+		my $result = -1;
+		if (defined($file) && length($file) > 0 && -r $file) {
+			$result = &processFile($file, $path);
+		}
+		if (defined($result) && $result == 1) {
+			if ($DEBUG) {
+				print STDERR 'File stored successfully: ' . $name . "\n";
+			}
+		} elsif (defined($result) && $result == -1) {
+			if ($DEBUG) {
+				print STDERR 'Refusing to save bad download: ' . $name . "\n";
+			}
+			last;
+		} else {
+			print STDERR 'Error storing file "' . basename($file) . '" from: ' . $name . "\n";
+			$failure = 1;
+			last;
+		}
+	}
+
+	return $failure ? 0 : 1;
+}
+
 sub readNZB($$) {
 	my ($nzb, $data) = @_;
 	my %tmp = ('id' => undef(), 'name' => undef(), 'status' => undef(), 'path' => undef());
@@ -474,7 +507,7 @@ sub readNZB($$) {
 	}
 
 	# Debug
-	if ($DEBUG) {
+	if ($DEBUG > 1) {
 		print STDERR "\n\n";
 		foreach my $key (keys(%tmp)) {
 			print STDERR $key . ' => ' . $tmp{$key} . "\n";
@@ -545,34 +578,12 @@ sub storeTor($) {
 		@files = findMediaFiles($path, 0);
 	}
 
-	# Bail if we found no files
+	# Process any files we found
 	if (scalar(@files) < 1) {
 		print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
 		next;
 	}
-
-	# Do all the normal file naming/copying/etc. if we found at least one file
-	my $failure = 0;
-	foreach my $file (@files) {
-		my $result = -1;
-		if (defined($file) && length($file) > 0 && -r $file) {
-			$result = &processFile($file, $path);
-		}
-		if (defined($result) && $result == 1) {
-			if ($DEBUG) {
-				print STDERR 'Torrent stored successfully: ' . $tor->{'name'} . "\n";
-			}
-		} elsif (defined($result) && $result == -1) {
-			if ($DEBUG) {
-				print STDERR 'Deleting bad torrent: ' . $tor->{'name'} . "\n";
-			}
-			last;
-		} else {
-			print STDERR 'Error storing file "' . basename($file) . '" from torrent: ' . $tor->{'name'} . "\n";
-			$failure = 1;
-			last;
-		}
-	}
+	my $retval = storeFiles($path, \@files, $tor->{'name'});
 
 	# Delete any files we added
 	foreach my $file (@newFiles) {
@@ -581,12 +592,9 @@ sub storeTor($) {
 		}
 		unlink($file);
 	}
-	
-	# Return success only if all went well
-	if ($failure) {
-		return 0;
-	}
-	return 1;
+
+	# Return whatever storeFiles() said
+	return $retval;
 }
 
 sub storeNZB($) {
@@ -598,13 +606,12 @@ sub storeNZB($) {
 	# Find all media files, recursively
 	my @files = findMediaFiles($nzb->{'path'}, 0);
 
-	# Bail if we found no files
+	# Process any files we found
 	if (scalar(@files) < 1) {
 		print STDERR 'No media files found in NZB: ' . $nzb->{'name'} . "\n";
 		next;
 	}
-
-	return 0;
+	return storeFiles($nzb->{'path'}, \@files, $nzb->{'name'});
 }
 
 sub delNZB($) {
@@ -618,8 +625,7 @@ sub delNZB($) {
 		if ($DEBUG) {
 			print STDERR 'Removing NZB folder: ' . $nzb->{'path'} . "\n";
 		}
-
-		#system('rm -rf ' . $nzb->{'path'});
+		remove_tree($nzb->{'path'});
 
 		# Check for deletion
 		if (-e $nzb->{'path'}) {
@@ -634,10 +640,12 @@ sub delNZB($) {
 	$content =~ s/\#_ID_\#/${id}/;
 	$fetch->post_content($content);
 	print STDERR 'Delete: ' . $content . "\n";
-
-	#$fetch->fetch();
+	$fetch->fetch();
 
 	# Check the result
+	if ($fetch->content() =~ /\"result\" \: true/i) {
+		return 1;
+	}
 	return 0;
 }
 
