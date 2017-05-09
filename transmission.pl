@@ -65,7 +65,7 @@ if ($ENV{'DEBUG'}) {
 }
 
 # Command-line parameters
-my ($force, $maxDays, $hash) = @ARGV;
+my ($hash) = @ARGV;
 
 # Config file
 my %CONFIG = ();
@@ -91,11 +91,6 @@ if ($CONF_FILE && -r $CONF_FILE) {
 		}
 	}
 	close($fh);
-}
-
-# If a hash is provided force processing of matching torrents/NZBs
-if (defined($hash)) {
-	$force = 1;
 }
 
 # Init
@@ -174,7 +169,7 @@ if (available($CONFIG{'TRANS_URL'})) {
 			#}
 
 			# Delete failed NZBs
-			if ($nzb->{'status'} eq 'FAILURE/HEALTH') {
+			if ($nzb->{'status'} eq 'FAILURE/HEALTH' || $nzb->{'status'} eq 'FAILURE/PAR') {
 				delNZB($nzb);
 				next;
 			}
@@ -582,7 +577,7 @@ sub storeTor($) {
 	# Process any files we found
 	if (scalar(@files) < 1) {
 		print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
-		next;
+		return 0;
 	}
 	my $retval = storeFiles($path, \@files, $tor->{'name'});
 
