@@ -10,7 +10,7 @@ use File::Touch;
 use File::Temp 'mktemp';
 use File::Path 'remove_tree';
 use File::Basename;
-use Image::ExifTool 'Public';
+use Image::ExifTool qw/ :Public/;
 use FindBin qw($Bin);
 use lib $Bin;
 use Fetch;
@@ -640,7 +640,6 @@ sub delNZB($) {
 	my $content = $delHistory;
 	$content =~ s/\#_ID_\#/${id}/;
 	$fetch->post_content($content);
-	print STDERR 'Delete: ' . $content . "\n";
 	$fetch->fetch();
 
 	# Check the result
