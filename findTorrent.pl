@@ -23,7 +23,7 @@ my $SIZE_BONUS       = 5;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEEDS        = 500;
-my $AGE_PENALTY      = ($MAX_SEEDS / 2) / (86400 * 2);
+my $AGE_PENALTY      = ($MAX_SEEDS / 2) / (86400 * 5);
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
@@ -1332,7 +1332,7 @@ foreach my $tor (@tors) {
 			my $min     = ($MIN_COUNT / 2) - 1;
 			my $penalty = (time() - $tor->{'date'}) * $AGE_PENALTY;
 
-			$tor->{'seeds'} = $MAX_SEEDS - $penalty;
+			$tor->{'seeds'} = int($MAX_SEEDS - $penalty);
 			if ($tor->{'seeds'} < $min) {
 				$tor->{'seeds'} = $min;
 			}
