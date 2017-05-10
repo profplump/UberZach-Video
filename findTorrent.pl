@@ -13,7 +13,7 @@ my $NEXT_EPISODES       = 3;
 
 # Local config
 my $TV_DIR        = `~/bin/video/mediaPath` . '/TV';
-my $CONF_FILE     = $ENV{'HOME'} . +'/.findTorrent.config';
+my $CONF_FILE     = $ENV{'HOME'} . '/.findTorrent.config';
 my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
 
 # Selection parameters
@@ -23,7 +23,8 @@ my $SIZE_BONUS       = 5;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEEDS        = 500;
-my $AGE_PENALTY      = ($MAX_SEEDS / 2) / (86400 * 5);
+my $NZB_AGE_GOOD     = 2;
+my $NZB_AGE_MAX      = 180;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
@@ -1329,13 +1330,23 @@ foreach my $tor (@tors) {
 
 		# Proxy publication date to seeder/leacher quality
 		if ($tor->{'date'} && !$tor->{'seeds'}) {
-			my $min     = ($MIN_COUNT / 2) - 1;
-			my $penalty = (time() - $tor->{'date'}) * $AGE_PENALTY;
-
-			$tor->{'seeds'} = int($MAX_SEEDS - $penalty);
-			if ($tor->{'seeds'} < $min) {
-				$tor->{'seeds'} = $min;
+			my $age = time() - $tor->{'date'};
+			if ($age < 0) {
+				warn('Invalid age (' . $age . '): ' . $tor->{'name'} . "\n");
+				$age = 0;
 			}
+			if ($age > $NZB_AGE_GOOD) {
+				$tor->{'seeds'} = $MIN_COUNT / 2;
+				if ($age > $NZB_AGE_MAX) {
+					$tor->{'seeds'}--;
+				} else {
+					$tor->{'seeds'}++;
+				}
+			} else {
+				my $penalty = ($MAX_SEEDS / 2) / (86400 * $NZB_AGE_GOOD);
+				$tor->{'seeds'} = $MAX_SEEDS - ($age * $penalty);
+			}
+			$tor->{'seeds'}   = int($tor->{'seeds'});
 			$tor->{'leaches'} = $tor->{'seeds'};
 		}
 
