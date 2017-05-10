@@ -1078,7 +1078,9 @@ foreach my $content (@json_content) {
 	if (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
 		my $list = $content->{'item'};
 		if (!$list || ref($list) ne 'ARRAY') {
-			warn("Invalid NCAT list\n");
+			if ($DEBUG) {
+				warn("Empty/invalid NCAT list\n");
+			}
 			next;
 		}
 
