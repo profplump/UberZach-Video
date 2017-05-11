@@ -1068,6 +1068,10 @@ foreach my $content (@html_content) {
 		if ($DEBUG) {
 			print STDERR "Source returned no content\n";
 		}
+	} elsif ($content =~ /limit\s*reached/i) {
+		if ($DEBUG) {
+			print STDERR "Source request limit reached\n";
+		}
 	} else {
 		print STDERR "Unknown HTML content:\n" . $content . "\n\n";
 	}
@@ -1079,6 +1083,12 @@ foreach my $content (@json_content) {
 		if ($DEBUG > 1) {
 			print STDERR "Empty JSON array\n";
 		}
+	} elsif (exists($content->{'channel'})
+		&& ref($content->{'channel'}) eq 'HASH'
+		&& exists($content->{'channel'}->{'title'})
+		&& $content->{'channel'}->{'title'} =~ /nzbplanet/i)
+	{
+		print STDERR "Index: NZBplanet\n";
 	} elsif (exists($content->{'channel'})
 		&& ref($content->{'channel'}) eq 'HASH'
 		&& exists($content->{'channel'}->{'title'})
@@ -1752,6 +1762,33 @@ sub findSE($) {
 sub initSources() {
 	my %sources = ();
 
+	# NZBplanet.net
+	if ($ENABLE_SOURCE{'PLANET'}) {
+		my @proxies = ('api.nzbplanet.net/api');
+		my $source = findProxy(\@proxies, '\bNzbplanet\b');
+		if ($source && exists($CONFIG{'PLANET_APIKEY'}) && $CONFIG{'PLANET_APIKEY'}) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'PLANET_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'PLANET'} = $source;
+		}
+	}
+	
+	
 	# NZB.is
 	if ($ENABLE_SOURCE{'IS'}) {
 		my @proxies = ('nzb.is/api');
