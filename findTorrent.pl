@@ -656,7 +656,7 @@ foreach my $url (@urls) {
 	if ($DEBUG > 1) {
 		print STDERR 'Fetched ' . length($content) . " bytes\n";
 	}
-	if ($content =~ /^\s*{/) {
+	if ($content =~ /^\s*[\{\[]/) {
 		my $json = eval { decode_json($content); };
 		if (defined($json) && ref($json)) {
 			push(@json_content, $json);
@@ -1075,7 +1075,23 @@ foreach my $content (@html_content) {
 
 # Handle JSON content
 foreach my $content (@json_content) {
-	if (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
+	if (ref($content) eq 'ARRAY' && scalar(@{$content}) == 0) {
+		if ($DEBUG > 1) {
+			print STDERR "Empty JSON array\n";
+		}
+	} elsif (exists($content->{'channel'})
+		&& ref($content->{'channel'}) eq 'HASH'
+		&& exists($content->{'channel'}->{'title'})
+		&& $content->{'channel'}->{'title'} =~ /usenet\-crawler/i)
+	{
+		print STDERR "Index: usenet-crawler\n";
+	} elsif (ref($content) eq 'ARRAY'
+		&& scalar(@{$content}) > 0
+		&& ref($content->[0]) eq 'HASH'
+		&& exists($content->[0]->{'guid'}))
+	{
+		print STDERR "Index: NZB.is\n";
+	} elsif (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
 		my $list = $content->{'item'};
 		if (!$list || ref($list) ne 'ARRAY') {
 			if ($DEBUG) {
@@ -1418,6 +1434,12 @@ my %size = ();
 		if ($count > 0) {
 			$avg{$episode} /= $count;
 		}
+		if (!defined($max{$episode})) {
+			warn("Invalid max episode\n");
+		}
+		if (!defined($avg{$episode})) {
+			warn("Invalid avg episode\n");
+		}
 		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
 
 		if ($DEBUG) {
@@ -1729,6 +1751,58 @@ sub findSE($) {
 
 sub initSources() {
 	my %sources = ();
+
+	# NZB.is
+	if ($ENABLE_SOURCE{'IS'}) {
+		my @proxies = ('nzb.is/api');
+		my $source = findProxy(\@proxies, '\bnzb\.is\b');
+		if ($source && exists($CONFIG{'IS_APIKEY'}) && $CONFIG{'IS_APIKEY'}) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'IS_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'IS'} = $source;
+		}
+	}
+
+	# Usenet Crawler
+	if ($ENABLE_SOURCE{'UC'}) {
+		my @proxies = ('www.usenet-crawler.com/api');
+		my $source = findProxy(\@proxies, '\busenet-crawler\b');
+		if ($source && exists($CONFIG{'UC_APIKEY'}) && $CONFIG{'UC_APIKEY'}) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'UC_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'UC'} = $source;
+		}
+	}
 
 	# NZB Cat
 	if ($ENABLE_SOURCE{'NCAT'}) {
