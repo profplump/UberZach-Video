@@ -1074,6 +1074,10 @@ foreach my $content (@html_content) {
 		if ($DEBUG) {
 			print STDERR "Source request limit reached\n";
 		}
+	} elsif ($content =~ /\<title\>.*Not\s+Found\<\/title\>/i) {
+		if ($DEBUG) {
+			print STDERR "No results\n";
+		}
 	} else {
 		print STDERR "Unknown HTML content:\n" . $content . "\n\n";
 	}
@@ -1283,22 +1287,22 @@ foreach my $tor (@tors) {
 		}
 	}
 
+	# Cap seeds/leaches/date and ensure they are always defined
+	if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
+		$tor->{'seeds'} = 0;
+	}
+	if ($tor->{'seeds'} > $MAX_SEEDS) {
+		$tor->{'seeds'} = $MAX_SEEDS;
+	}
+	if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
+		$tor->{'leaches'} = 0;
+	}
+	if ($tor->{'leaches'} > $MAX_SEEDS) {
+		$tor->{'leaches'} = $MAX_SEEDS;
+	}
+
 	# Only apply the quality rules if NO_QUALITY_CHECKS is not in effect
 	if (!$NO_QUALITY_CHECKS) {
-
-		# Cap seeds/leaches/date
-		if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
-			$tor->{'seeds'} = 0;
-		}
-		if ($tor->{'seeds'} > $MAX_SEEDS) {
-			$tor->{'seeds'} = $MAX_SEEDS;
-		}
-		if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
-			$tor->{'leaches'} = 0;
-		}
-		if ($tor->{'leaches'} > $MAX_SEEDS) {
-			$tor->{'leaches'} = $MAX_SEEDS;
-		}
 
 		# Proxy publication date to seeder/leacher quality
 		if ($tor->{'date'} && !$tor->{'seeds'}) {
