@@ -23,8 +23,6 @@ my $SIZE_BONUS       = 5;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEEDS        = 500;
-my $NZB_AGE_GOOD     = 2;
-my $NZB_AGE_MAX      = 180;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
@@ -78,6 +76,7 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub parseNZB($);
 sub getHash($);
 sub resolveSecondary($);
 sub resolveTrackers($);
@@ -175,6 +174,9 @@ if (exists($CONFIG{'SOURCES'})) {
 		$source = uc($source);
 		$ENABLE_SOURCE{$source} = 1;
 	}
+}
+if (!exists($CONFIG{'NZB_AGE_GOOD'}) || !exists($CONFIG{'NZB_AGE_MAX'})) {
+	warn("No NZB good/max age provided\n");
 }
 
 # Phantom setup
@@ -656,7 +658,7 @@ foreach my $url (@urls) {
 	if ($DEBUG > 1) {
 		print STDERR 'Fetched ' . length($content) . " bytes\n";
 	}
-	if ($content =~ /^\s*{/) {
+	if ($content =~ /^\s*[\{\[]/) {
 		my $json = eval { decode_json($content); };
 		if (defined($json) && ref($json)) {
 			push(@json_content, $json);
@@ -1068,6 +1070,10 @@ foreach my $content (@html_content) {
 		if ($DEBUG) {
 			print STDERR "Source returned no content\n";
 		}
+	} elsif ($content =~ /limit\s*reached/i) {
+		if ($DEBUG) {
+			print STDERR "Source request limit reached\n";
+		}
 	} else {
 		print STDERR "Unknown HTML content:\n" . $content . "\n\n";
 	}
@@ -1075,7 +1081,29 @@ foreach my $content (@html_content) {
 
 # Handle JSON content
 foreach my $content (@json_content) {
-	if (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
+	if (ref($content) eq 'ARRAY' && scalar(@{$content}) == 0) {
+		if ($DEBUG > 1) {
+			print STDERR "Empty JSON array\n";
+		}
+	} elsif (exists($content->{'channel'})
+		&& ref($content->{'channel'}) eq 'HASH'
+		&& exists($content->{'channel'}->{'title'})
+		&& $content->{'channel'}->{'title'} =~ /nzbplanet/i)
+	{
+		print STDERR "Index: NZBplanet\n";
+	} elsif (exists($content->{'channel'})
+		&& ref($content->{'channel'}) eq 'HASH'
+		&& exists($content->{'channel'}->{'title'})
+		&& $content->{'channel'}->{'title'} =~ /usenet\-crawler/i)
+	{
+		print STDERR "Index: usenet-crawler\n";
+	} elsif (ref($content) eq 'ARRAY'
+		&& scalar(@{$content}) > 0
+		&& ref($content->[0]) eq 'HASH'
+		&& exists($content->[0]->{'guid'}))
+	{
+		print STDERR "Index: NZB.is\n";
+	} elsif (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
 		my $list = $content->{'item'};
 		if (!$list || ref($list) ne 'ARRAY') {
 			if ($DEBUG) {
@@ -1085,88 +1113,30 @@ foreach my $content (@json_content) {
 		}
 
 		foreach my $item (@{$list}) {
-
-			# Ensure the record is sensible
-			my $id = undef();
-			if (   ref($item) eq 'HASH'
-				&& exists($item->{'guid'})
-				&& ref($item->{'guid'}) eq 'HASH'
-				&& exists($item->{'guid'}->{'text'}))
-			{
-				$id = $item->{'guid'}->{'text'};
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'NCAT';
+				push(@tors, $tor);
 			}
-			if (!$id) {
-				warn("Unable to parse NCAT list item\n");
-				next;
-			}
-
-			# NZB URL
-			my $url = undef();
-			if (exists($item->{'link'}) && $item->{'link'}) {
-				$url = $item->{'link'};
-				$url =~ s/^(https?)\:/${PROTOCOL}\:/;
-			}
-
-			# Title
-			my $title = undef();
-			if (exists($item->{'title'}) && $item->{'title'}) {
-				$title = $item->{'title'};
-			} elsif (exists($item->{'description'}) && $item->{'description'}) {
-				$title = $item->{'description'};
-			}
-			if ($title) {
-				$url .= '#' . $title;
-			}
-
-			# Extract the season and episode numbers
-			my ($season, $episode) = findSE($title);
-
-			# Size
-			my $size = 0;
-			if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
-				foreach my $hash (@{ $item->{'newznab:attr'} }) {
-					if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size')
-					{
-						$size = int($hash->{'_value'}) / 1024;
-					}
-				}
-			}
-
-			# Date
-			my $date = undef();
-			if (exists($item->{'pubDate'}) && $item->{'pubDate'}) {
-				$date = str2time($item->{'pubDate'});
-			}
-
-			# Sanity checks
-			if (!$url) {
-				warn('No URL in NCAT item: ' . $id . "\n");
-				next;
-			}
-			if (!$title) {
-				warn('No title in NCAT item: ' . $id . "\n");
-				next;
-			}
-			if (!$size) {
-				warn('No size in NCAT item: ' . $id . "\n");
-				next;
-			}
-
+		}
+	} elsif (ref($content) eq 'HASH'
+		&& exists($content->{'channel'})
+		&& ref($content->{'channel'}) eq 'HASH'
+		&& exists($content->{'channel'}->{'title'})
+		&& $content->{'channel'}->{'title'} =~ /\bNzb\s+Planet\b/i)
+	{
+		if (!exists($content->{'channel'}->{'item'}) || ref($content->{'channel'}->{'item'}) ne 'ARRAY') {
 			if ($DEBUG) {
-				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+				print STDERR "Empty/invalid NZB Planet result\n";
 			}
-
-			# Save the extracted data
-			my %tor = (
-				'title'   => $title,
-				'season'  => $season,
-				'episode' => $episode,
-				'date'    => $date,
-				'size'    => $size,
-				'url'     => $url,
-				'source'  => 'NCAT'
-			);
-			push(@tors, \%tor);
+			next;
+		}
+		foreach my $item (@{ $content->{'channel'}->{'item'} }) {
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'PLANET';
+				push(@tors, $tor);
+			}
 		}
 	} else {
 		print STDERR "Unknown JSON content:\n" . $content . "\n\n";
@@ -1334,18 +1304,20 @@ foreach my $tor (@tors) {
 		if ($tor->{'date'} && !$tor->{'seeds'}) {
 			my $age = time() - $tor->{'date'};
 			if ($age < 0) {
-				warn('Invalid age (' . $age . '): ' . $tor->{'name'} . "\n");
+				warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'name'} . "\n");
 				$age = 0;
 			}
-			if ($age > $NZB_AGE_GOOD) {
+			$age /= 86400;
+
+			if ($age > $CONFIG{'NZB_AGE_GOOD'}) {
 				$tor->{'seeds'} = $MIN_COUNT / 2;
-				if ($age > $NZB_AGE_MAX) {
+				if ($age > $CONFIG{'NZB_AGE_MAX'}) {
 					$tor->{'seeds'}--;
 				} else {
 					$tor->{'seeds'}++;
 				}
 			} else {
-				my $penalty = ($MAX_SEEDS / 2) / (86400 * $NZB_AGE_GOOD);
+				my $penalty = ($MAX_SEEDS / 2) / $CONFIG{'NZB_AGE_GOOD'};
 				$tor->{'seeds'} = $MAX_SEEDS - ($age * $penalty);
 			}
 			$tor->{'seeds'}   = int($tor->{'seeds'});
@@ -1417,6 +1389,12 @@ my %size = ();
 		}
 		if ($count > 0) {
 			$avg{$episode} /= $count;
+		}
+		if (!defined($max{$episode})) {
+			warn("Invalid max episode\n");
+		}
+		if (!defined($avg{$episode})) {
+			warn("Invalid avg episode\n");
 		}
 		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
 
@@ -1514,6 +1492,104 @@ if ($SYSLOG) {
 	closelog();
 }
 exit(0);
+
+sub parseNZB($) {
+	my ($item) = @_;
+	if (!$item || ref($item) ne 'HASH' || !exists($item->{'guid'})) {
+		warn("Unable to parse NZB item\n");
+		return undef();
+	}
+
+	# Ensure the record is sensible
+	my $id = undef();
+	if (ref($item->{'guid'}) eq 'HASH' && exists($item->{'guid'}->{'text'})) {
+		$id = $item->{'guid'}->{'text'};
+	} elsif (!ref($item->{'guid'})) {
+		$id = $item->{'guid'};
+	}
+	if (!$id) {
+		warn("Unable to parse NZB item GUID\n");
+		return undef();
+	}
+
+	# NZB URL
+	my $url = undef();
+	if (exists($item->{'link'}) && $item->{'link'}) {
+		$url = $item->{'link'};
+		$url =~ s/^(https?)\:/${PROTOCOL}\:/;
+	}
+
+	# Title
+	my $title = undef();
+	if (exists($item->{'title'}) && $item->{'title'}) {
+		$title = $item->{'title'};
+	} elsif (exists($item->{'description'}) && $item->{'description'}) {
+		$title = $item->{'description'};
+	}
+	if ($title) {
+		$url .= '#' . $title;
+	}
+
+	# Extract the season and episode numbers
+	my ($season, $episode) = findSE($title);
+
+	# Size
+	my $size = 0;
+	if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
+		foreach my $hash (@{ $item->{'newznab:attr'} }) {
+			if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size') {
+				$size = int($hash->{'_value'}) / 1024;
+				last;
+			}
+		}
+	} elsif (exists($item->{'attr'}) && $item->{'attr'} && ref($item->{'attr'}) eq 'ARRAY') {
+		foreach my $hash (@{ $item->{'attr'} }) {
+			if (!exists($hash->{'@attributes'}) || ref($hash->{'@attributes'}) ne 'HASH') {
+				next;
+			}
+			$hash = $hash->{'@attributes'};
+			if (exists($hash->{'name'}) && $hash->{'name'} eq 'size' && exists($hash->{'value'})) {
+				$size = int($hash->{'value'}) / 1024;
+				last;
+			}
+		}
+	}
+
+	# Date
+	my $date = undef();
+	if (exists($item->{'pubDate'}) && $item->{'pubDate'}) {
+		$date = str2time($item->{'pubDate'});
+	}
+
+	# Sanity checks
+	if (!$url) {
+		warn('No URL in NZB item: ' . $id . "\n");
+		return undef();
+	}
+	if (!$title) {
+		warn('No title in NZB item: ' . $id . "\n");
+		return undef();
+	}
+	if (!$size) {
+		warn('No size in NZB item: ' . $id . "\n");
+		return undef();
+	}
+
+	if ($DEBUG) {
+		print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+	}
+
+	# Save the extracted data
+	my %tor = (
+		'title'   => $title,
+		'season'  => $season,
+		'episode' => $episode,
+		'date'    => $date,
+		'size'    => $size,
+		'url'     => $url,
+	);
+	return \%tor;
+}
 
 sub getHash($) {
 	my ($tor) = @_;
@@ -1729,6 +1805,84 @@ sub findSE($) {
 
 sub initSources() {
 	my %sources = ();
+
+	# NZBplanet.net
+	if ($ENABLE_SOURCE{'PLANET'}) {
+		my @proxies = ('api.nzbplanet.net/api');
+		my $source = findProxy(\@proxies, '\bNzbplanet\b');
+		if ($source && exists($CONFIG{'PLANET_APIKEY'}) && $CONFIG{'PLANET_APIKEY'}) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'PLANET_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'PLANET'} = $source;
+		}
+	}
+
+	# NZB.is
+	if ($ENABLE_SOURCE{'IS'}) {
+		my @proxies = ('nzb.is/api');
+		my $source = findProxy(\@proxies, '\bnzb\.is\b');
+		if ($source && exists($CONFIG{'IS_APIKEY'}) && $CONFIG{'IS_APIKEY'}) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'IS_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'IS'} = $source;
+		}
+	}
+
+	# Usenet Crawler
+	if ($ENABLE_SOURCE{'UC'}) {
+		my @proxies = ('www.usenet-crawler.com/api');
+		my $source = findProxy(\@proxies, '\busenet-crawler\b');
+		if ($source && exists($CONFIG{'UC_APIKEY'}) && $CONFIG{'UC_APIKEY'}) {
+			$source->{'weight'}         = 1.00;
+			$source->{'quote'}          = 0;
+			$source->{'search_exclude'} = 0;
+			$source->{'search_suffix'}  = '';
+			$source->{'custom_search'}  = sub ($$$$) {
+				my ($urls, $series, $season, $episode) = @_;
+				my $url =
+				    $source->{'search_url'}
+				  . '?o=json&t=tvsearch&q='
+				  . $series
+				  . '&season='
+				  . $season . '&ep='
+				  . $episode
+				  . '&apikey='
+				  . $CONFIG{'UC_APIKEY'};
+				push(@{$urls}, $url);
+			};
+			$sources{'UC'} = $source;
+		}
+	}
 
 	# NZB Cat
 	if ($ENABLE_SOURCE{'NCAT'}) {
