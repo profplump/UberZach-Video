@@ -23,8 +23,6 @@ my $SIZE_BONUS       = 5;
 my $SIZE_PENALTY     = $SIZE_BONUS;
 my $TITLE_PENALTY    = $SIZE_BONUS / 2;
 my $MAX_SEEDS        = 500;
-my $NZB_AGE_GOOD     = 2;
-my $NZB_AGE_MAX      = 180;
 my $MAX_SEED_RATIO   = .25;
 my $SEED_RATIO_COUNT = 10;
 my $TRACKER_LOOKUP   = 1;
@@ -78,6 +76,7 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub parseNZB($);
 sub getHash($);
 sub resolveSecondary($);
 sub resolveTrackers($);
@@ -175,6 +174,9 @@ if (exists($CONFIG{'SOURCES'})) {
 		$source = uc($source);
 		$ENABLE_SOURCE{$source} = 1;
 	}
+}
+if (!exists($CONFIG{'NZB_AGE_GOOD'}) || !exists($CONFIG{'NZB_AGE_MAX'})) {
+	warn("No NZB good/max age provided\n");
 }
 
 # Phantom setup
@@ -1111,88 +1113,30 @@ foreach my $content (@json_content) {
 		}
 
 		foreach my $item (@{$list}) {
-
-			# Ensure the record is sensible
-			my $id = undef();
-			if (   ref($item) eq 'HASH'
-				&& exists($item->{'guid'})
-				&& ref($item->{'guid'}) eq 'HASH'
-				&& exists($item->{'guid'}->{'text'}))
-			{
-				$id = $item->{'guid'}->{'text'};
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'NCAT';
+				push(@tors, $tor);
 			}
-			if (!$id) {
-				warn("Unable to parse NCAT list item\n");
-				next;
-			}
-
-			# NZB URL
-			my $url = undef();
-			if (exists($item->{'link'}) && $item->{'link'}) {
-				$url = $item->{'link'};
-				$url =~ s/^(https?)\:/${PROTOCOL}\:/;
-			}
-
-			# Title
-			my $title = undef();
-			if (exists($item->{'title'}) && $item->{'title'}) {
-				$title = $item->{'title'};
-			} elsif (exists($item->{'description'}) && $item->{'description'}) {
-				$title = $item->{'description'};
-			}
-			if ($title) {
-				$url .= '#' . $title;
-			}
-
-			# Extract the season and episode numbers
-			my ($season, $episode) = findSE($title);
-
-			# Size
-			my $size = 0;
-			if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
-				foreach my $hash (@{ $item->{'newznab:attr'} }) {
-					if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size')
-					{
-						$size = int($hash->{'_value'}) / 1024;
-					}
-				}
-			}
-
-			# Date
-			my $date = undef();
-			if (exists($item->{'pubDate'}) && $item->{'pubDate'}) {
-				$date = str2time($item->{'pubDate'});
-			}
-
-			# Sanity checks
-			if (!$url) {
-				warn('No URL in NCAT item: ' . $id . "\n");
-				next;
-			}
-			if (!$title) {
-				warn('No title in NCAT item: ' . $id . "\n");
-				next;
-			}
-			if (!$size) {
-				warn('No size in NCAT item: ' . $id . "\n");
-				next;
-			}
-
+		}
+	} elsif (ref($content) eq 'HASH'
+		&& exists($content->{'channel'})
+		&& ref($content->{'channel'}) eq 'HASH'
+		&& exists($content->{'channel'}->{'title'})
+		&& $content->{'channel'}->{'title'} =~ /\bNzb\s+Planet\b/i)
+	{
+		if (!exists($content->{'channel'}->{'item'}) || ref($content->{'channel'}->{'item'}) ne 'ARRAY') {
 			if ($DEBUG) {
-				print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+				print STDERR "Empty/invalid NZB Planet result\n";
 			}
-
-			# Save the extracted data
-			my %tor = (
-				'title'   => $title,
-				'season'  => $season,
-				'episode' => $episode,
-				'date'    => $date,
-				'size'    => $size,
-				'url'     => $url,
-				'source'  => 'NCAT'
-			);
-			push(@tors, \%tor);
+			next;
+		}
+		foreach my $item (@{ $content->{'channel'}->{'item'} }) {
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'PLANET';
+				push(@tors, $tor);
+			}
 		}
 	} else {
 		print STDERR "Unknown JSON content:\n" . $content . "\n\n";
@@ -1360,18 +1304,20 @@ foreach my $tor (@tors) {
 		if ($tor->{'date'} && !$tor->{'seeds'}) {
 			my $age = time() - $tor->{'date'};
 			if ($age < 0) {
-				warn('Invalid age (' . $age . '): ' . $tor->{'name'} . "\n");
+				warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'name'} . "\n");
 				$age = 0;
 			}
-			if ($age > $NZB_AGE_GOOD) {
+			$age /= 86400;
+
+			if ($age > $CONFIG{'NZB_AGE_GOOD'}) {
 				$tor->{'seeds'} = $MIN_COUNT / 2;
-				if ($age > $NZB_AGE_MAX) {
+				if ($age > $CONFIG{'NZB_AGE_MAX'}) {
 					$tor->{'seeds'}--;
 				} else {
 					$tor->{'seeds'}++;
 				}
 			} else {
-				my $penalty = ($MAX_SEEDS / 2) / (86400 * $NZB_AGE_GOOD);
+				my $penalty = ($MAX_SEEDS / 2) / $CONFIG{'NZB_AGE_GOOD'};
 				$tor->{'seeds'} = $MAX_SEEDS - ($age * $penalty);
 			}
 			$tor->{'seeds'}   = int($tor->{'seeds'});
@@ -1546,6 +1492,104 @@ if ($SYSLOG) {
 	closelog();
 }
 exit(0);
+
+sub parseNZB($) {
+	my ($item) = @_;
+	if (!$item || ref($item) ne 'HASH' || !exists($item->{'guid'})) {
+		warn("Unable to parse NZB item\n");
+		return undef();
+	}
+
+	# Ensure the record is sensible
+	my $id = undef();
+	if (ref($item->{'guid'}) eq 'HASH' && exists($item->{'guid'}->{'text'})) {
+		$id = $item->{'guid'}->{'text'};
+	} elsif (!ref($item->{'guid'})) {
+		$id = $item->{'guid'};
+	}
+	if (!$id) {
+		warn("Unable to parse NZB item GUID\n");
+		return undef();
+	}
+
+	# NZB URL
+	my $url = undef();
+	if (exists($item->{'link'}) && $item->{'link'}) {
+		$url = $item->{'link'};
+		$url =~ s/^(https?)\:/${PROTOCOL}\:/;
+	}
+
+	# Title
+	my $title = undef();
+	if (exists($item->{'title'}) && $item->{'title'}) {
+		$title = $item->{'title'};
+	} elsif (exists($item->{'description'}) && $item->{'description'}) {
+		$title = $item->{'description'};
+	}
+	if ($title) {
+		$url .= '#' . $title;
+	}
+
+	# Extract the season and episode numbers
+	my ($season, $episode) = findSE($title);
+
+	# Size
+	my $size = 0;
+	if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
+		foreach my $hash (@{ $item->{'newznab:attr'} }) {
+			if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size') {
+				$size = int($hash->{'_value'}) / 1024;
+				last;
+			}
+		}
+	} elsif (exists($item->{'attr'}) && $item->{'attr'} && ref($item->{'attr'}) eq 'ARRAY') {
+		foreach my $hash (@{ $item->{'attr'} }) {
+			if (!exists($hash->{'@attributes'}) || ref($hash->{'@attributes'}) ne 'HASH') {
+				next;
+			}
+			$hash = $hash->{'@attributes'};
+			if (exists($hash->{'name'}) && $hash->{'name'} eq 'size' && exists($hash->{'value'})) {
+				$size = int($hash->{'value'}) / 1024;
+				last;
+			}
+		}
+	}
+
+	# Date
+	my $date = undef();
+	if (exists($item->{'pubDate'}) && $item->{'pubDate'}) {
+		$date = str2time($item->{'pubDate'});
+	}
+
+	# Sanity checks
+	if (!$url) {
+		warn('No URL in NZB item: ' . $id . "\n");
+		return undef();
+	}
+	if (!$title) {
+		warn('No title in NZB item: ' . $id . "\n");
+		return undef();
+	}
+	if (!$size) {
+		warn('No size in NZB item: ' . $id . "\n");
+		return undef();
+	}
+
+	if ($DEBUG) {
+		print STDERR 'Found file (' . $title . '): ' . $url . "\n";
+	}
+
+	# Save the extracted data
+	my %tor = (
+		'title'   => $title,
+		'season'  => $season,
+		'episode' => $episode,
+		'date'    => $date,
+		'size'    => $size,
+		'url'     => $url,
+	);
+	return \%tor;
+}
 
 sub getHash($) {
 	my ($tor) = @_;
@@ -1787,8 +1831,7 @@ sub initSources() {
 			$sources{'PLANET'} = $source;
 		}
 	}
-	
-	
+
 	# NZB.is
 	if ($ENABLE_SOURCE{'IS'}) {
 		my @proxies = ('nzb.is/api');
