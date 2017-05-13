@@ -1314,11 +1314,9 @@ foreach my $tor (@tors) {
 			$age /= 86400;
 
 			if ($age > $CONFIG{'NZB_AGE_GOOD'}) {
-				$tor->{'seeds'} = $MIN_COUNT / 2;
+				$tor->{'seeds'} = $MIN_COUNT;
 				if ($age > $CONFIG{'NZB_AGE_MAX'}) {
-					$tor->{'seeds'}--;
-				} else {
-					$tor->{'seeds'}++;
+					$tor->{'seeds'} = ($MIN_COUNT / 2) - 1;
 				}
 			} else {
 				my $penalty = ($MAX_SEEDS / 2) / $CONFIG{'NZB_AGE_GOOD'};
