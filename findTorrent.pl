@@ -19,7 +19,8 @@ use Fetch;
 
 # Prototypes
 sub confDefault($;$);
-sub readExcludes($);
+sub readGlobalExcludes($);
+sub readInputDir($);
 sub parseNZB($);
 sub badTor($);
 sub seedCleanup($);
@@ -180,132 +181,18 @@ if ($CONFIG{'SYSLOG'}) {
 }
 
 # Read the torrent excludes list
-$CONFIG{'EXCLUDES'} = readExcludes($CONFIG{'EXCLUDES_FILE'});
-
-# Figure out what we're searching for
-my $show          = '';
-my @urls          = ();
-my $CUSTOM_SEARCH = 0;
-my $season        = 0;
-my @need          = ();
-my %need          = ();
-
-# Clean up the input "directory" path
-{
-
-	# Allow use of the raw series name
-	if (!($dir =~ /\//)) {
-		$show = $dir;
-		$dir  = $CONFIG{'TV_DIR'} . '/' . $dir;
-	}
-
-	# Allow use of relative paths
-	$dir = File::Spec->rel2abs($dir);
-
-	# Sanity check
-	if (!-d $dir) {
-		die('Invalid input directory: ' . $dir . "\n");
-	}
-
-	# Isolate the season from the path, if provided
-	$dir =~ /\/Season\s+(\d+)\/?$/i;
-	if ($1) {
-		$season = $1;
-		$dir    = dirname($dir);
-	}
-
-	# If no season is provided find the latest
-	if (!$season) {
-		opendir(SERIES, $dir)
-		  or die("Unable to open series directory: ${!}\n");
-		while (my $file = readdir(SERIES)) {
-			if ($file =~ /^Season\s+(\d+)$/i) {
-				if (!$season || $season < $1) {
-					$season = $1;
-				}
-			}
-		}
-		closedir(SERIES);
-	}
-
-	# Isolate and clean the series name
-	if (!$show) {
-		$show = basename($dir);
-	}
-	$show =~ s/[\'\"\.]//g;
-
-	if ($DEBUG) {
-		print STDERR 'Checking directory: ' . $dir . "\n";
-	}
-	if ($CONFIG{'SYSLOG'}) {
-		syslog(LOG_NOTICE, $show);
-	}
-}
-
-# Allow the show name to be overriden
-{
-	my $search_name = $dir . '/search_name';
-	if (-e $search_name) {
-		local ($/, *FH);
-		open(FH, $search_name)
-		  or die('Unable to read search_name for show: ' . $show . ': ' . $! . "\n");
-		my $text = <FH>;
-		close(FH);
-		if ($text =~ /^\s*(\S.*\S)\s*$/) {
-			$show = $1;
-		} else {
-			print STDERR 'Skipping invalid search_name for show: ' . $show . ': ' . $text . "\n";
-		}
-	}
-	if ($DEBUG) {
-		print STDERR 'Searching with series title: ' . $show . "\n";
-	}
-}
-
-# Allow quality checks to be disabled
-if (-e $dir . '/no_quality_checks') {
-	$CONFIG{'NO_QUALITY_CHECKS'} = 1;
-	if ($DEBUG) {
-		print STDERR 'Searching with no quality checks: ' . $show . "\n";
-	}
-}
-
-# Allow use of more number formats
-if (-e $dir . '/more_number_formats') {
-	$CONFIG{'MORE_NUMBER_FORMATS'} = 1;
-	if ($DEBUG) {
-		print STDERR 'Searching with more number formats: ' . $show . "\n";
-	}
-}
-
-# Read the search excludes file, if any
-my $exclude        = '';
-my %TITLE_EXCLUDES = ();
-if (-e $dir . '/excludes') {
-	local $/ = undef;
-	open(EX, $dir . '/excludes')
-	  or die("Unable to open series excludes file: ${!}\n");
-	my $ex = <EX>;
-	close(EX);
-
-	$ex =~ s/^\s+//;
-	$ex =~ s/\s+$//;
-	my @excludes = split(/\s*,\s*/, $ex);
-	foreach my $ex (@excludes) {
-		$TITLE_EXCLUDES{$ex} = 1;
-
-		if (length($exclude)) {
-			$exclude .= ' ';
-		}
-		$exclude .= '-"' . $ex . '"';
-	}
-
-	$exclude = uri_encode(' ' . $exclude);
-}
+$CONFIG{'EXCLUDES'} = readGlobalExcludes($CONFIG{'EXCLUDES_FILE'});
 
 # Setup our sources
 $SOURCES = initSources();
 $CONFIG{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
+
+# Figure out what we're searching for
+my @urls          = ();
+my $CUSTOM_SEARCH = 0;
+my @need          = ();
+my %need          = ();
+my $SERIES        = readInputDir($dir);
 
 # Handle custom searches
 if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
@@ -319,12 +206,12 @@ if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
 	# Create the relevent search strings
 	foreach my $key (keys(%{$SOURCES})) {
 		my $source = $SOURCES->{$key};
-		push(@urls, $source->{'search_url'} . $search . $exclude . $source->{'search_suffix'});
+		push(@urls, $source->{'search_url'} . $search . $SERIES->{'exclude'} . $source->{'search_suffix'});
 	}
 }
 
 # Handle search-by-date series
-if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
+if ((scalar(@urls) < 1) && -e $SERIES->{'path'} . '/search_by_date') {
 
 	# Note the search-by-date status
 	# Set the CUSTOM_SERACH flag to skip season/epsiode matching
@@ -333,14 +220,14 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 	# Read the find-by-date string
 	my $search_by_date = '';
 	local ($/, *FH);
-	open(FH, $dir . '/search_by_date')
-	  or die('Unable to read search_by_date for show: ' . $show . ': ' . $! . "\n");
+	open(FH, $SERIES->{'path'} . '/search_by_date')
+	  or die('Unable to read search_by_date for show: ' . $SERIES->{'name'} . ': ' . $! . "\n");
 	my $text = <FH>;
 	close(FH);
 	if ($text =~ /^\s*(\S.*\S)\s*$/) {
 		$search_by_date = $1;
 	} else {
-		die('Skipping invalid search_by_date for show: ' . $show . ': ' . $text . "\n");
+		die('Skipping invalid search_by_date for show: ' . $SERIES->{'name'} . ': ' . $text . "\n");
 	}
 
 	# Create search strings for each date in the range, unless the related file already exists
@@ -358,7 +245,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 		# Check for an existing file
 		my $exists = 0;
 		{
-			my $season_dir = $dir . '/Season ' . $year;
+			my $season_dir = $SERIES->{'path'} . '/Season ' . $year;
 			my $prefix     = qr/${year}\-${month}\-${day}\s*\-\s*/;
 			opendir(SEASON, $season_dir)
 			  or die('Unable to open season directory (' . $season_dir . '): ' . $! . "\n");
@@ -386,7 +273,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 		$search_str =~ s/%d/${day}/g;
 		foreach my $key (keys(%{$SOURCES})) {
 			my $source = $SOURCES->{$key};
-			push(@urls, $source->{'search_url'} . $search_str . $exclude . $source->{'search_suffix'});
+			push(@urls, $source->{'search_url'} . $search_str . $SERIES->{'exclude'} . $source->{'search_suffix'});
 		}
 	}
 
@@ -408,15 +295,15 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 if (scalar(@urls) < 1) {
 
 	# Validate the season number
-	if (!defined($season) || $season < 1 || $season > 2000) {
-		die('Invalid season number: ' . $show . ' => ' . $season . "\n");
+	if (!defined($SERIES->{'season'}) || $SERIES->{'season'} < 1 || $SERIES->{'season'} > 2000) {
+		die('Invalid season number: ' . $SERIES->{'name'} . ' => ' . $SERIES->{'season'} . "\n");
 	}
 
 	# Get the last episode number
 	my $no_next  = 0;
 	my %episodes = ();
 	my $highest  = 0;
-	opendir(SEASON, $dir . '/Season ' . $season)
+	opendir(SEASON, $SERIES->{'path'} . '/Season ' . $SERIES->{'season'})
 	  or die("Unable to open season directory: ${!}\n");
 	while (my $file = readdir(SEASON)) {
 
@@ -473,7 +360,7 @@ if (scalar(@urls) < 1) {
 	}
 
 	# Construct a URL-friendly show name
-	my $safeShow = $show;
+	my $safeShow = $SERIES->{'name'};
 	$safeShow =~ s/\s+\&\s+/ and /i;
 	$safeShow =~ s/^\s*The\b//i;
 	$safeShow =~ s/\s+\-\s+/ /g;
@@ -504,12 +391,12 @@ if (scalar(@urls) < 1) {
 	foreach my $urlShow (@urlShowVarients) {
 		foreach my $episode (@need) {
 			my $episode_long = sprintf('%02d', $episode);
-			my $season_long  = sprintf('%02d', $season);
+			my $season_long  = sprintf('%02d', $SERIES->{'season'});
 			foreach my $source (values(%{$SOURCES})) {
 
 				# Allow custom handling
 				if (defined($source->{'custom_search'}) && ref($source->{'custom_search'}) eq 'CODE') {
-					$source->{'custom_search'}->(\@urls, $urlShow, $season, $episode);
+					$source->{'custom_search'}->(\@urls, $urlShow, $SERIES->{'season'}, $episode);
 					next;
 				}
 
@@ -523,7 +410,7 @@ if (scalar(@urls) < 1) {
 				my $prefix = $source->{'search_url'} . $quote . $urlShow . $quote;
 				my $suffix = '';
 				if ($source->{'search_exclude'}) {
-					$suffix .= $exclude;
+					$suffix .= $SERIES->{'exclude'};
 				}
 				if ($source->{'search_suffix'}) {
 					$suffix .= $source->{'search_suffix'};
@@ -537,8 +424,8 @@ if (scalar(@urls) < 1) {
 				if ($CONFIG{'MORE_NUMBER_FORMATS'}) {
 
 					# SXEY
-					if ($season_long ne $season || $episode_long ne $episode) {
-						$url = $prefix . '+s' . $season . 'e' . $episode . $suffix;
+					if ($season_long ne $SERIES->{'season'} || $episode_long ne $episode) {
+						$url = $prefix . '+s' . $SERIES->{'season'} . 'e' . $episode . $suffix;
 						push(@urls, $url);
 					}
 
@@ -551,16 +438,16 @@ if (scalar(@urls) < 1) {
 					push(@urls, $url);
 
 					# Series X Episode Y
-					$url = $prefix . '+series+' . $season . '+episode+' . $episode . $suffix;
+					$url = $prefix . '+series+' . $SERIES->{'season'} . '+episode+' . $episode . $suffix;
 					push(@urls, $url);
 
 					# SxEE
-					$url = $prefix . '+' . $season . 'x' . $episode_long . $suffix;
+					$url = $prefix . '+' . $SERIES->{'season'} . 'x' . $episode_long . $suffix;
 					push(@urls, $url);
 
 					# Season X
 					if ($CONFIG{'NO_QUALITY_CHECKS'}) {
-						$url = $prefix . '+Season+' . $season . $suffix;
+						$url = $prefix . '+Season+' . $SERIES->{'season'} . $suffix;
 						push(@urls, $url);
 					}
 				}
@@ -1111,7 +998,7 @@ foreach my $content (@json_content) {
 my %tors      = ();
 my $showRegex = undef();
 {
-	my $showClean = $show;
+	my $showClean = $SERIES->{'name'};
 	$showClean =~ s/[\"\']//g;
 	$showClean =~ s/[\W_]+/\[\\W_\].*/g;
 	$showRegex = qr/^${showClean}[\W_]/i;
@@ -1129,7 +1016,7 @@ foreach my $tor (@tors) {
 
 	# Skip files that contain a word from the series exclude list
 	my $exclude = undef();
-	foreach my $ex (keys(%TITLE_EXCLUDES)) {
+	foreach my $ex (keys(%{ $SERIES->{'exclude_hash'} })) {
 		$ex = quotemeta($ex);
 		if ($tor->{'title'} =~ m/${ex}/i) {
 			$exclude = $ex;
@@ -1147,9 +1034,9 @@ foreach my $tor (@tors) {
 	if (!$CUSTOM_SEARCH) {
 
 		# Skip files that don't contain the right season number
-		if (!defined($tor->{'season'}) || $tor->{'season'} != $season) {
+		if (!defined($tor->{'season'}) || $tor->{'season'} != $SERIES->{'season'}) {
 			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for season number (' . $season . '): ' . $tor->{'title'} . "\n";
+				print STDERR 'Skipping file: No match for season number (' . $SERIES->{'season'} . '): ' . $tor->{'title'} . "\n";
 			}
 			next;
 
@@ -1296,7 +1183,7 @@ foreach my $episode (keys(%tors)) {
 		$urls{$episode} = resolveTrackers($urls{$episode});
 		print $urls{$episode} . "\n";
 		if ($CONFIG{'SYSLOG'}) {
-			syslog(LOG_NOTICE, $show . ': ' . getHash($urls{$episode}));
+			syslog(LOG_NOTICE, $SERIES->{'name'} . ': ' . getHash($urls{$episode}));
 		}
 		if ($DEBUG) {
 			print STDERR 'Final URL: ' . $urls{$episode} . "\n";
@@ -1336,7 +1223,7 @@ sub confDefault($;$) {
 	}
 }
 
-sub readExcludes($) {
+sub readGlobalExcludes($) {
 	my ($file) = @_;
 	my %excludes = ();
 	if (!$file || !-r $file) {
@@ -1368,6 +1255,118 @@ sub readExcludes($) {
 	close($fh);
 
 	return \%excludes;
+}
+
+# Find an input directory and read the local config
+sub readInputDir($) {
+	my ($path) = @_;
+	my %series = ('path' => undef(), 'name' => '', 'season' => 0, 'exclude' => '', 'exclude_hash' => {});
+
+	# Allow use of the raw series name
+	if (!($path =~ /\//)) {
+		$series{'name'} = $path;
+		$series{'path'} = $CONFIG{'TV_DIR'} . '/' . $path;
+	} else {
+		$series{'path'} = $path;
+	}
+
+	# Allow use of relative paths
+	$series{'path'} = File::Spec->rel2abs($series{'path'});
+
+	# Isolate the season from the path, if provided
+	if ($series{'path'} =~ /\/Season\s+(\d+)\/?$/i) {
+		$series{'season'} = $1;
+		$series{'path'}   = dirname($series{'path'});
+	}
+
+	# Sanity check
+	if ($DEBUG) {
+		print STDERR 'Checking directory: ' . $series{'path'} . "\n";
+	}
+	if (!-d $series{'path'}) {
+		die('Invalid input directory: ' . $series{'path'} . "\n");
+	}
+
+	# Allow the series name to be overriden
+	my $search_name = $series{'path'} . '/search_name';
+	if (-e $search_name) {
+		local ($/, *FH);
+		open(FH, $search_name)
+		  or die('Unable to read search_name for series: ' . $series{'name'} . ': ' . $! . "\n");
+		my $text = <FH>;
+		close(FH);
+		if ($text =~ /^\s*(\S.*\S)\s*$/) {
+			$series{'name'} = $1;
+		} else {
+			warn('Skipping invalid search_name for series: ' . $series{'name'} . ': ' . $text . "\n");
+		}
+	}
+	if ($DEBUG) {
+		print STDERR 'Searching with series title: ' . $series{'name'} . "\n";
+	}
+
+	# Final series name
+	if (!$series{'name'}) {
+		$series{'name'} = basename($series{'path'});
+	}
+	$series{'name'} =~ s/[\'\"\.]//g;
+
+	# If no explicit season is provided find the latest
+	if (!$series{'season'}) {
+		opendir(SERIES, $series{'path'})
+		  or die("Unable to open series directory: ${!}\n");
+		while (my $file = readdir(SERIES)) {
+			if ($file =~ /^Season\s+(\d+)$/i) {
+				if (!$series{'season'} || $series{'season'} < $1) {
+					$series{'season'} = $1;
+				}
+			}
+		}
+		closedir(SERIES);
+	}
+
+	# Allow quality checks to be disabled
+	if (-e $series{'path'} . '/no_quality_checks') {
+		$CONFIG{'NO_QUALITY_CHECKS'} = 1;
+		if ($DEBUG) {
+			print STDERR 'Searching with no quality checks: ' . $series{'name'} . "\n";
+		}
+	}
+
+	# Allow use of more number formats
+	if (-e $series{'path'} . '/more_number_formats') {
+		$CONFIG{'MORE_NUMBER_FORMATS'} = 1;
+		if ($DEBUG) {
+			print STDERR 'Searching with more number formats: ' . $series{'name'} . "\n";
+		}
+	}
+
+	# Read the search excludes file, if any
+	if (-e $series{'path'} . '/excludes') {
+		local $/ = undef;
+		open(EX, $series{'path'} . '/excludes')
+		  or die("Unable to open series excludes file: ${!}\n");
+		my $ex = <EX>;
+		close(EX);
+
+		$ex =~ s/^\s+//;
+		$ex =~ s/\s+$//;
+		my @excludes = split(/\s*,\s*/, $ex);
+		foreach my $ex (@excludes) {
+			$series{'excludes_hash'}->{$ex} = 1;
+			if (length($series{'exclude'})) {
+				$series{'exclude'} .= ' ';
+			}
+			$series{'exclude'} .= '-"' . $ex . '"';
+		}
+		$series{'exclude'} = uri_encode(' ' . $series{'exclude'});
+	}
+
+	# Log and return
+	if ($CONFIG{'SYSLOG'}) {
+		syslog(LOG_NOTICE, $series{'name'});
+	}
+	return \%series;
 }
 
 sub parseNZB($) {
