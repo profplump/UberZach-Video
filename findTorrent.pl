@@ -2,64 +2,6 @@
 use strict;
 use warnings;
 
-# Defaults
-my $DEBUG               = 0;
-my $SYSLOG              = 1;
-my $NO_QUALITY_CHECKS   = 0;
-my $MORE_NUMBER_FORMATS = 0;
-my $MIN_DAYS_BACK       = 0;
-my $MAX_DAYS_BACK       = 3;
-my $NEXT_EPISODES       = 3;
-
-# Local config
-my $TV_DIR        = `~/bin/video/mediaPath` . '/TV';
-my $CONF_FILE     = $ENV{'HOME'} . '/.findTorrent.config';
-my $EXCLUDES_FILE = $ENV{'HOME'} . '/.findTorrent.exclude';
-
-# Selection parameters
-my $MIN_COUNT        = 10;
-my $MIN_SIZE         = 100;
-my $SIZE_BONUS       = 5;
-my $SIZE_PENALTY     = $SIZE_BONUS;
-my $TITLE_PENALTY    = $SIZE_BONUS / 2;
-my $MAX_SEEDS        = 500;
-my $MAX_SEED_RATIO   = .25;
-my $SEED_RATIO_COUNT = 10;
-my $TRACKER_LOOKUP   = 1;
-
-# App config
-my $SLEEP       = 1;
-my $DELAY       = 10;
-my $TIMEOUT     = 15;
-my $ERR_DELAY   = $TIMEOUT * 2;
-my $ERR_RETRIES = 3;
-my $COOKIES     = undef();
-my $FETCH       = undef();
-my $PHANTOM     = '/usr/local/bin/phantomjs';
-my $UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41';
-my $PHANTOM_CONFIG = "var system = require('system');
-var page = require('webpage').create();
-var resources = [];
-
-page.open(system.args[1], function(status)
-{
-    console.log(resources[0].status);
-    console.log(page.content);
-    phantom.exit();
-});
-
-// Add responses for completed text/html resources
-page.onResourceReceived = function(response) {
-    if (response.stage !== 'end') return;
-    if (response.headers.filter(function(header) {
-        if (header.name == 'Content-Type' && header.value.indexOf('text/html') == 0) {
-            return true;
-        }
-        return false;
-    }).length > 0)
-        resources.push(response);
-};";
-
 # Includes
 use Date::Parse;
 use URI::Encode qw(uri_encode);
@@ -76,7 +18,11 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub confDefault($;$);
+sub readExcludes($);
 sub parseNZB($);
+sub badTor($);
+sub lowQualityTor($);
 sub getHash($);
 sub resolveSecondary($);
 sub resolveTrackers($);
@@ -87,13 +33,21 @@ sub findProxy($$);
 sub fetch($;$$);
 sub phantomFetch($$);
 
+# Globals
+my %CONFIG  = ();
+my $SOURCES = undef();
+my $COOKIES = undef();
+my $FETCH   = undef();
+my $SCRIPT  = undef();
+
 # Command line
 my ($dir, $search) = @ARGV;
 if (!defined($dir)) {
 	die('Usage: ' . basename($0) . " input_directory [search_string]\n");
 }
 
-# Environment
+# Pre-config environment
+my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
 	if ($ENV{'DEBUG'} =~ /(\d+)/) {
 		$DEBUG = $1;
@@ -101,30 +55,12 @@ if ($ENV{'DEBUG'}) {
 		$DEBUG = 1;
 	}
 }
-if (exists($ENV{'EXCLUDES_FILE'})) {
-	$EXCLUDES_FILE = $ENV{'EXCLUDES_FILE'};
-}
-if ($ENV{'NO_QUALITY_CHECKS'}) {
-	$NO_QUALITY_CHECKS = 1;
-}
-if ($ENV{'MORE_NUMBER_FORMATS'}) {
-	$MORE_NUMBER_FORMATS = 1;
-}
-if (defined($ENV{'MIN_DAYS_BACK'})) {
-	$MIN_DAYS_BACK = $ENV{'MIN_DAYS_BACK'};
-}
-if (defined($ENV{'MAX_DAYS_BACK'})) {
-	$MAX_DAYS_BACK = $ENV{'MAX_DAYS_BACK'};
-}
-if (defined($ENV{'NEXT_EPISODES'})) {
-	$NEXT_EPISODES = $ENV{'NEXT_EPISODES'};
-}
-if (defined($ENV{'SYSLOG'})) {
-	$SYSLOG = $ENV{'SYSLOG'};
+my $CONF_FILE = $ENV{'HOME'} . '/.findTorrent.config';
+if (defined($ENV{'CONF_FILE'})) {
+	$CONF_FILE = $ENV{'CONF_FILE'};
 }
 
 # Read the config file
-my %CONFIG = ();
 if ($CONF_FILE && -r $CONF_FILE) {
 	my $fh;
 	open($fh, '<', $CONF_FILE)
@@ -153,72 +89,97 @@ if ($CONF_FILE && -r $CONF_FILE) {
 	close($fh);
 }
 
-# Parse config items
-my $PROTOCOL = 'https';
-if (exists($CONFIG{'PROTOCOL'})) {
-	$PROTOCOL = $CONFIG{'PROTOCOL'};
-}
-my @TRACKERS = ();
+# Config defaults
+confDefault('EXCLUDES_FILE', $ENV{'HOME'} . '/.findTorrent.exclude');
+confDefault('TV_DIR',        `~/bin/video/mediaPath` . '/TV');
+confDefault('PHANTOM_BIN',   '/usr/local/bin/phantomjs');
+confDefault('UA',
+	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41');
+confDefault('PROTOCOL',            'https');
+confDefault('SLEEP',               1);
+confDefault('DELAY',               5);
+confDefault('TIMEOUT',             15);
+confDefault('ERR_DELAY',           $CONFIG{'TIMEOUT'} * 2);
+confDefault('ERR_RETRIES',         3);
+confDefault('MORE_NUMBER_FORMATS', 0);
+confDefault('NO_QUALITY_CHECKS',   0);
+confDefault('NEXT_EPISODES',       3);
+confDefault('MIN_DAYS_BACK',       0);
+confDefault('MAX_DAYS_BACK',       3);
+confDefault('SYSLOG',              1);
+confDefault('MIN_COUNT',           10);
+confDefault('MIN_SIZE',            100);
+confDefault('SIZE_BONUS',          5);
+confDefault('SIZE_PENALTY',        $CONFIG{'SIZE_BONUS'});
+confDefault('TITLE_PENALTY',       $CONFIG{'SIZE_BONUS'} / 2);
+confDefault('MAX_SEEDS',           500);
+confDefault('MAX_SEED_RATIO',      0.25);
+confDefault('SEED_RATIO_COUNT',    $CONFIG{'MIN_COUNT'});
+confDefault('TRACKER_LOOKUP',      1);
+confDefault(
+	'PHANTOM_CONFIG', "var system = require('system');
+var page = require('webpage').create();
+var resources = [];
+
+page.open(system.args[1], function(status)
+{
+    console.log(resources[0].status);
+    console.log(page.content);
+    phantom.exit();
+});
+
+// Add responses for completed text/html resources
+page.onResourceReceived = function(response) {
+    if (response.stage !== 'end') return;
+    if (response.headers.filter(function(header) {
+        if (header.name == 'Content-Type' && header.value.indexOf('text/html') == 0) {
+            return true;
+        }
+        return false;
+    }).length > 0)
+        resources.push(response);
+};"
+);
+
+# Re-parse a few config items
 if (exists($CONFIG{'TRACKERS'})) {
+	my @trackers = ();
 	foreach my $tracker (split(/\s*,\s*/, $CONFIG{'TRACKERS'})) {
 		$tracker =~ s/^\s+//;
 		$tracker =~ s/\s+$//;
-		push(@TRACKERS, $tracker);
+		push(@trackers, $tracker);
 	}
+	$CONFIG{'TRACKERS'} = \@trackers;
 }
-my %ENABLE_SOURCE = ();
 if (exists($CONFIG{'SOURCES'})) {
+	my %sources = ();
 	foreach my $source (split(/\s*,\s*/, $CONFIG{'SOURCES'})) {
 		$source =~ s/^\s+//;
 		$source =~ s/\s+$//;
 		$source = uc($source);
-		$ENABLE_SOURCE{$source} = 1;
+		$sources{$source} = 1;
 	}
+	$CONFIG{'SOURCES'} = \%sources;
+}
+
+# Sanity checks
+if (ref($CONFIG{'SOURCES'}) ne 'HASH' || !exists($CONFIG{'SOURCES'}) || scalar(keys(%{ $CONFIG{'SOURCES'} })) < 1) {
+	die("No sources configured\n");
+}
+if (ref($CONFIG{'TRACKERS'}) ne 'ARRAY' || !exists($CONFIG{'TRACKERS'}) || scalar(@{ $CONFIG{'TRACKERS'} }) < 1) {
+	warn("No trackers configured\n");
 }
 if (!exists($CONFIG{'NZB_AGE_GOOD'}) || !exists($CONFIG{'NZB_AGE_MAX'})) {
 	warn("No NZB good/max age provided\n");
 }
 
-# Phantom setup
-my $SCRIPT = undef();
-
 # Open the log if enabled
-if ($SYSLOG) {
+if ($CONFIG{'SYSLOG'}) {
 	openlog(basename($0), '', LOG_DAEMON);
 }
 
 # Read the torrent excludes list
-my %EXCLUDES = ();
-if ($EXCLUDES_FILE && -r $EXCLUDES_FILE) {
-	my $fh;
-	open($fh, '<', $EXCLUDES_FILE)
-	  or die('Unable to open excludes file: ' . $EXCLUDES_FILE . ': ' . $! . "\n");
-	while (<$fh>) {
-
-		# Skip blank lines and comments
-		if (/^\s*$/ || /^\s*#/) {
-			next;
-		}
-
-		# Assume everything else is one BT hash per line
-		if (/^\s*(\w+)\s*$/) {
-			my $hash = lc($1);
-			if ($DEBUG > 1) {
-				print STDERR 'Excluding hash: ' . $hash . "\n";
-			}
-			$EXCLUDES{$hash} = 1;
-		} else {
-			die('Invalid exclude line: ' . $_ . "\n");
-		}
-	}
-	close($fh);
-} elsif ($DEBUG) {
-	print STDERR 'No excludes file available';
-	if ($EXCLUDES_FILE) {
-		print STDERR ': ' . $EXCLUDES_FILE;
-	}
-	print STDERR "\n";
-}
+$CONFIG{'EXCLUDES'} = readExcludes($CONFIG{'EXCLUDES_FILE'});
 
 # Figure out what we're searching for
 my $show          = '';
@@ -234,7 +195,7 @@ my %need          = ();
 	# Allow use of the raw series name
 	if (!($dir =~ /\//)) {
 		$show = $dir;
-		$dir  = $TV_DIR . '/' . $dir;
+		$dir  = $CONFIG{'TV_DIR'} . '/' . $dir;
 	}
 
 	# Allow use of relative paths
@@ -275,7 +236,7 @@ my %need          = ();
 	if ($DEBUG) {
 		print STDERR 'Checking directory: ' . $dir . "\n";
 	}
-	if ($SYSLOG) {
+	if ($CONFIG{'SYSLOG'}) {
 		syslog(LOG_NOTICE, $show);
 	}
 }
@@ -302,7 +263,7 @@ my %need          = ();
 
 # Allow quality checks to be disabled
 if (-e $dir . '/no_quality_checks') {
-	$NO_QUALITY_CHECKS = 1;
+	$CONFIG{'NO_QUALITY_CHECKS'} = 1;
 	if ($DEBUG) {
 		print STDERR 'Searching with no quality checks: ' . $show . "\n";
 	}
@@ -310,7 +271,7 @@ if (-e $dir . '/no_quality_checks') {
 
 # Allow use of more number formats
 if (-e $dir . '/more_number_formats') {
-	$MORE_NUMBER_FORMATS = 1;
+	$CONFIG{'MORE_NUMBER_FORMATS'} = 1;
 	if ($DEBUG) {
 		print STDERR 'Searching with more number formats: ' . $show . "\n";
 	}
@@ -342,10 +303,8 @@ if (-e $dir . '/excludes') {
 }
 
 # Setup our sources
-my $SOURCES = initSources();
-
-# Adjust the inter-page delay with respect to the number of unique sources
-$DELAY /= scalar(keys(%{$SOURCES})) / 2;
+$SOURCES = initSources();
+$CONFIG{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
 
 # Handle custom searches
 if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
@@ -385,7 +344,7 @@ if ((scalar(@urls) < 1) && -e $dir . '/search_by_date') {
 
 	# Create search strings for each date in the range, unless the related file already exists
 	my (%years, %months, %days) = ();
-	for (my $days_back = $MIN_DAYS_BACK ; $days_back <= $MAX_DAYS_BACK ; $days_back++) {
+	for (my $days_back = $CONFIG{'MIN_DAYS_BACK'} ; $days_back <= $CONFIG{'MAX_DAYS_BACK'} ; $days_back++) {
 
 		# Calculate the date
 		my (undef(), undef(), undef(), $day, $month, $year) = localtime(time() - (86400 * $days_back));
@@ -492,7 +451,7 @@ if (scalar(@urls) < 1) {
 
 	# Assume we need the next 2 episodes, unless no_next is set (i.e. season_done)
 	if (!$no_next) {
-		for (my $i = 1 ; $i <= $NEXT_EPISODES ; $i++) {
+		for (my $i = 1 ; $i <= $CONFIG{'NEXT_EPISODES'} ; $i++) {
 			push(@need, $highest + $i);
 		}
 	}
@@ -574,7 +533,7 @@ if (scalar(@urls) < 1) {
 				push(@urls, $url);
 
 				# Extra searches for shows that have lazy/non-standard number formats
-				if ($MORE_NUMBER_FORMATS) {
+				if ($CONFIG{'MORE_NUMBER_FORMATS'}) {
 
 					# SXEY
 					if ($season_long ne $season || $episode_long ne $episode) {
@@ -599,7 +558,7 @@ if (scalar(@urls) < 1) {
 					push(@urls, $url);
 
 					# Season X
-					if ($NO_QUALITY_CHECKS) {
+					if ($CONFIG{'NO_QUALITY_CHECKS'}) {
 						$url = $prefix . '+Season+' . $season . $suffix;
 						push(@urls, $url);
 					}
@@ -636,7 +595,7 @@ foreach my $url (@urls) {
 		# Check for less useful errors
 		if ($code != 200) {
 			if ($code >= 500 && $code <= 599) {
-				if ($errCount > $ERR_RETRIES) {
+				if ($errCount > $CONFIG{'ERR_RETRIES'}) {
 					print STDERR 'Unable to fetch URL: ' . $url . "\n";
 					$errCount = 0;
 					next;
@@ -645,7 +604,7 @@ foreach my $url (@urls) {
 					print STDERR 'Retrying URL (' . $code . '): ' . $url . "\n";
 				}
 				$errCount++;
-				sleep($ERR_DELAY);
+				sleep($CONFIG{'ERR_DELAY'});
 				redo HTTP_ERR_LOOP;
 			} else {
 				print STDERR 'Error fetching URL (' . $code . '): ' . $url . "\n";
@@ -1159,85 +1118,11 @@ my $showRegex = undef();
 
 foreach my $tor (@tors) {
 
-	# Extract the BTIH, if available
+	# Extract the BTIH/GUID, if available
 	getHash($tor);
 
-	# Skip files that are in the torrent excludes list
-	if ($tor->{'hash'} && $EXCLUDES{ $tor->{'hash'} }) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
-		}
-		next;
-	}
-
-	# Skip files that don't start with our show title
-	if (!($tor->{'title'} =~ $showRegex)) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip leaked files
-	} elsif ($tor->{'title'} =~ /leaked/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "leaked": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip pre-air files
-	} elsif ($tor->{'title'} =~ /preair/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "preair": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip SWESUB files
-	} elsif ($tor->{'title'} =~ /swesub/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "SWESUB": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip .rus. files
-	} elsif ($tor->{'title'} =~ /\.rus\./i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains ".rus.": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip German files
-	} elsif ($tor->{'title'} =~ /german/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip French files
-	} elsif ($tor->{'title'} =~ /french/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "french": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip Spanish files
-	} elsif ($tor->{'title'} =~ /Español/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "Español": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip Castellano files
-	} elsif ($tor->{'title'} =~ /Castellano/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "Castellano": ' . $tor->{'title'} . "\n";
-		}
-		next;
-
-		# Skip unedited files
-	} elsif ($tor->{'title'} =~ /unedited/i) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "unedited": ' . $tor->{'title'} . "\n";
-		}
+	# Skip bad TORs based on name/etc.
+	if (badTor($tor)) {
 		next;
 	}
 
@@ -1269,7 +1154,7 @@ foreach my $tor (@tors) {
 
 			# Skip files that don't contain a needed episode number, unless there is no episode number and NO_QUALITY_CHECKS is set
 		} elsif ((defined($tor->{'episode'}) && !$need{ $tor->{'episode'} })
-			|| (!defined($tor->{'episode'}) && !$NO_QUALITY_CHECKS))
+			|| (!defined($tor->{'episode'}) && !$CONFIG{'NO_QUALITY_CHECKS'}))
 		{
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
@@ -1291,69 +1176,19 @@ foreach my $tor (@tors) {
 	if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
 		$tor->{'seeds'} = 0;
 	}
-	if ($tor->{'seeds'} > $MAX_SEEDS) {
-		$tor->{'seeds'} = $MAX_SEEDS;
+	if ($tor->{'seeds'} > $CONFIG{'MAX_SEEDS'}) {
+		$tor->{'seeds'} = $CONFIG{'MAX_SEEDS'};
 	}
 	if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
 		$tor->{'leaches'} = 0;
 	}
-	if ($tor->{'leaches'} > $MAX_SEEDS) {
-		$tor->{'leaches'} = $MAX_SEEDS;
+	if ($tor->{'leaches'} > $CONFIG{'MAX_SEEDS'}) {
+		$tor->{'leaches'} = $CONFIG{'MAX_SEEDS'};
 	}
 
 	# Only apply the quality rules if NO_QUALITY_CHECKS is not in effect
-	if (!$NO_QUALITY_CHECKS) {
-
-		# Proxy publication date to seeder/leacher quality
-		if ($tor->{'date'} && !$tor->{'seeds'}) {
-			my $age = time() - $tor->{'date'};
-			if ($age < 0) {
-				warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'name'} . "\n");
-				$age = 0;
-			}
-			$age /= 86400;
-
-			if ($age > $CONFIG{'NZB_AGE_GOOD'}) {
-				$tor->{'seeds'} = $MIN_COUNT;
-				if ($age > $CONFIG{'NZB_AGE_MAX'}) {
-					$tor->{'seeds'} = ($MIN_COUNT / 2) - 1;
-				}
-			} else {
-				my $penalty = ($MAX_SEEDS / 2) / $CONFIG{'NZB_AGE_GOOD'};
-				$tor->{'seeds'} = $MAX_SEEDS - ($age * $penalty);
-			}
-			$tor->{'seeds'}   = int($tor->{'seeds'});
-			$tor->{'leaches'} = $tor->{'seeds'};
-		}
-
-		# Skip torrents with too few seeders/leachers
-		if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $MIN_COUNT) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: Insufficient seeder/leacher count ('
-				  . $tor->{'seeds'} . '/'
-				  . $tor->{'leaches'} . '): '
-				  . $tor->{'title'} . "\n";
-			}
-			next;
-
-			# Skip torrents with unusual seed/leach ratios
-		} elsif ($tor->{'seeds'} > 1
-			&& $tor->{'seeds'} < $SEED_RATIO_COUNT
-			&& $tor->{'seeds'} > $tor->{'leaches'} * $MAX_SEED_RATIO)
-		{
-			if ($DEBUG) {
-				print STDERR 'Skipping file: Unusual seeder/leacher ratio ('
-				  . $tor->{'seeds'} . '/'
-				  . $tor->{'leaches'} . '): '
-				  . $tor->{'title'} . "\n";
-			}
-			next;
-
-			# Skip torrents that are too small
-		} elsif ($tor->{'size'} < $MIN_SIZE) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
-			}
+	if (!$CONFIG{'NO_QUALITY_CHECKS'}) {
+		if (lowQualityTor($tor)) {
 			next;
 		}
 	}
@@ -1424,15 +1259,15 @@ foreach my $episode (keys(%tors)) {
 		{
 			my $size_ratio = $tor->{'size'} / $size{$episode};
 			if ($tor->{'size'} >= $size{$episode}) {
-				$tor->{'adj_count'} *= $SIZE_BONUS * $size_ratio;
+				$tor->{'adj_count'} *= $CONFIG{'SIZE_BONUS'} * $size_ratio;
 			} else {
-				$tor->{'adj_count'} *= (1 / $SIZE_PENALTY) * $size_ratio;
+				$tor->{'adj_count'} *= (1 / $CONFIG{'SIZE_PENALTY'}) * $size_ratio;
 			}
 		}
 
 		# Adjust based on title contents
 		if ($tor->{'title'} =~ /Subtitulado/i) {
-			$tor->{'adj_count'} *= 1 / $TITLE_PENALTY;
+			$tor->{'adj_count'} *= 1 / $CONFIG{'TITLE_PENALTY'};
 		}
 
 		# Truncate to an integer
@@ -1452,7 +1287,7 @@ foreach my $episode (keys(%tors)) {
 	foreach my $tor (@sorted) {
 		if (!defined($max) || $tor->{'adj_count'} > $max) {
 			if ($urls{$episode} = resolveSecondary($tor)) {
-				if (!$tor->{'hash'} || $EXCLUDES{ $tor->{'hash'} }) {
+				if (!$tor->{'hash'} || $CONFIG{'EXCLUDES'}->{ $tor->{'hash'} }) {
 					print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
 					next;
 				}
@@ -1472,7 +1307,7 @@ foreach my $episode (keys(%tors)) {
 	if (defined($urls{$episode})) {
 		$urls{$episode} = resolveTrackers($urls{$episode});
 		print $urls{$episode} . "\n";
-		if ($SYSLOG) {
+		if ($CONFIG{'SYSLOG'}) {
 			syslog(LOG_NOTICE, $show . ': ' . getHash($urls{$episode}));
 		}
 		if ($DEBUG) {
@@ -1490,10 +1325,62 @@ if ($COOKIES) {
 if ($SCRIPT) {
 	unlink($SCRIPT);
 }
-if ($SYSLOG) {
+if ($CONFIG{'SYSLOG'}) {
 	closelog();
 }
 exit(0);
+
+sub confDefault($;$) {
+	my ($name, $default) = @_;
+	if (!$name) {
+		return;
+	}
+
+	# Enviornment, config file, default, undef()
+	if (defined($ENV{$name})) {
+		$CONFIG{$name} = $ENV{$name};
+	} elsif (!defined($CONFIG{$name})) {
+		if ($default) {
+			$CONFIG{$name} = $default;
+		} else {
+			$CONFIG{$name} = undef();
+		}
+	}
+}
+
+sub readExcludes($) {
+	my ($file) = @_;
+	my %excludes = ();
+	if (!$file || !-r $file) {
+		warn('No excludes files available' . $file . "\n");
+		return \%excludes;
+	}
+
+	my $fh;
+	open($fh, '<', $file)
+	  or die('Unable to open excludes file: ' . $file . ': ' . $! . "\n");
+	while (<$fh>) {
+
+		# Skip blank lines and comments
+		if (/^\s*$/ || /^\s*#/) {
+			next;
+		}
+
+		# Assume everything else is one BT hash/NZB GUID per line
+		if (/^\s*(\w+)\s*$/) {
+			my $hash = lc($1);
+			if ($DEBUG > 1) {
+				print STDERR 'Excluding hash: ' . $hash . "\n";
+			}
+			$excludes{$hash} = 1;
+		} else {
+			die('Invalid exclude line: ' . $_ . "\n");
+		}
+	}
+	close($fh);
+
+	return \%excludes;
+}
 
 sub parseNZB($) {
 	my ($item) = @_;
@@ -1518,7 +1405,7 @@ sub parseNZB($) {
 	my $url = undef();
 	if (exists($item->{'link'}) && $item->{'link'}) {
 		$url = $item->{'link'};
-		$url =~ s/^(https?)\:/${PROTOCOL}\:/;
+		$url =~ s/^(https?)\:/${CONFIG{'PROTOCOL'}}\:/;
 	}
 
 	# Title
@@ -1593,6 +1480,152 @@ sub parseNZB($) {
 	return \%tor;
 }
 
+sub badTor($) {
+	my ($tor) = @_;
+
+	# Skip files that are in the torrent excludes list
+	if ($tor->{'hash'} && $CONFIG{'EXCLUDES'}->{ $tor->{'hash'} }) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+	}
+
+	# Skip files that don't start with our show title
+	if (!($tor->{'title'} =~ $showRegex)) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip leaked files
+	} elsif ($tor->{'title'} =~ /leaked/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "leaked": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip pre-air files
+	} elsif ($tor->{'title'} =~ /preair/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "preair": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip SWESUB files
+	} elsif ($tor->{'title'} =~ /swesub/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "SWESUB": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip .rus. files
+	} elsif ($tor->{'title'} =~ /\.rus\./i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains ".rus.": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip German files
+	} elsif ($tor->{'title'} =~ /german/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "german": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip French files
+	} elsif ($tor->{'title'} =~ /french/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "french": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip Spanish files
+	} elsif ($tor->{'title'} =~ /Español/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "Español": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip Castellano files
+	} elsif ($tor->{'title'} =~ /Castellano/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "Castellano": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip unedited files
+	} elsif ($tor->{'title'} =~ /unedited/i) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "unedited": ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+	}
+
+	# If we're still around the TOR is good
+	return 0;
+}
+
+sub lowQualityTor($) {
+	my ($tor) = @_;
+
+	# Proxy publication date to seeder/leacher quality
+	if ($tor->{'date'} && !$tor->{'seeds'}) {
+		my $age = time() - $tor->{'date'};
+		if ($age < 0) {
+			warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'name'} . "\n");
+			$age = 0;
+		}
+		$age /= 86400;
+
+		if ($age > $CONFIG{'NZB_AGE_GOOD'}) {
+			$tor->{'seeds'} = $CONFIG{'MIN_COUNT'};
+			if ($age > $CONFIG{'NZB_AGE_MAX'}) {
+				$tor->{'seeds'} = ($CONFIG{'MIN_COUNT'} / 2) - 1;
+			}
+		} else {
+			my $penalty = ($CONFIG{'MAX_SEEDS'} / 2) / $CONFIG{'NZB_AGE_GOOD'};
+			$tor->{'seeds'} = $CONFIG{'MAX_SEEDS'} - ($age * $penalty);
+		}
+		$tor->{'seeds'}   = int($tor->{'seeds'});
+		$tor->{'leaches'} = $tor->{'seeds'};
+	}
+
+	# Skip torrents with too few seeders/leachers
+	if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $CONFIG{'MIN_COUNT'}) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Insufficient seeder/leacher count ('
+			  . $tor->{'seeds'} . '/'
+			  . $tor->{'leaches'} . '): '
+			  . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip torrents with unusual seed/leach ratios
+	} elsif ($tor->{'seeds'} > 1
+		&& $tor->{'seeds'} < $CONFIG{'SEED_RATIO_COUNT'}
+		&& $tor->{'seeds'} > $tor->{'leaches'} * $CONFIG{'MAX_SEED_RATIO'})
+	{
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Unusual seeder/leacher ratio ('
+			  . $tor->{'seeds'} . '/'
+			  . $tor->{'leaches'} . '): '
+			  . $tor->{'title'} . "\n";
+		}
+		return 1;
+
+		# Skip torrents that are too small
+	} elsif ($tor->{'size'} < $CONFIG{'MIN_SIZE'}) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
+		}
+		return 1;
+	}
+
+	# If we're still around the TOR is good
+	return 0;
+}
+
 sub getHash($) {
 	my ($tor) = @_;
 	my $url;
@@ -1645,7 +1678,7 @@ sub resolveSecondary($) {
 
 	# Extract the hash
 	getHash($tor);
-	if (!$tor->{'hash'} || $EXCLUDES{ $tor->{'hash'} }) {
+	if (!$tor->{'hash'} || $CONFIG{'EXCLUDES'}->{ $tor->{'hash'} }) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
 		}
@@ -1661,7 +1694,7 @@ sub resolveTrackers($) {
 
 	# Always append a few static trackers to the URI
 	if ($url =~ /^magnet\:/i) {
-		foreach my $tracker (@TRACKERS) {
+		foreach my $tracker (@{ $CONFIG{'TRACKERS'} }) {
 			my $arg = '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
 			my $match = quotemeta($arg);
 			if (!($url =~ /${match}/)) {
@@ -1671,7 +1704,7 @@ sub resolveTrackers($) {
 	}
 
 	# Fetch a dynamic tracker list for any hashinfo from TorrentZ
-	if ($TRACKER_LOOKUP && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
+	if ($CONFIG{'TRACKER_LOOKUP'} && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
 		my $hash    = lc($1);
 		my $baseURL = $SOURCES->{'Z'}->{'protocol'} . '://' . $SOURCES->{'Z'}->{'host'};
 		my $hashURL = $baseURL . '/' . $hash;
@@ -1809,7 +1842,7 @@ sub initSources() {
 	my %sources = ();
 
 	# NZBplanet.net
-	if ($ENABLE_SOURCE{'PLANET'}) {
+	if ($CONFIG{'SOURCES'}->{'PLANET'}) {
 		my @proxies = ('api.nzbplanet.net/api');
 		my $source = findProxy(\@proxies, '\bNzbplanet\b');
 		if ($source && exists($CONFIG{'PLANET_APIKEY'}) && $CONFIG{'PLANET_APIKEY'}) {
@@ -1835,7 +1868,7 @@ sub initSources() {
 	}
 
 	# NZB.is
-	if ($ENABLE_SOURCE{'IS'}) {
+	if ($CONFIG{'SOURCES'}->{'IS'}) {
 		my @proxies = ('nzb.is/api');
 		my $source = findProxy(\@proxies, '\bnzb\.is\b');
 		if ($source && exists($CONFIG{'IS_APIKEY'}) && $CONFIG{'IS_APIKEY'}) {
@@ -1861,7 +1894,7 @@ sub initSources() {
 	}
 
 	# Usenet Crawler
-	if ($ENABLE_SOURCE{'UC'}) {
+	if ($CONFIG{'SOURCES'}->{'UC'}) {
 		my @proxies = ('www.usenet-crawler.com/api');
 		my $source = findProxy(\@proxies, '\busenet-crawler\b');
 		if ($source && exists($CONFIG{'UC_APIKEY'}) && $CONFIG{'UC_APIKEY'}) {
@@ -1887,7 +1920,7 @@ sub initSources() {
 	}
 
 	# NZB Cat
-	if ($ENABLE_SOURCE{'NCAT'}) {
+	if ($CONFIG{'SOURCES'}->{'NCAT'}) {
 		my @proxies = ('nzb.cat/api');
 		my $source = findProxy(\@proxies, '\bforgottenpassword\b');
 		if ($source && exists($CONFIG{'NCAT_APIKEY'}) && $CONFIG{'NCAT_APIKEY'}) {
@@ -1913,7 +1946,7 @@ sub initSources() {
 	}
 
 	# The Pirate Bay
-	if ($ENABLE_SOURCE{'TPB'}) {
+	if ($CONFIG{'SOURCES'}->{'TPB'}) {
 		my @proxies = ('thepiratebay.org/search/', 'tpb.unblocked.co/search/');
 		my $source = findProxy(\@proxies, '\bPirate Search\b');
 		if ($source) {
@@ -1926,7 +1959,7 @@ sub initSources() {
 	}
 
 	# ISOhunt
-	if ($ENABLE_SOURCE{'ISO'}) {
+	if ($CONFIG{'SOURCES'}->{'ISO'}) {
 		my @proxies = ('isohunt.to/torrents/?ihq=', 'isohunters.net/torrents/?ihq=');
 		my $source = findProxy(\@proxies, 'Last\s+\d+\s+files\s+indexed');
 		if ($source) {
@@ -1939,7 +1972,7 @@ sub initSources() {
 	}
 
 	# Kickass
-	if ($ENABLE_SOURCE{'KICK'}) {
+	if ($CONFIG{'SOURCES'}->{'KICK'}) {
 		my @proxies = ('kickass.cd/search.php?q=', 'kickass.mx/search.php?q=');
 		my $source = findProxy(\@proxies, '/search.php');
 		if ($source) {
@@ -1952,7 +1985,7 @@ sub initSources() {
 	}
 
 	# Torrentz
-	if ($ENABLE_SOURCE{'Z'}) {
+	if ($CONFIG{'SOURCES'}->{'Z'}) {
 		my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
 		my $source = findProxy(\@proxies, 'Indexing [\d\,]+ active torrents');
 		if ($source) {
@@ -1960,15 +1993,15 @@ sub initSources() {
 			$source->{'quote'}          = 1;
 			$source->{'search_exclude'} = 1;
 			$source->{'search_suffix'}  = '';
-			if (!$NO_QUALITY_CHECKS) {
-				$source->{'search_suffix'} = '+peer+%3E+' . $MIN_COUNT,;
+			if (!$CONFIG{'NO_QUALITY_CHECKS'}) {
+				$source->{'search_suffix'} = '+peer+%3E+' . $CONFIG{'MIN_COUNT'};
 			}
 			$sources{'Z'} = $source;
 		}
 	}
 
 	# ExtraTorrent
-	if ($ENABLE_SOURCE{'ET'}) {
+	if ($CONFIG{'SOURCES'}->{'ET'}) {
 		my @proxies = (
 			'extra.to/search/?search=',    'etmirror.com/search/?search=',
 			'etproxy.com/search/?search=', 'extratorrentlive.com/search/?search='
@@ -2003,7 +2036,7 @@ sub findProxy($$) {
 		my $path;
 		($protocol, $host, $path) = $url =~ /^(?:(https?)\:\/\/)?([^\/]+)(\/.*)?$/i;
 		if (!$protocol) {
-			$protocol = $PROTOCOL;
+			$protocol = $CONFIG{'PROTOCOL'};
 		}
 		if (!$host) {
 			print STDERR 'Could not parse proxy URL: ' . $url . "\n";
@@ -2048,9 +2081,9 @@ sub fetch($;$$) {
 
 	# Random delay
 	if ($DEBUG > 1) {
-		sleep($SLEEP * 0.25);
+		sleep($CONFIG{'SLEEP'} * 0.25);
 	} else {
-		sleep($DELAY * (rand($SLEEP) + ($SLEEP / 2)));
+		sleep($CONFIG{'DELAY'} * (rand($CONFIG{'SLEEP'}) + ($CONFIG{'SLEEP'} / 2)));
 	}
 
 	# Allow JS processing
@@ -2065,8 +2098,8 @@ sub fetch($;$$) {
 		}
 		$FETCH = Fetch->new(
 			'cookiefile' => $COOKIES,
-			'timeout'    => $TIMEOUT,
-			'uas'        => $UA
+			'timeout'    => $CONFIG{'TIMEOUT'},
+			'uas'        => $CONFIG{'UA'}
 		);
 	}
 
@@ -2095,12 +2128,12 @@ sub phantomFetch($$) {
 		$SCRIPT = mktemp('/tmp/findTorrent.phantom.XXXXXXXX');
 		open(my $fh, '>', $SCRIPT)
 		  or die('Unable to open PhantomJS script file: ' . $! . "\n");
-		print $fh $PHANTOM_CONFIG;
+		print $fh $CONFIG{'PHANTOM_CONFIG'};
 		close($fh);
 	}
 
 	# Capture STDOUT, drop STDERR
-	my @cmd = ($PHANTOM, $SCRIPT, $url);
+	my @cmd = ($CONFIG{'PHANTOM_BIN'}, $SCRIPT, $url);
 	my ($content, undef(), undef()) = capture { system(@cmd); };
 
 	# Debug as requested
