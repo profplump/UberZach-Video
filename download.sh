@@ -48,15 +48,15 @@ if [ -n "${TRANS_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; t
 	fi
 
 # Use NZBGet if the URL is an NZB file
-elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi 'nzb.cat/getnzb/'; then
-	if curl --silent --max-time "${TIMEOUT}" "${NZB_URL}" | grep -q 'version'; then
+elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '/getnzb/'; then
+	if curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" | grep -q 'version'; then
 		IFS=$'\n'
 		SLEEP=0
 		for i in ${URLS}; do
 			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
 			SLEEP="${DELAY}"
 			NAME="`echo "${i}" | cut -d '#' -f 2-`"
-			RESULT="`curl --silent --max-time "${TIMEOUT}" "${NZB_URL}" \
+			RESULT="`curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" \
 				-d '{"method":"append","params":["'"${NAME}"'.nzb","'"${i}"'","",0,false,false,"",0,"force"]}'`"
 			if ! echo "${RESULT}" | grep 'result' | grep -q '[1-9]'; then
 				exit 1
