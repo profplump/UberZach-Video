@@ -1034,7 +1034,7 @@ foreach my $content (@html_content) {
 		if ($DEBUG) {
 			print STDERR "Source request limit reached\n";
 		}
-	} elsif ($content =~ /\<title\>.*Not\s+Found\<\/title\>/i) {
+	} elsif ($content =~ /Not\s+Found\<\/title\>/i) {
 		if ($DEBUG) {
 			print STDERR "No results\n";
 		}
