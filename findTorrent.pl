@@ -22,6 +22,7 @@ sub confDefault($;$);
 sub readExcludes($);
 sub parseNZB($);
 sub badTor($);
+sub seedCleanup($);
 sub lowQualityTor($);
 sub getHash($);
 sub resolveSecondary($);
@@ -1172,25 +1173,12 @@ foreach my $tor (@tors) {
 		}
 	}
 
-	# Cap seeds/leaches/date and ensure they are always defined
-	if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
-		$tor->{'seeds'} = 0;
-	}
-	if ($tor->{'seeds'} > $CONFIG{'MAX_SEEDS'}) {
-		$tor->{'seeds'} = $CONFIG{'MAX_SEEDS'};
-	}
-	if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
-		$tor->{'leaches'} = 0;
-	}
-	if ($tor->{'leaches'} > $CONFIG{'MAX_SEEDS'}) {
-		$tor->{'leaches'} = $CONFIG{'MAX_SEEDS'};
-	}
+	# Ensure the seed/leach count is usable
+	seedCleanup($tor);
 
 	# Only apply the quality rules if NO_QUALITY_CHECKS is not in effect
-	if (!$CONFIG{'NO_QUALITY_CHECKS'}) {
-		if (lowQualityTor($tor)) {
-			next;
-		}
+	if (!$CONFIG{'NO_QUALITY_CHECKS'} && lowQualityTor($tor)) {
+		next;
 	}
 
 	# Save good torrents
@@ -1566,8 +1554,22 @@ sub badTor($) {
 	return 0;
 }
 
-sub lowQualityTor($) {
+sub seedCleanup($) {
 	my ($tor) = @_;
+
+	# Cap seeds/leaches/date and ensure they are always defined
+	if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
+		$tor->{'seeds'} = 0;
+	}
+	if ($tor->{'seeds'} > $CONFIG{'MAX_SEEDS'}) {
+		$tor->{'seeds'} = $CONFIG{'MAX_SEEDS'};
+	}
+	if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
+		$tor->{'leaches'} = 0;
+	}
+	if ($tor->{'leaches'} > $CONFIG{'MAX_SEEDS'}) {
+		$tor->{'leaches'} = $CONFIG{'MAX_SEEDS'};
+	}
 
 	# Proxy publication date to seeder/leacher quality
 	if ($tor->{'date'} && !$tor->{'seeds'}) {
@@ -1590,6 +1592,10 @@ sub lowQualityTor($) {
 		$tor->{'seeds'}   = int($tor->{'seeds'});
 		$tor->{'leaches'} = $tor->{'seeds'};
 	}
+}
+
+sub lowQualityTor($) {
+	my ($tor) = @_;
 
 	# Skip torrents with too few seeders/leachers
 	if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $CONFIG{'MIN_COUNT'}) {
@@ -1765,7 +1771,7 @@ sub splitTags($$$$) {
 
 		# Trim trailing tags and skip things that aren't complete tags
 		if (!($part =~ s/\<\/${tag}\>.*$//is)) {
-			if ($DEBUG > 1) {
+			if ($DEBUG > 2) {
 				print STDERR 'Skipping non-tag line: ' . $part . "\n\n";
 			}
 			next;
