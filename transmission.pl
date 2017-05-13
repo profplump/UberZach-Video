@@ -169,7 +169,7 @@ if (available($CONFIG{'TRANS_URL'})) {
 			#}
 
 			# Delete failed NZBs
-			if ($nzb->{'status'} eq 'FAILURE/HEALTH' || $nzb->{'status'} eq 'FAILURE/PAR' || $nzb->{'status'} eq 'FAILURE/UNPACK') {
+			if ($nzb->{'status'} =~ /FAILURE\/(?:HEALTH|PAR|UNPACK|FETCH)/) {
 				delNZB($nzb);
 				next;
 			}
@@ -497,9 +497,8 @@ sub readNZB($$) {
 	if (exists($data->{'DestDir'})) {
 		$tmp{'path'} = $data->{'DestDir'};
 	}
-	if (!$tmp{'path'}) {
+	if (!$tmp{'path'} && $DEBUG) {
 		print STDERR 'Unable to retrieve path for: ' . $tmp{'id'} . "\n";
-		return 0;
 	}
 
 	# Debug
