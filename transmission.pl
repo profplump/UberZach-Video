@@ -63,6 +63,11 @@ if ($ENV{'DEBUG'}) {
 		$DEBUG = 1;
 	}
 }
+my $DELETE = 0;
+if ($ENV{'DELETE'}) {
+	print STDERR "Failure mode: DELETE\n";
+	$DELETE = 1;
+}
 
 # Command-line parameters
 my ($hash) = @ARGV;
@@ -129,7 +134,7 @@ if (available($CONFIG{'TRANS_URL'})) {
 		if ($DEBUG) {
 			print STDERR 'Processing completed torrent: ' . $tor->{'name'} . "\n";
 		}
-		if (storeTor($tor)) {
+		if (storeTor($tor) || $DELETE) {
 			delTor($tor);
 		} else {
 			print STDERR 'Unable to store torrent: ' . $tor->{'name'} . "\n";
@@ -175,8 +180,8 @@ if (available($CONFIG{'TRANS_URL'})) {
 			}
 
 			# Process sucessful NZBs
-			if ($nzb->{'status'} eq 'SUCCESS/UNPACK') {
-				if (storeNZB($nzb)) {
+			if ($nzb->{'status'} =~ /SUCCESS\/(?:UNPACK|HEALTH)/) {
+				if (storeNZB($nzb) || $DELETE) {
 					delNZB($nzb);
 				} else {
 					print STDERR 'Unable to store NZB: ' . $nzb->{'name'} . "\n";
