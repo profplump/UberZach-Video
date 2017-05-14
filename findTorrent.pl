@@ -190,8 +190,6 @@ $CONFIG{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
 # Figure out what we're searching for
 my @urls          = ();
 my $CUSTOM_SEARCH = 0;
-my @need          = ();
-my %need          = ();
 my $SERIES        = readInputDir($dir);
 
 # Handle custom searches
@@ -294,71 +292,6 @@ if ((scalar(@urls) < 1) && -e $SERIES->{'path'} . '/search_by_date') {
 # Handle standard series
 if (scalar(@urls) < 1) {
 
-	# Validate the season number
-	if (!defined($SERIES->{'season'}) || $SERIES->{'season'} < 1 || $SERIES->{'season'} > 2000) {
-		die('Invalid season number: ' . $SERIES->{'name'} . ' => ' . $SERIES->{'season'} . "\n");
-	}
-
-	# Get the last episode number
-	my $no_next  = 0;
-	my %episodes = ();
-	my $highest  = 0;
-	opendir(SEASON, $SERIES->{'path'} . '/Season ' . $SERIES->{'season'})
-	  or die("Unable to open season directory: ${!}\n");
-	while (my $file = readdir(SEASON)) {
-
-		# Skip support files
-		if ($file =~ /\.(?:png|xml|jpg|gif|tbn|txt|nfo|torrent)\s*$/i) {
-			next;
-		}
-
-		# Check for a season_done file
-		if ($file eq 'season_done') {
-			$no_next = 1;
-			next;
-		}
-
-		# Extract the episode number
-		my ($num) = $file =~ /^\s*\.?(\d+)\s*\-\s*/i;
-		if (defined($num)) {
-			$num = int($num);
-			if ($DEBUG) {
-				print STDERR 'Found episode number: ' . $num . ' in file: ' . $file . "\n";
-			}
-
-			# Record it
-			$episodes{$num} = 1;
-
-			# Track the highest episode number
-			if ($num > $highest) {
-				$highest = $num;
-			}
-		}
-	}
-	close(SEASON);
-
-	# Assume we need the next 2 episodes, unless no_next is set (i.e. season_done)
-	if (!$no_next) {
-		for (my $i = 1 ; $i <= $CONFIG{'NEXT_EPISODES'} ; $i++) {
-			push(@need, $highest + $i);
-		}
-	}
-
-	# Find any missing episodes
-	for (my $i = 1 ; $i <= $highest ; $i++) {
-		if (!$episodes{$i}) {
-			push(@need, $i);
-		}
-	}
-	if ($DEBUG) {
-		print STDERR 'Needed episodes: ' . join(', ', @need) . "\n";
-	}
-
-	# Reverse the array for later matching
-	foreach my $episode (@need) {
-		$need{$episode} = 1;
-	}
-
 	# Construct a URL-friendly show name
 	my $safeShow = $SERIES->{'name'};
 	$safeShow =~ s/\s+\&\s+/ and /i;
@@ -389,7 +322,7 @@ if (scalar(@urls) < 1) {
 
 	# Construct the URL for each title varient of each needed episode
 	foreach my $urlShow (@urlShowVarients) {
-		foreach my $episode (@need) {
+		foreach my $episode ($SERIES->{'need'}) {
 			my $episode_long = sprintf('%02d', $episode);
 			my $season_long  = sprintf('%02d', $SERIES->{'season'});
 			foreach my $source (values(%{$SOURCES})) {
@@ -1041,7 +974,7 @@ foreach my $tor (@tors) {
 			next;
 
 			# Skip files that don't contain a needed episode number, unless there is no episode number and NO_QUALITY_CHECKS is set
-		} elsif ((defined($tor->{'episode'}) && !$need{ $tor->{'episode'} })
+		} elsif ((defined($tor->{'episode'}) && !$SERIES->{'need_hash'}->{ $tor->{'episode'} })
 			|| (!defined($tor->{'episode'}) && !$CONFIG{'NO_QUALITY_CHECKS'}))
 		{
 			if ($DEBUG) {
@@ -1260,7 +1193,21 @@ sub readGlobalExcludes($) {
 # Find an input directory and read the local config
 sub readInputDir($) {
 	my ($path) = @_;
-	my %series = ('path' => undef(), 'name' => '', 'season' => 0, 'exclude' => '', 'exclude_hash' => {});
+	my %series = (
+		'path'                => undef(),
+		'name'                => '',
+		'path_name'           => '',
+		'season'              => 0,
+		'episodes'            => {},
+		'exclude'             => '',
+		'exclude_hash'        => {},
+		'need'                => (),
+		'need_hash'           => {},
+		'season_done'         => 0,
+		'search_name'         => 0,
+		'no_quality_checks'   => 0,
+		'more_number_formats' => 0,
+	);
 
 	# Allow use of the raw series name
 	if (!($path =~ /\//)) {
@@ -1310,6 +1257,7 @@ sub readInputDir($) {
 		$series{'name'} = basename($series{'path'});
 	}
 	$series{'name'} =~ s/[\'\"\.]//g;
+	$series{'path_name'} = $series{'name'};
 
 	# If no explicit season is provided find the latest
 	if (!$series{'season'}) {
@@ -1325,8 +1273,14 @@ sub readInputDir($) {
 		closedir(SERIES);
 	}
 
+	# Validate the season number
+	if (!defined($series{'season'}) || $series{'season'} < 1 || $series{'season'} > 2000) {
+		die('Invalid season number: ' . $series{'name'} . ' => ' . $series{'season'} . "\n");
+	}
+
 	# Allow quality checks to be disabled
 	if (-e $series{'path'} . '/no_quality_checks') {
+		$series{'no_quality_checks'} = 1;
 		$CONFIG{'NO_QUALITY_CHECKS'} = 1;
 		if ($DEBUG) {
 			print STDERR 'Searching with no quality checks: ' . $series{'name'} . "\n";
@@ -1335,6 +1289,7 @@ sub readInputDir($) {
 
 	# Allow use of more number formats
 	if (-e $series{'path'} . '/more_number_formats') {
+		$series{'more_number_formats'} = 1;
 		$CONFIG{'MORE_NUMBER_FORMATS'} = 1;
 		if ($DEBUG) {
 			print STDERR 'Searching with more number formats: ' . $series{'name'} . "\n";
@@ -1360,6 +1315,57 @@ sub readInputDir($) {
 			$series{'exclude'} .= '-"' . $ex . '"';
 		}
 		$series{'exclude'} = uri_encode(' ' . $series{'exclude'});
+	}
+
+	# Get the last episode number
+	opendir(SEASON, $series{'path'} . '/Season ' . $series{'season'})
+	  or die("Unable to open season directory: ${!}\n");
+	while (my $file = readdir(SEASON)) {
+
+		# Skip support files
+		if ($file =~ /\.(?:png|xml|jpg|gif|tbn|txt|nfo|torrent)\s*$/i) {
+			next;
+		}
+
+		# Check for a season_done file
+		if ($file eq 'season_done') {
+			$series{'season_done'} = 1;
+			next;
+		}
+
+		# Extract the episode number
+		my ($num) = $file =~ /^\s*\.?(\d+)\s*\-\s*/i;
+		if (defined($num)) {
+			$num = int($num);
+			if ($DEBUG) {
+				print STDERR 'Found episode number: ' . $num . ' in file: ' . $file . "\n";
+			}
+
+			# Record it
+			$series{'episodes'}->{$num} = 1;
+		}
+	}
+	close(SEASON);
+
+	# Assume we need any missing episodes, and the next few (unless season_done is set)
+	my $highest = (sort { $b <=> $a } @{ $series{'need'} })[0];
+	for (my $i = 1 ; $i <= $highest ; $i++) {
+		if (!$series{'episodes'}->{$i}) {
+			push(@{ $series{'need'} }, $i);
+		}
+	}
+	if (!$series{'season_done'}) {
+		for (my $i = 1 ; $i <= $CONFIG{'NEXT_EPISODES'} ; $i++) {
+			push(@{ $series{'need'} }, $highest + $i);
+		}
+	}
+	if ($DEBUG) {
+		print STDERR 'Needed episodes: ' . join(', ', @{ $series{'need'} }) . "\n";
+	}
+
+	# Reverse the array for later matching
+	foreach my $episode (@{ $series{'need'} }) {
+		$series{'need_hash'}->{$episode} = 1;
 	}
 
 	# Log and return
