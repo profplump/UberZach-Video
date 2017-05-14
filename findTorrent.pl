@@ -103,8 +103,6 @@ confDefault('DELAY',               5);
 confDefault('TIMEOUT',             15);
 confDefault('ERR_DELAY',           $CONFIG{'TIMEOUT'} * 2);
 confDefault('ERR_RETRIES',         3);
-confDefault('MORE_NUMBER_FORMATS', 0);
-confDefault('NO_QUALITY_CHECKS',   0);
 confDefault('NEXT_EPISODES',       3);
 confDefault('MIN_DAYS_BACK',       0);
 confDefault('MAX_DAYS_BACK',       3);
@@ -183,14 +181,14 @@ if ($CONFIG{'SYSLOG'}) {
 # Read the torrent excludes list
 $CONFIG{'EXCLUDES'} = readGlobalExcludes($CONFIG{'EXCLUDES_FILE'});
 
-# Setup our sources
-$SOURCES = initSources();
-$CONFIG{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
-
 # Figure out what we're searching for
 my @urls          = ();
 my $CUSTOM_SEARCH = 0;
 my $SERIES        = readInputDir($dir);
+
+# Setup our sources
+$SOURCES = initSources();
+$CONFIG{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
 
 # Handle custom searches
 if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
@@ -322,7 +320,7 @@ if (scalar(@urls) < 1) {
 
 	# Construct the URL for each title varient of each needed episode
 	foreach my $urlShow (@urlShowVarients) {
-		foreach my $episode ($SERIES->{'need'}) {
+		foreach my $episode (@{ $SERIES->{'need'} }) {
 			my $episode_long = sprintf('%02d', $episode);
 			my $season_long  = sprintf('%02d', $SERIES->{'season'});
 			foreach my $source (values(%{$SOURCES})) {
@@ -354,7 +352,7 @@ if (scalar(@urls) < 1) {
 				push(@urls, $url);
 
 				# Extra searches for shows that have lazy/non-standard number formats
-				if ($CONFIG{'MORE_NUMBER_FORMATS'}) {
+				if ($SERIES->{'more_number_formats'}) {
 
 					# SXEY
 					if ($season_long ne $SERIES->{'season'} || $episode_long ne $episode) {
@@ -379,7 +377,7 @@ if (scalar(@urls) < 1) {
 					push(@urls, $url);
 
 					# Season X
-					if ($CONFIG{'NO_QUALITY_CHECKS'}) {
+					if ($SERIES->{'no_quality_checks'}) {
 						$url = $prefix . '+Season+' . $SERIES->{'season'} . $suffix;
 						push(@urls, $url);
 					}
@@ -973,9 +971,9 @@ foreach my $tor (@tors) {
 			}
 			next;
 
-			# Skip files that don't contain a needed episode number, unless there is no episode number and NO_QUALITY_CHECKS is set
+			# Skip files that don't contain a needed episode number, unless there is no episode number and no_quality_checks is set
 		} elsif ((defined($tor->{'episode'}) && !$SERIES->{'need_hash'}->{ $tor->{'episode'} })
-			|| (!defined($tor->{'episode'}) && !$CONFIG{'NO_QUALITY_CHECKS'}))
+			|| (!defined($tor->{'episode'}) && !$SERIES->{'no_quality_checks'}))
 		{
 			if ($DEBUG) {
 				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
@@ -996,8 +994,8 @@ foreach my $tor (@tors) {
 	# Ensure the seed/leach count is usable
 	seedCleanup($tor);
 
-	# Only apply the quality rules if NO_QUALITY_CHECKS is not in effect
-	if (!$CONFIG{'NO_QUALITY_CHECKS'} && lowQualityTor($tor)) {
+	# Only apply the quality rules if no_quality_checks is not in effect
+	if (!$SERIES->{'no_quality_checks'} && lowQualityTor($tor)) {
 		next;
 	}
 
@@ -1201,7 +1199,7 @@ sub readInputDir($) {
 		'episodes'            => {},
 		'exclude'             => '',
 		'exclude_hash'        => {},
-		'need'                => (),
+		'need'                => [],
 		'need_hash'           => {},
 		'season_done'         => 0,
 		'search_name'         => 0,
@@ -1281,7 +1279,6 @@ sub readInputDir($) {
 	# Allow quality checks to be disabled
 	if (-e $series{'path'} . '/no_quality_checks') {
 		$series{'no_quality_checks'} = 1;
-		$CONFIG{'NO_QUALITY_CHECKS'} = 1;
 		if ($DEBUG) {
 			print STDERR 'Searching with no quality checks: ' . $series{'name'} . "\n";
 		}
@@ -1290,7 +1287,6 @@ sub readInputDir($) {
 	# Allow use of more number formats
 	if (-e $series{'path'} . '/more_number_formats') {
 		$series{'more_number_formats'} = 1;
-		$CONFIG{'MORE_NUMBER_FORMATS'} = 1;
 		if ($DEBUG) {
 			print STDERR 'Searching with more number formats: ' . $series{'name'} . "\n";
 		}
@@ -1348,11 +1344,12 @@ sub readInputDir($) {
 	close(SEASON);
 
 	# Assume we need any missing episodes, and the next few (unless season_done is set)
-	my $highest = (sort { $b <=> $a } @{ $series{'need'} })[0];
+	my $highest = (sort { $b <=> $a } keys(%{ $series{'episodes'} }))[0];
 	for (my $i = 1 ; $i <= $highest ; $i++) {
 		if (!$series{'episodes'}->{$i}) {
 			push(@{ $series{'need'} }, $i);
 		}
+
 	}
 	if (!$series{'season_done'}) {
 		for (my $i = 1 ; $i <= $CONFIG{'NEXT_EPISODES'} ; $i++) {
@@ -2004,7 +2001,7 @@ sub initSources() {
 			$source->{'quote'}          = 1;
 			$source->{'search_exclude'} = 1;
 			$source->{'search_suffix'}  = '';
-			if (!$CONFIG{'NO_QUALITY_CHECKS'}) {
+			if (!$SERIES->{'no_quality_checks'}) {
 				$source->{'search_suffix'} = '+peer+%3E+' . $CONFIG{'MIN_COUNT'};
 			}
 			$sources{'Z'} = $source;
