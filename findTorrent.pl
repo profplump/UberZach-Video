@@ -18,9 +18,16 @@ use lib $Bin;
 use Fetch;
 
 # Prototypes
+sub readConfig($);
 sub confDefault($;$);
 sub readGlobalExcludes($);
 sub readInputDir($);
+sub customSearch($);
+sub dateSearch();
+sub stdSearch();
+sub fetchURLs($);
+sub parseHTML($);
+sub parseJSON($);
 sub parseNZB($);
 sub badTor($);
 sub seedCleanup($);
@@ -36,7 +43,7 @@ sub fetch($;$$);
 sub phantomFetch($$);
 
 # Globals
-my %CONFIG  = ();
+my $CONFIG  = undef();
 my $SOURCES = undef();
 my $COOKIES = undef();
 my $FETCH   = undef();
@@ -48,7 +55,7 @@ if (!defined($dir)) {
 	die('Usage: ' . basename($0) . " input_directory [search_string]\n");
 }
 
-# Pre-config environment
+# Debug
 my $DEBUG = 0;
 if ($ENV{'DEBUG'}) {
 	if ($ENV{'DEBUG'} =~ /(\d+)/) {
@@ -57,65 +64,34 @@ if ($ENV{'DEBUG'}) {
 		$DEBUG = 1;
 	}
 }
-my $CONF_FILE = $ENV{'HOME'} . '/.findTorrent.config';
-if (defined($ENV{'CONF_FILE'})) {
-	$CONF_FILE = $ENV{'CONF_FILE'};
-}
 
-# Read the config file
-if ($CONF_FILE && -r $CONF_FILE) {
-	my $fh;
-	open($fh, '<', $CONF_FILE)
-	  or die('Unable to open config file: ' . $CONF_FILE . ': ' . $! . "\n");
-	while (<$fh>) {
-
-		# Skip blank lines and comments
-		if (/^\s*#/ || /^\s*$/) {
-			next;
-		}
-
-		# Assume everything else is key = val pairs
-		if (my ($key, $val) = $_ =~ /^\s*(\S[^\=]+)\=\>?\s*(\S.*)$/) {
-			$key =~ s/^\s+//;
-			$key =~ s/\s+$//;
-			$val =~ s/^\s+//;
-			$val =~ s/\s+$//;
-			$CONFIG{$key} = $val;
-			if ($DEBUG > 1) {
-				print STDERR 'Adding config: ' . $key . ' => ' . $val . "\n";
-			}
-		} else {
-			warn('Ignoring config line: ' . $_ . "\n");
-		}
-	}
-	close($fh);
-}
-
-# Config defaults
+# Config and defaults
+$CONFIG = readConfig($ENV{'CONF_FILE'});
 confDefault('EXCLUDES_FILE', $ENV{'HOME'} . '/.findTorrent.exclude');
 confDefault('TV_DIR',        `~/bin/video/mediaPath` . '/TV');
 confDefault('PHANTOM_BIN',   '/usr/local/bin/phantomjs');
 confDefault('UA',
 	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10) AppleWebKit/538.39.41 (KHTML, like Gecko) Version/8.0 Safari/538.39.41');
-confDefault('PROTOCOL',            'https');
-confDefault('SLEEP',               1);
-confDefault('DELAY',               5);
-confDefault('TIMEOUT',             15);
-confDefault('ERR_DELAY',           $CONFIG{'TIMEOUT'} * 2);
-confDefault('ERR_RETRIES',         3);
-confDefault('NEXT_EPISODES',       3);
-confDefault('MIN_DAYS_BACK',       0);
-confDefault('MAX_DAYS_BACK',       3);
-confDefault('SYSLOG',              1);
-confDefault('MIN_COUNT',           10);
-confDefault('MIN_SIZE',            100);
-confDefault('SIZE_BONUS',          5);
-confDefault('SIZE_PENALTY',        $CONFIG{'SIZE_BONUS'});
-confDefault('TITLE_PENALTY',       $CONFIG{'SIZE_BONUS'} / 2);
-confDefault('MAX_SEEDS',           500);
-confDefault('MAX_SEED_RATIO',      0.25);
-confDefault('SEED_RATIO_COUNT',    $CONFIG{'MIN_COUNT'});
-confDefault('TRACKER_LOOKUP',      1);
+confDefault('PROTOCOL',         'https');
+confDefault('SLEEP',            1);
+confDefault('DELAY',            5);
+confDefault('TIMEOUT',          15);
+confDefault('ERR_DELAY',        $CONFIG->{'TIMEOUT'} * 2);
+confDefault('ERR_RETRIES',      3);
+confDefault('NEXT_EPISODES',    3);
+confDefault('MIN_DAYS_BACK',    0);
+confDefault('MAX_DAYS_BACK',    3);
+confDefault('SYSLOG',           1);
+confDefault('CUSTOM_SEARCH',    0);
+confDefault('MIN_COUNT',        10);
+confDefault('MIN_SIZE',         100);
+confDefault('SIZE_BONUS',       5);
+confDefault('SIZE_PENALTY',     $CONFIG->{'SIZE_BONUS'});
+confDefault('TITLE_PENALTY',    $CONFIG->{'SIZE_BONUS'} / 2);
+confDefault('MAX_SEEDS',        500);
+confDefault('MAX_SEED_RATIO',   0.25);
+confDefault('SEED_RATIO_COUNT', $CONFIG->{'MIN_COUNT'});
+confDefault('TRACKER_LOOKUP',   1);
 confDefault(
 	'PHANTOM_CONFIG', "var system = require('system');
 var page = require('webpage').create();
@@ -142,93 +118,627 @@ page.onResourceReceived = function(response) {
 );
 
 # Re-parse a few config items
-if (exists($CONFIG{'TRACKERS'})) {
+if (exists($CONFIG->{'TRACKERS'})) {
 	my @trackers = ();
-	foreach my $tracker (split(/\s*,\s*/, $CONFIG{'TRACKERS'})) {
+	foreach my $tracker (split(/\s*,\s*/, $CONFIG->{'TRACKERS'})) {
 		$tracker =~ s/^\s+//;
 		$tracker =~ s/\s+$//;
 		push(@trackers, $tracker);
 	}
-	$CONFIG{'TRACKERS'} = \@trackers;
+	$CONFIG->{'TRACKERS'} = \@trackers;
 }
-if (exists($CONFIG{'SOURCES'})) {
+if (exists($CONFIG->{'SOURCES'})) {
 	my %sources = ();
-	foreach my $source (split(/\s*,\s*/, $CONFIG{'SOURCES'})) {
+	foreach my $source (split(/\s*,\s*/, $CONFIG->{'SOURCES'})) {
 		$source =~ s/^\s+//;
 		$source =~ s/\s+$//;
 		$source = uc($source);
 		$sources{$source} = 1;
 	}
-	$CONFIG{'SOURCES'} = \%sources;
+	$CONFIG->{'SOURCES'} = \%sources;
 }
 
 # Sanity checks
-if (ref($CONFIG{'SOURCES'}) ne 'HASH' || !exists($CONFIG{'SOURCES'}) || scalar(keys(%{ $CONFIG{'SOURCES'} })) < 1) {
+if (ref($CONFIG->{'SOURCES'}) ne 'HASH' || !exists($CONFIG->{'SOURCES'}) || scalar(keys(%{ $CONFIG->{'SOURCES'} })) < 1) {
 	die("No sources configured\n");
 }
-if (ref($CONFIG{'TRACKERS'}) ne 'ARRAY' || !exists($CONFIG{'TRACKERS'}) || scalar(@{ $CONFIG{'TRACKERS'} }) < 1) {
+if (ref($CONFIG->{'TRACKERS'}) ne 'ARRAY' || !exists($CONFIG->{'TRACKERS'}) || scalar(@{ $CONFIG->{'TRACKERS'} }) < 1) {
 	warn("No trackers configured\n");
 }
-if (!exists($CONFIG{'NZB_AGE_GOOD'}) || !exists($CONFIG{'NZB_AGE_MAX'})) {
+if (!exists($CONFIG->{'NZB_AGE_GOOD'}) || !exists($CONFIG->{'NZB_AGE_MAX'})) {
 	warn("No NZB good/max age provided\n");
 }
 
 # Open the log if enabled
-if ($CONFIG{'SYSLOG'}) {
+if ($CONFIG->{'SYSLOG'}) {
 	openlog(basename($0), '', LOG_DAEMON);
 }
 
 # Read the torrent excludes list
-$CONFIG{'EXCLUDES'} = readGlobalExcludes($CONFIG{'EXCLUDES_FILE'});
+$CONFIG->{'EXCLUDES'} = readGlobalExcludes($CONFIG->{'EXCLUDES_FILE'});
 
 # Figure out what we're searching for
-my @urls          = ();
-my $CUSTOM_SEARCH = 0;
-my $SERIES        = readInputDir($dir);
+my $URLS    = undef();
+my $CONTENT = undef();
+my $SERIES  = readInputDir($dir);
 
 # Setup our sources
 $SOURCES = initSources();
-$CONFIG{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
+$CONFIG->{'DELAY'} /= scalar(keys(%{$SOURCES})) / 2;
 
-# Handle custom searches
-if ((scalar(@urls) < 1) && defined($search) && length($search) > 0) {
+# Choose a search
+$URLS = customSearch($search);
+if (!$URLS) {
+	$URLS = dateSearch();
+}
+if (!$URLS) {
+	$URLS = stdSearch();
+}
+if (!defined($URLS) || ref($URLS) ne 'ARRAY' || scalar(@{$URLS}) < 1) {
+	die("No search URLs\n");
+}
 
-	# Note the custom search string
-	$CUSTOM_SEARCH = 1;
-	if ($DEBUG) {
-		print STDERR "Custom search\n";
+$CONTENT = fetchURLs($URLS);
+for (my $i = 0 ; $i < scalar(@{$CONTENT}) ; $i++) {
+	if ($CONTENT->[$i] =~ /^\s*[\{\[]/) {
+		my $tor = parseJSON($CONTENT->[$i]);
+		if ($tor) {
+			push(@{ $SERIES->{'tors'} }, $tor);
+		}
+	} else {
+		my $tor = parseHTML($CONTENT->[$i]);
+		if ($tor) {
+			push(@{ $SERIES->{'tors'} }, $tor);
+		}
 	}
+}
+
+# Filter for size/count/etc.
+if (!$SERIES->{'name_regex'}) {
+	my $clean = $SERIES->{'name'};
+	$clean =~ s/[\"\']//g;
+	$clean =~ s/[\W_]+/\[\\W_\].*/g;
+	$SERIES->{'name_regex'} = qr/^${clean}[\W_]/i;
+}
+
+foreach my $tor (@{ $SERIES->{'tors'} }) {
+
+	# Extract the BTIH/GUID, if available
+	getHash($tor);
+
+	# Skip bad TORs based on name/etc.
+	if (badTor($tor)) {
+		next;
+	}
+
+	# Skip files that contain a word from the series exclude list
+	my $exclude = undef();
+	foreach my $ex (keys(%{ $SERIES->{'exclude_hash'} })) {
+		$ex = quotemeta($ex);
+		if ($tor->{'title'} =~ m/${ex}/i) {
+			$exclude = $ex;
+			last;
+		}
+	}
+	if (defined($exclude)) {
+		if ($DEBUG) {
+			print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
+		}
+		next;
+	}
+
+	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
+	if (!$CONFIG->{'CUSTOM_SEARCH'}) {
+
+		# Skip files that don't contain the right season number
+		if (!defined($tor->{'season'}) || $tor->{'season'} != $SERIES->{'season'}) {
+			if ($DEBUG) {
+				print STDERR 'Skipping file: No match for season number (' . $SERIES->{'season'} . '): ' . $tor->{'title'} . "\n";
+			}
+			next;
+
+			# Skip files that don't contain a needed episode number, unless there is no episode number and no_quality_checks is set
+		} elsif ((defined($tor->{'episode'}) && !$SERIES->{'need_hash'}->{ $tor->{'episode'} })
+			|| (!defined($tor->{'episode'}) && !$SERIES->{'no_quality_checks'}))
+		{
+			if ($DEBUG) {
+				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
+			}
+			next;
+		}
+	} elsif (ref($CONFIG->{'CUSTOM_SEARCH'}) eq 'Regexp') {
+
+		# Skip files that don't match the regex
+		if (!($tor->{'title'} =~ $CONFIG->{'CUSTOM_SEARCH'})) {
+			if ($DEBUG) {
+				print STDERR 'Skipping file: No match for CUSTOM_SEARCH regex ('
+				  . $CONFIG->{'CUSTOM_SEARCH'} . '): '
+				  . $tor->{'title'} . "\n";
+			}
+			next;
+		}
+	}
+
+	# Ensure the seed/leach count is usable
+	seedCleanup($tor);
+
+	# Only apply the quality rules if no_quality_checks is not in effect
+	if (!$SERIES->{'no_quality_checks'} && lowQualityTor($tor)) {
+		next;
+	}
+
+	# Save good torrents
+	push(@{ $SERIES->{'tors_hash'}->{ $tor->{'episode'} } }, $tor);
+	if ($DEBUG) {
+		print STDERR 'Possible URL ('
+		  . $tor->{'seeds'} . '/'
+		  . $tor->{'leaches'}
+		  . ' seeds/leaches, '
+		  . $tor->{'size'}
+		  . ' MiB): '
+		  . $tor->{'title'} . "\n";
+	}
+}
+
+# Find the average torrent size for each episode
+my %size = ();
+{
+	my %max = ();
+	my %avg = ();
+
+	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+		my $count = 0;
+		$avg{$episode} = 0.001;
+		$max{$episode} = 0.001;
+		foreach my $tor (@{ $SERIES->{'tors_hash'}->{$episode} }) {
+			$count++;
+			$avg{$episode} += $tor->{'size'};
+
+			if ($tor->{'size'} > $max{$episode}) {
+				$max{$episode} = $tor->{'size'};
+			}
+		}
+		if ($count > 0) {
+			$avg{$episode} /= $count;
+		}
+		if (!defined($max{$episode})) {
+			warn("Invalid max episode\n");
+		}
+		if (!defined($avg{$episode})) {
+			warn("Invalid avg episode\n");
+		}
+		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
+
+		if ($DEBUG) {
+			print STDERR 'Episode '
+			  . $episode
+			  . ' max/avg/cmp size: '
+			  . int($max{$episode}) . '/'
+			  . int($avg{$episode}) . '/'
+			  . int($size{$episode})
+			  . " MiB\n";
+		}
+	}
+}
+
+# Calculate an adjusted count based on the peer count, relative file size, and title contents
+foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+	foreach my $tor (@{ $SERIES->{'tors_hash'}->{$episode} }) {
+		my $count = $tor->{'seeds'} + $tor->{'leaches'};
+
+		# Start with the peer count
+		$tor->{'adj_count'} = $count;
+
+		# Adjust based on file size
+		{
+			my $size_ratio = $tor->{'size'} / $size{$episode};
+			if ($tor->{'size'} >= $size{$episode}) {
+				$tor->{'adj_count'} *= $CONFIG->{'SIZE_BONUS'} * $size_ratio;
+			} else {
+				$tor->{'adj_count'} *= (1 / $CONFIG->{'SIZE_PENALTY'}) * $size_ratio;
+			}
+		}
+
+		# Adjust based on title contents
+		if ($tor->{'title'} =~ /Subtitulado/i) {
+			$tor->{'adj_count'} *= 1 / $CONFIG->{'TITLE_PENALTY'};
+		}
+
+		# Truncate to an integer
+		$tor->{'adj_count'} = int($tor->{'adj_count'});
+
+		if ($DEBUG) {
+			print STDERR 'Possible URL (' . $tor->{'adj_count'} . ' size-adjusted sources): ' . $tor->{'url'} . "\n";
+		}
+	}
+}
+
+# Pick the best-adjusted-count torrent for each episode
+my %urls = ();
+foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+	my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $SERIES->{'tors_hash'}->{$episode} };
+	my $max = undef();
+	foreach my $tor (@sorted) {
+		if (!defined($max) || $tor->{'adj_count'} > $max) {
+			if ($urls{$episode} = resolveSecondary($tor)) {
+				if (!$tor->{'hash'} || $CONFIG->{'EXCLUDES'}->{ $tor->{'hash'} }) {
+					print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+					next;
+				}
+				$max = $tor->{'adj_count'};
+			}
+			if ($DEBUG) {
+				print STDERR 'Semi-final URL (adjusted count: ' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
+			}
+		} elsif ($DEBUG) {
+			print STDERR 'Skipping for lesser adjusted count (' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
+		}
+	}
+}
+
+# Output
+foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+	if (defined($urls{$episode})) {
+		$urls{$episode} = resolveTrackers($urls{$episode});
+		print $urls{$episode} . "\n";
+		if ($CONFIG->{'SYSLOG'}) {
+			syslog(LOG_NOTICE, $SERIES->{'name'} . ': ' . getHash($urls{$episode}));
+		}
+		if ($DEBUG) {
+			print STDERR 'Final URL: ' . $urls{$episode} . "\n";
+		}
+	} elsif ($DEBUG) {
+		print STDERR 'No URL for: ' . $episode . "\n";
+	}
+}
+
+# Cleanup
+if ($COOKIES) {
+	unlink($COOKIES);
+}
+if ($SCRIPT) {
+	unlink($SCRIPT);
+}
+if ($CONFIG->{'SYSLOG'}) {
+	closelog();
+}
+exit(0);
+
+sub readConfig($) {
+	my ($file) = @_;
+	my %config = ();
+
+	# Deafult config path
+	if (!defined($file) || length($file) < 1) {
+		$file = $ENV{'HOME'} . '/.findTorrent.config';
+	}
+
+	# Config is *required*
+	if (!defined($file) || !-r $file) {
+		die('Unable to read config file: ' . $file . "\n");
+	}
+
+	# Read the config file
+	my $fh;
+	open($fh, '<', $file)
+	  or die('Unable to open config file: ' . $file . ': ' . $! . "\n");
+	while (<$fh>) {
+
+		# Skip blank lines and comments
+		if (/^\s*#/ || /^\s*$/) {
+			next;
+		}
+
+		# Assume everything else is key = val pairs
+		if (my ($key, $val) = $_ =~ /^\s*(\S[^\=]+)\=\>?\s*(\S.*)$/) {
+			$key =~ s/^\s+//;
+			$key =~ s/\s+$//;
+			$val =~ s/^\s+//;
+			$val =~ s/\s+$//;
+			$config{$key} = $val;
+			if ($DEBUG > 1) {
+				print STDERR 'Adding config: ' . $key . ' => ' . $val . "\n";
+			}
+		} else {
+			warn('Ignoring config line: ' . $_ . "\n");
+		}
+	}
+	close($fh);
+
+	return \%config;
+}
+
+sub confDefault($;$) {
+	my ($name, $default) = @_;
+	if (!$name) {
+		return;
+	}
+
+	# Enviornment, config file, default, undef()
+	if (defined($ENV{$name})) {
+		$CONFIG->{$name} = $ENV{$name};
+	} elsif (!defined($CONFIG->{$name})) {
+		if ($default) {
+			$CONFIG->{$name} = $default;
+		} else {
+			$CONFIG->{$name} = undef();
+		}
+	}
+}
+
+sub readGlobalExcludes($) {
+	my ($file) = @_;
+	my %excludes = ();
+	if (!$file || !-r $file) {
+		warn('No excludes files available' . $file . "\n");
+		return \%excludes;
+	}
+
+	my $fh;
+	open($fh, '<', $file)
+	  or die('Unable to open excludes file: ' . $file . ': ' . $! . "\n");
+	while (<$fh>) {
+
+		# Skip blank lines and comments
+		if (/^\s*$/ || /^\s*#/) {
+			next;
+		}
+
+		# Assume everything else is one BT hash/NZB GUID per line
+		if (/^\s*(\w+)\s*$/) {
+			my $hash = lc($1);
+			if ($DEBUG > 1) {
+				print STDERR 'Excluding hash: ' . $hash . "\n";
+			}
+			$excludes{$hash} = 1;
+		} else {
+			die('Invalid exclude line: ' . $_ . "\n");
+		}
+	}
+	close($fh);
+
+	return \%excludes;
+}
+
+# Find an input directory and read the local config
+sub readInputDir($) {
+	my ($path) = @_;
+	my %series = (
+		'path'                => undef(),
+		'name'                => '',
+		'path_name'           => '',
+		'season'              => 0,
+		'episodes'            => {},
+		'exclude'             => '',
+		'exclude_hash'        => {},
+		'need'                => [],
+		'need_hash'           => {},
+		'season_done'         => 0,
+		'search_name'         => 0,
+		'search_by_date'      => 0,
+		'no_quality_checks'   => 0,
+		'more_number_formats' => 0,
+		'tors'                => [],
+		'tors_hash'           => {},
+	);
+
+	# Allow use of the raw series name
+	if (!($path =~ /\//)) {
+		$series{'name'} = $path;
+		$series{'path'} = $CONFIG->{'TV_DIR'} . '/' . $path;
+	} else {
+		$series{'path'} = $path;
+	}
+
+	# Allow use of relative paths
+	$series{'path'} = File::Spec->rel2abs($series{'path'});
+
+	# Isolate the season from the path, if provided
+	if ($series{'path'} =~ /\/Season\s+(\d+)\/?$/i) {
+		$series{'season'} = $1;
+		$series{'path'}   = dirname($series{'path'});
+	}
+
+	# Sanity check
+	if ($DEBUG) {
+		print STDERR 'Checking directory: ' . $series{'path'} . "\n";
+	}
+	if (!-d $series{'path'}) {
+		die('Invalid input directory: ' . $series{'path'} . "\n");
+	}
+
+	# Allow the series name to be overriden
+	my $search_name = $series{'path'} . '/search_name';
+	if (-e $search_name) {
+		local ($/, *FH);
+		open(FH, $search_name)
+		  or die('Unable to read search_name for series: ' . $series{'name'} . ': ' . $! . "\n");
+		my $text = <FH>;
+		close(FH);
+		if ($text =~ /^\s*(\S.*\S)\s*$/) {
+			$series{'name'} = $1;
+		} else {
+			warn('Skipping invalid search_name for series: ' . $series{'name'} . ': ' . $text . "\n");
+		}
+	}
+	if ($DEBUG) {
+		print STDERR 'Searching with series title: ' . $series{'name'} . "\n";
+	}
+
+	# Final series name
+	if (!$series{'name'}) {
+		$series{'name'} = basename($series{'path'});
+	}
+	$series{'name'} =~ s/[\'\"\.]//g;
+	$series{'path_name'} = $series{'name'};
+
+	# If no explicit season is provided find the latest
+	if (!$series{'season'}) {
+		opendir(SERIES, $series{'path'})
+		  or die("Unable to open series directory: ${!}\n");
+		while (my $file = readdir(SERIES)) {
+			if ($file =~ /^Season\s+(\d+)$/i) {
+				if (!$series{'season'} || $series{'season'} < $1) {
+					$series{'season'} = $1;
+				}
+			}
+		}
+		closedir(SERIES);
+	}
+
+	# Validate the season number
+	if (!defined($series{'season'}) || $series{'season'} < 1 || $series{'season'} > 2000) {
+		die('Invalid season number: ' . $series{'name'} . ' => ' . $series{'season'} . "\n");
+	}
+
+	# Allow quality checks to be disabled
+	if (-e $series{'path'} . '/no_quality_checks') {
+		$series{'no_quality_checks'} = 1;
+		if ($DEBUG) {
+			print STDERR 'Searching with no quality checks: ' . $series{'name'} . "\n";
+		}
+	}
+
+	# Allow use of more number formats
+	if (-e $series{'path'} . '/more_number_formats') {
+		$series{'more_number_formats'} = 1;
+		if ($DEBUG) {
+			print STDERR 'Searching with more number formats: ' . $series{'name'} . "\n";
+		}
+	}
+
+	# Allow use of search_by_date
+	if (-e $series{'path'} . '/search_by_date') {
+		$series{'search_by_date'} = 1;
+		if ($DEBUG) {
+			print STDERR 'Searching by date: ' . $series{'name'} . "\n";
+		}
+	}
+
+	# Read the search excludes file, if any
+	if (-e $series{'path'} . '/excludes') {
+		local $/ = undef;
+		open(EX, $series{'path'} . '/excludes')
+		  or die("Unable to open series excludes file: ${!}\n");
+		my $ex = <EX>;
+		close(EX);
+
+		$ex =~ s/^\s+//;
+		$ex =~ s/\s+$//;
+		my @excludes = split(/\s*,\s*/, $ex);
+		foreach my $ex (@excludes) {
+			$series{'excludes_hash'}->{$ex} = 1;
+			if (length($series{'exclude'})) {
+				$series{'exclude'} .= ' ';
+			}
+			$series{'exclude'} .= '-"' . $ex . '"';
+		}
+		$series{'exclude'} = uri_encode(' ' . $series{'exclude'});
+	}
+
+	# Get the last episode number
+	opendir(SEASON, $series{'path'} . '/Season ' . $series{'season'})
+	  or die("Unable to open season directory: ${!}\n");
+	while (my $file = readdir(SEASON)) {
+
+		# Skip support files
+		if ($file =~ /\.(?:png|xml|jpg|gif|tbn|txt|nfo|torrent)\s*$/i) {
+			next;
+		}
+
+		# Check for a season_done file
+		if ($file eq 'season_done') {
+			$series{'season_done'} = 1;
+			next;
+		}
+
+		# Extract the episode number
+		my ($num) = $file =~ /^\s*\.?(\d+)\s*\-\s*/i;
+		if (defined($num)) {
+			$num = int($num);
+			if ($DEBUG) {
+				print STDERR 'Found episode number: ' . $num . ' in file: ' . $file . "\n";
+			}
+
+			# Record it
+			$series{'episodes'}->{$num} = 1;
+		}
+	}
+	close(SEASON);
+
+	# Assume we need any missing episodes, and the next few (unless season_done is set)
+	my $highest = (sort { $b <=> $a } keys(%{ $series{'episodes'} }))[0];
+	for (my $i = 1 ; $i <= $highest ; $i++) {
+		if (!$series{'episodes'}->{$i}) {
+			push(@{ $series{'need'} }, $i);
+		}
+
+	}
+	if (!$series{'season_done'}) {
+		for (my $i = 1 ; $i <= $CONFIG->{'NEXT_EPISODES'} ; $i++) {
+			push(@{ $series{'need'} }, $highest + $i);
+		}
+	}
+	if ($DEBUG) {
+		print STDERR 'Needed episodes: ' . join(', ', @{ $series{'need'} }) . "\n";
+	}
+
+	# Reverse the array for later matching
+	foreach my $episode (@{ $series{'need'} }) {
+		$series{'need_hash'}->{$episode} = 1;
+	}
+
+	# Log and return
+	if ($CONFIG->{'SYSLOG'}) {
+		syslog(LOG_NOTICE, $series{'name'});
+	}
+	return \%series;
+}
+
+sub customSearch($) {
+	my ($search) = @_;
+	if (!defined($search) || length($search) < 1) {
+		return undef();
+	}
+	if ($DEBUG) {
+		print STDERR 'Custom search: ' . $search . "\n";
+	}
+
+	my @urls = ();
+	$CONFIG->{'CUSTOM_SEARCH'} = 1;
 
 	# Create the relevent search strings
 	foreach my $key (keys(%{$SOURCES})) {
 		my $source = $SOURCES->{$key};
 		push(@urls, $source->{'search_url'} . $search . $SERIES->{'exclude'} . $source->{'search_suffix'});
 	}
+
+	return \@urls;
 }
 
-# Handle search-by-date series
-if ((scalar(@urls) < 1) && -e $SERIES->{'path'} . '/search_by_date') {
+sub dateSearch() {
+	if (!$SERIES->{'search_by_date'}) {
+		return undef();
+	}
 
-	# Note the search-by-date status
-	# Set the CUSTOM_SERACH flag to skip season/epsiode matching
-	$CUSTOM_SEARCH = 1;
+	my @urls = ();
+	$CONFIG->{'CUSTOM_SEARCH'} = 1;
 
 	# Read the find-by-date string
-	my $search_by_date = '';
 	local ($/, *FH);
 	open(FH, $SERIES->{'path'} . '/search_by_date')
 	  or die('Unable to read search_by_date for show: ' . $SERIES->{'name'} . ': ' . $! . "\n");
 	my $text = <FH>;
 	close(FH);
 	if ($text =~ /^\s*(\S.*\S)\s*$/) {
-		$search_by_date = $1;
+		$SERIES->{'search_by_date_text'} = $1;
 	} else {
 		die('Skipping invalid search_by_date for show: ' . $SERIES->{'name'} . ': ' . $text . "\n");
 	}
 
 	# Create search strings for each date in the range, unless the related file already exists
 	my (%years, %months, %days) = ();
-	for (my $days_back = $CONFIG{'MIN_DAYS_BACK'} ; $days_back <= $CONFIG{'MAX_DAYS_BACK'} ; $days_back++) {
+	for (my $days_back = $CONFIG->{'MIN_DAYS_BACK'} ; $days_back <= $CONFIG->{'MAX_DAYS_BACK'} ; $days_back++) {
 
 		# Calculate the date
 		my (undef(), undef(), undef(), $day, $month, $year) = localtime(time() - (86400 * $days_back));
@@ -263,7 +773,7 @@ if ((scalar(@urls) < 1) && -e $SERIES->{'path'} . '/search_by_date') {
 		$days{$day}     = 1;
 
 		# Create the relevent search strings
-		my $search_str = $search_by_date;
+		my $search_str = $SERIES->{'search_by_date_text'};
 		$search_str =~ s/%Y/${year}/g;
 		$search_str =~ s/%m/${month}/g;
 		$search_str =~ s/%d/${day}/g;
@@ -279,53 +789,111 @@ if ((scalar(@urls) < 1) && -e $SERIES->{'path'} . '/search_by_date') {
 	$str .= '\b(?:' . join('|', keys(%months)) . ')\b';
 	$str .= '.*';
 	$str .= '\b(?:' . join('|', keys(%days)) . ')\b';
-	$CUSTOM_SEARCH = qr/${str}/;
+	$CONFIG->{'CUSTOM_SEARCH'} = qr/${str}/;
 
 	# Debug
 	if ($DEBUG) {
 		print STDERR 'Searching with date template: ' . $str . "\n";
 	}
+
+	return \@urls;
 }
 
-# Handle standard series
-if (scalar(@urls) < 1) {
+sub fetchURLs($) {
+	my ($urls) = @_;
+	my @output = ();
+
+	foreach my $url (@{$urls}) {
+
+		# Fetch the page
+		my $errCount = 0;
+		my $content  = '';
+	  HTTP_ERR_LOOP: {
+			my $code = 0;
+			if ($DEBUG) {
+				print STDERR 'Searching with URL: ' . $url . "\n";
+			}
+
+			# Fetch
+			($content, $code) = fetch($url, 'primary.html');
+
+			# Check for useful errors
+			if ($code == 404) {
+				if ($DEBUG) {
+					print STDERR "Skipping content from 404 response\n";
+				}
+				next;
+			}
+
+			# Check for less useful errors
+			if ($code != 200) {
+				if ($code >= 500 && $code <= 599) {
+					if ($errCount > $CONFIG->{'ERR_RETRIES'}) {
+						print STDERR 'Unable to fetch URL: ' . $url . "\n";
+						$errCount = 0;
+						next;
+					}
+					if ($DEBUG) {
+						print STDERR 'Retrying URL (' . $code . '): ' . $url . "\n";
+					}
+					$errCount++;
+					sleep($CONFIG->{'ERR_DELAY'});
+					redo HTTP_ERR_LOOP;
+				} else {
+					print STDERR 'Error fetching URL (' . $code . '): ' . $url . "\n";
+				}
+				next;
+			}
+		}
+
+		# Save the content
+		if ($DEBUG > 1) {
+			print STDERR 'Fetched ' . length($content) . " bytes\n";
+		}
+		push(@output, scalar($content));
+	}
+
+	return \@output;
+}
+
+sub stdSearch() {
+	my @urls = ();
 
 	# Construct a URL-friendly show name
-	my $safeShow = $SERIES->{'name'};
-	$safeShow =~ s/\s+\&\s+/ and /i;
-	$safeShow =~ s/^\s*The\b//i;
-	$safeShow =~ s/\s+\-\s+/ /g;
-	$safeShow =~ s/[\'\:]//g;
-	$safeShow =~ s/[^\w\"\-]+/ /g;
-	$safeShow =~ s/^\s+//;
-	$safeShow =~ s/\s+$//;
-	$safeShow =~ s/\s\s+/ /g;
-	$safeShow =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
-	$safeShow =~ s/\%20/\+/g;
-
-	# Calculate possible name variations
-	my @urlShowVarients = ();
 	{
+		my $safe = $SERIES->{'name'};
+		$safe =~ s/\s+\&\s+/ and /i;
+		$safe =~ s/^\s*The\b//i;
+		$safe =~ s/\s+\-\s+/ /g;
+		$safe =~ s/[\'\:]//g;
+		$safe =~ s/[^\w\"\-]+/ /g;
+		$safe =~ s/^\s+//;
+		$safe =~ s/\s+$//;
+		$safe =~ s/\s\s+/ /g;
+		$safe =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
+		$safe =~ s/\%20/\+/g;
+		$SERIES->{'name_safe'} = $safe;
+	}
 
-		# Default name
-		push(@urlShowVarients, $safeShow);
-
-		# Search for both "and" and "&"
-		if ($safeShow =~ /\+and\+/i) {
-			my $tmp = $safeShow;
-			$tmp =~ s/\+and\+/\+%26\+/;
-			push(@urlShowVarients, $tmp);
-		}
+	# Name variations
+	$SERIES->{'name_variants'} = [ $SERIES->{'name_safe'} ];
+	if ($SERIES->{'name_safe'} =~ /\+and\+/i) {
+		my $safe = $SERIES->{'name_safe'};
+		$safe =~ s/\+and\+/\+%26\+/ig;
+		push(@{ $SERIES->{'name_variants'} }, $safe);
 	}
 
 	# Construct the URL for each title varient of each needed episode
-	foreach my $urlShow (@urlShowVarients) {
+	foreach my $urlShow (@{ $SERIES->{'name_variants'} }) {
 		foreach my $episode (@{ $SERIES->{'need'} }) {
 			my $episode_long = sprintf('%02d', $episode);
-			my $season_long  = sprintf('%02d', $SERIES->{'season'});
+			if (!$SERIES->{'season_long'}) {
+				$SERIES->{'season_long'} = sprintf('%02d', $SERIES->{'season'});
+			}
 			foreach my $source (values(%{$SOURCES})) {
 
 				# Allow custom handling
+				# Future APIs will *require* custom handling; the std process will be exposed as a sub
 				if (defined($source->{'custom_search'}) && ref($source->{'custom_search'}) eq 'CODE') {
 					$source->{'custom_search'}->(\@urls, $urlShow, $SERIES->{'season'}, $episode);
 					next;
@@ -348,24 +916,24 @@ if (scalar(@urls) < 1) {
 				}
 
 				# SXXEYY
-				my $url = $prefix . '+s' . $season_long . 'e' . $episode_long . $suffix;
+				my $url = $prefix . '+s' . $SERIES->{'season_long'} . 'e' . $episode_long . $suffix;
 				push(@urls, $url);
 
 				# Extra searches for shows that have lazy/non-standard number formats
 				if ($SERIES->{'more_number_formats'}) {
 
 					# SXEY
-					if ($season_long ne $SERIES->{'season'} || $episode_long ne $episode) {
+					if ($SERIES->{'season_long'} ne $SERIES->{'season'} || $episode_long ne $episode) {
 						$url = $prefix . '+s' . $SERIES->{'season'} . 'e' . $episode . $suffix;
 						push(@urls, $url);
 					}
 
 					# SXX EYY
-					$url = $prefix . '+s' . $season_long . '+e' . $episode_long . $suffix;
+					$url = $prefix . '+s' . $SERIES->{'season_long'} . '+e' . $episode_long . $suffix;
 					push(@urls, $url);
 
 					# Season XX Episode YY
-					$url = $prefix . '+season+' . $season_long . '+episode+' . $episode_long . $suffix;
+					$url = $prefix . '+season+' . $SERIES->{'season_long'} . '+episode+' . $episode_long . $suffix;
 					push(@urls, $url);
 
 					# Series X Episode Y
@@ -385,74 +953,18 @@ if (scalar(@urls) < 1) {
 			}
 		}
 	}
+
+	return \@urls;
 }
-
-my @html_content = ();
-my @json_content = ();
-foreach my $url (@urls) {
-
-	# Fetch the page
-	my $errCount = 0;
-	my $content  = '';
-  HTTP_ERR_LOOP: {
-		my $code = 0;
-		if ($DEBUG) {
-			print STDERR 'Searching with URL: ' . $url . "\n";
-		}
-
-		# Fetch
-		($content, $code) = fetch($url, 'primary.html');
-
-		# Check for useful errors
-		if ($code == 404) {
-			if ($DEBUG) {
-				print STDERR "Skipping content from 404 response\n";
-			}
-			next;
-		}
-
-		# Check for less useful errors
-		if ($code != 200) {
-			if ($code >= 500 && $code <= 599) {
-				if ($errCount > $CONFIG{'ERR_RETRIES'}) {
-					print STDERR 'Unable to fetch URL: ' . $url . "\n";
-					$errCount = 0;
-					next;
-				}
-				if ($DEBUG) {
-					print STDERR 'Retrying URL (' . $code . '): ' . $url . "\n";
-				}
-				$errCount++;
-				sleep($CONFIG{'ERR_DELAY'});
-				redo HTTP_ERR_LOOP;
-			} else {
-				print STDERR 'Error fetching URL (' . $code . '): ' . $url . "\n";
-			}
-			next;
-		}
-	}
-
-	# Save the content, discriminating by data type
-	if ($DEBUG > 1) {
-		print STDERR 'Fetched ' . length($content) . " bytes\n";
-	}
-	if ($content =~ /^\s*[\{\[]/) {
-		my $json = eval { decode_json($content); };
-		if (defined($json) && ref($json)) {
-			push(@json_content, $json);
-		} elsif ($DEBUG) {
-			print STDERR 'JSON parsing failure on: ' . $content . "\n";
-		}
-	} else {
-		push(@html_content, scalar($content));
-	}
-}
-
-# We need someplace to store parsed torrent data from the various sources
-my @tors = ();
 
 # Handle HTML content
-foreach my $content (@html_content) {
+sub parseHTML($) {
+	my ($content) = @_;
+	if (!defined($content) || length($content) < 1) {
+		return undef();
+	}
+	my $tor = undef();
+
 	if ($content =~ /\<title\>The Pirate Bay/i) {
 
 		# Find TR elements from TPB
@@ -520,7 +1032,7 @@ foreach my $content (@html_content) {
 				'url'     => $url,
 				'source'  => 'TPB'
 			);
-			push(@tors, \%tor);
+			push(@{ $SERIES->{'tors'} }, \%tor);
 		}
 
 	} elsif ($content =~ /\<title\>[^\<\>]*\bisoHunt\b[^\<\>]*\<\/title\>/i) {
@@ -603,7 +1115,7 @@ foreach my $content (@html_content) {
 				'url'     => $url,
 				'source'  => 'ISO'
 			);
-			push(@tors, \%tor);
+			push(@{ $SERIES->{'tors'} }, \%tor);
 		}
 
 	} elsif ($content =~ /Kickass\s*Torrents\<\/title\>/i) {
@@ -692,7 +1204,7 @@ foreach my $content (@html_content) {
 				'url'     => $url,
 				'source'  => 'KICK'
 			);
-			push(@tors, \%tor);
+			push(@{ $SERIES->{'tors'} }, \%tor);
 		}
 
 	} elsif ($content =~ /\<a(?:\s+[^\>]*)?\>Torrentz\<\/a\>/i) {
@@ -764,7 +1276,7 @@ foreach my $content (@html_content) {
 				'url'     => $url,
 				'source'  => 'Z'
 			);
-			push(@tors, \%tor);
+			push(@{ $SERIES->{'tors'} }, \%tor);
 		}
 
 	} elsif ($content =~ /ExtraTorrent\.cc The World\'s Largest BitTorrent System\<\/title\>/i) {
@@ -823,7 +1335,7 @@ foreach my $content (@html_content) {
 			}
 
 			# Save the extracted data
-			my %tor = (
+			my %tmp = (
 				'title'   => $title,
 				'season'  => $fileSeason,
 				'episode' => $episode,
@@ -833,7 +1345,7 @@ foreach my $content (@html_content) {
 				'url'     => $url,
 				'source'  => 'ET'
 			);
-			push(@tors, \%tor);
+			$tor = \%tmp;
 		}
 
 	} elsif ($content =~ /\<title\>Sorry/) {
@@ -857,36 +1369,51 @@ foreach my $content (@html_content) {
 			print STDERR "No results\n";
 		}
 	} else {
-		print STDERR "Unknown HTML content:\n" . $content . "\n\n";
+		warn("Unknown HTML content:\n" . $content . "\n\n");
 	}
+
+	return $tor;
 }
 
 # Handle JSON content
-foreach my $content (@json_content) {
-	if (ref($content) eq 'ARRAY' && scalar(@{$content}) == 0) {
+sub parseJSON($) {
+	my ($content) = @_;
+	if (!defined($content) || length($content) < 1) {
+		return undef();
+	}
+
+	my $json = eval { decode_json($content); };
+	if (!defined($json) || !ref($json)) {
+		warn('JSON parsing failure on: ' . $content . "\n");
+		return undef();
+	}
+
+	my $tor = undef();
+
+	if (ref($json) eq 'ARRAY' && scalar(@{$json}) == 0) {
 		if ($DEBUG > 1) {
 			print STDERR "Empty JSON array\n";
 		}
-	} elsif (exists($content->{'channel'})
-		&& ref($content->{'channel'}) eq 'HASH'
-		&& exists($content->{'channel'}->{'title'})
-		&& $content->{'channel'}->{'title'} =~ /nzbplanet/i)
+	} elsif (exists($json->{'channel'})
+		&& ref($json->{'channel'}) eq 'HASH'
+		&& exists($json->{'channel'}->{'title'})
+		&& $json->{'channel'}->{'title'} =~ /nzbplanet/i)
 	{
 		print STDERR "Index: NZBplanet\n";
-	} elsif (exists($content->{'channel'})
-		&& ref($content->{'channel'}) eq 'HASH'
-		&& exists($content->{'channel'}->{'title'})
-		&& $content->{'channel'}->{'title'} =~ /usenet\-crawler/i)
+	} elsif (exists($json->{'channel'})
+		&& ref($json->{'channel'}) eq 'HASH'
+		&& exists($json->{'channel'}->{'title'})
+		&& $json->{'channel'}->{'title'} =~ /usenet\-crawler/i)
 	{
 		print STDERR "Index: usenet-crawler\n";
-	} elsif (ref($content) eq 'ARRAY'
-		&& scalar(@{$content}) > 0
-		&& ref($content->[0]) eq 'HASH'
-		&& exists($content->[0]->{'guid'}))
+	} elsif (ref($json) eq 'ARRAY'
+		&& scalar(@{$json}) > 0
+		&& ref($json->[0]) eq 'HASH'
+		&& exists($json->[0]->{'guid'}))
 	{
 		print STDERR "Index: NZB.is\n";
-	} elsif (exists($content->{'title'}) && $content->{'title'} =~ /NZBCat/i) {
-		my $list = $content->{'item'};
+	} elsif (exists($json->{'title'}) && $json->{'title'} =~ /NZBCat/i) {
+		my $list = $json->{'item'};
 		if (!$list || ref($list) ne 'ARRAY') {
 			if ($DEBUG) {
 				warn("Empty/invalid NCAT list\n");
@@ -895,481 +1422,36 @@ foreach my $content (@json_content) {
 		}
 
 		foreach my $item (@{$list}) {
-			my $tor = parseNZB($item);
-			if ($tor) {
-				$tor->{'source'} = 'NCAT';
-				push(@tors, $tor);
+			my $tmp = parseNZB($item);
+			if ($tmp) {
+				$tmp->{'source'} = 'NCAT';
+				$tor = $tmp;
 			}
 		}
-	} elsif (ref($content) eq 'HASH'
-		&& exists($content->{'channel'})
-		&& ref($content->{'channel'}) eq 'HASH'
-		&& exists($content->{'channel'}->{'title'})
-		&& $content->{'channel'}->{'title'} =~ /\bNzb\s+Planet\b/i)
+	} elsif (ref($json) eq 'HASH'
+		&& exists($json->{'channel'})
+		&& ref($json->{'channel'}) eq 'HASH'
+		&& exists($json->{'channel'}->{'title'})
+		&& $json->{'channel'}->{'title'} =~ /\bNzb\s+Planet\b/i)
 	{
-		if (!exists($content->{'channel'}->{'item'}) || ref($content->{'channel'}->{'item'}) ne 'ARRAY') {
+		if (!exists($json->{'channel'}->{'item'}) || ref($json->{'channel'}->{'item'}) ne 'ARRAY') {
 			if ($DEBUG) {
 				print STDERR "Empty/invalid NZB Planet result\n";
 			}
 			next;
 		}
-		foreach my $item (@{ $content->{'channel'}->{'item'} }) {
-			my $tor = parseNZB($item);
-			if ($tor) {
-				$tor->{'source'} = 'PLANET';
-				push(@tors, $tor);
+		foreach my $item (@{ $json->{'channel'}->{'item'} }) {
+			my $tmp = parseNZB($item);
+			if ($tmp) {
+				$tmp->{'source'} = 'PLANET';
+				$tor = $tmp;
 			}
 		}
 	} else {
 		print STDERR "Unknown JSON content:\n" . $content . "\n\n";
 	}
-}
 
-# Filter for size/count/etc.
-my %tors      = ();
-my $showRegex = undef();
-{
-	my $showClean = $SERIES->{'name'};
-	$showClean =~ s/[\"\']//g;
-	$showClean =~ s/[\W_]+/\[\\W_\].*/g;
-	$showRegex = qr/^${showClean}[\W_]/i;
-}
-
-foreach my $tor (@tors) {
-
-	# Extract the BTIH/GUID, if available
-	getHash($tor);
-
-	# Skip bad TORs based on name/etc.
-	if (badTor($tor)) {
-		next;
-	}
-
-	# Skip files that contain a word from the series exclude list
-	my $exclude = undef();
-	foreach my $ex (keys(%{ $SERIES->{'exclude_hash'} })) {
-		$ex = quotemeta($ex);
-		if ($tor->{'title'} =~ m/${ex}/i) {
-			$exclude = $ex;
-			last;
-		}
-	}
-	if (defined($exclude)) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
-		}
-		next;
-	}
-
-	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
-	if (!$CUSTOM_SEARCH) {
-
-		# Skip files that don't contain the right season number
-		if (!defined($tor->{'season'}) || $tor->{'season'} != $SERIES->{'season'}) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for season number (' . $SERIES->{'season'} . '): ' . $tor->{'title'} . "\n";
-			}
-			next;
-
-			# Skip files that don't contain a needed episode number, unless there is no episode number and no_quality_checks is set
-		} elsif ((defined($tor->{'episode'}) && !$SERIES->{'need_hash'}->{ $tor->{'episode'} })
-			|| (!defined($tor->{'episode'}) && !$SERIES->{'no_quality_checks'}))
-		{
-			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
-			}
-			next;
-		}
-	} elsif (ref($CUSTOM_SEARCH) eq 'Regexp') {
-
-		# Skip files that don't match the regex
-		if (!($tor->{'title'} =~ $CUSTOM_SEARCH)) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for CUSTOM_SEARCH regex (' . $CUSTOM_SEARCH . '): ' . $tor->{'title'} . "\n";
-			}
-			next;
-		}
-	}
-
-	# Ensure the seed/leach count is usable
-	seedCleanup($tor);
-
-	# Only apply the quality rules if no_quality_checks is not in effect
-	if (!$SERIES->{'no_quality_checks'} && lowQualityTor($tor)) {
-		next;
-	}
-
-	# Save good torrents
-	push(@{ $tors{ $tor->{'episode'} } }, $tor);
-	if ($DEBUG) {
-		print STDERR 'Possible URL ('
-		  . $tor->{'seeds'} . '/'
-		  . $tor->{'leaches'}
-		  . ' seeds/leaches, '
-		  . $tor->{'size'}
-		  . ' MiB): '
-		  . $tor->{'title'} . "\n";
-	}
-}
-
-# Find the average torrent size for each episode
-my %size = ();
-{
-	my %max = ();
-	my %avg = ();
-
-	foreach my $episode (keys(%tors)) {
-		my $count = 0;
-		$avg{$episode} = 0.001;
-		$max{$episode} = 0.001;
-		foreach my $tor (@{ $tors{$episode} }) {
-			$count++;
-			$avg{$episode} += $tor->{'size'};
-
-			if ($tor->{'size'} > $max{$episode}) {
-				$max{$episode} = $tor->{'size'};
-			}
-		}
-		if ($count > 0) {
-			$avg{$episode} /= $count;
-		}
-		if (!defined($max{$episode})) {
-			warn("Invalid max episode\n");
-		}
-		if (!defined($avg{$episode})) {
-			warn("Invalid avg episode\n");
-		}
-		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
-
-		if ($DEBUG) {
-			print STDERR 'Episode '
-			  . $episode
-			  . ' max/avg/cmp size: '
-			  . int($max{$episode}) . '/'
-			  . int($avg{$episode}) . '/'
-			  . int($size{$episode})
-			  . " MiB\n";
-		}
-	}
-}
-
-# Calculate an adjusted count based on the peer count, relative file size, and title contents
-foreach my $episode (keys(%tors)) {
-	foreach my $tor (@{ $tors{$episode} }) {
-		my $count = $tor->{'seeds'} + $tor->{'leaches'};
-
-		# Start with the peer count
-		$tor->{'adj_count'} = $count;
-
-		# Adjust based on file size
-		{
-			my $size_ratio = $tor->{'size'} / $size{$episode};
-			if ($tor->{'size'} >= $size{$episode}) {
-				$tor->{'adj_count'} *= $CONFIG{'SIZE_BONUS'} * $size_ratio;
-			} else {
-				$tor->{'adj_count'} *= (1 / $CONFIG{'SIZE_PENALTY'}) * $size_ratio;
-			}
-		}
-
-		# Adjust based on title contents
-		if ($tor->{'title'} =~ /Subtitulado/i) {
-			$tor->{'adj_count'} *= 1 / $CONFIG{'TITLE_PENALTY'};
-		}
-
-		# Truncate to an integer
-		$tor->{'adj_count'} = int($tor->{'adj_count'});
-
-		if ($DEBUG) {
-			print STDERR 'Possible URL (' . $tor->{'adj_count'} . ' size-adjusted sources): ' . $tor->{'url'} . "\n";
-		}
-	}
-}
-
-# Pick the best-adjusted-count torrent for each episode
-my %urls = ();
-foreach my $episode (keys(%tors)) {
-	my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $tors{$episode} };
-	my $max = undef();
-	foreach my $tor (@sorted) {
-		if (!defined($max) || $tor->{'adj_count'} > $max) {
-			if ($urls{$episode} = resolveSecondary($tor)) {
-				if (!$tor->{'hash'} || $CONFIG{'EXCLUDES'}->{ $tor->{'hash'} }) {
-					print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
-					next;
-				}
-				$max = $tor->{'adj_count'};
-			}
-			if ($DEBUG) {
-				print STDERR 'Semi-final URL (adjusted count: ' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
-			}
-		} elsif ($DEBUG) {
-			print STDERR 'Skipping for lesser adjusted count (' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
-		}
-	}
-}
-
-# Output
-foreach my $episode (keys(%tors)) {
-	if (defined($urls{$episode})) {
-		$urls{$episode} = resolveTrackers($urls{$episode});
-		print $urls{$episode} . "\n";
-		if ($CONFIG{'SYSLOG'}) {
-			syslog(LOG_NOTICE, $SERIES->{'name'} . ': ' . getHash($urls{$episode}));
-		}
-		if ($DEBUG) {
-			print STDERR 'Final URL: ' . $urls{$episode} . "\n";
-		}
-	} elsif ($DEBUG) {
-		print STDERR 'No URL for: ' . $episode . "\n";
-	}
-}
-
-# Cleanup
-if ($COOKIES) {
-	unlink($COOKIES);
-}
-if ($SCRIPT) {
-	unlink($SCRIPT);
-}
-if ($CONFIG{'SYSLOG'}) {
-	closelog();
-}
-exit(0);
-
-sub confDefault($;$) {
-	my ($name, $default) = @_;
-	if (!$name) {
-		return;
-	}
-
-	# Enviornment, config file, default, undef()
-	if (defined($ENV{$name})) {
-		$CONFIG{$name} = $ENV{$name};
-	} elsif (!defined($CONFIG{$name})) {
-		if ($default) {
-			$CONFIG{$name} = $default;
-		} else {
-			$CONFIG{$name} = undef();
-		}
-	}
-}
-
-sub readGlobalExcludes($) {
-	my ($file) = @_;
-	my %excludes = ();
-	if (!$file || !-r $file) {
-		warn('No excludes files available' . $file . "\n");
-		return \%excludes;
-	}
-
-	my $fh;
-	open($fh, '<', $file)
-	  or die('Unable to open excludes file: ' . $file . ': ' . $! . "\n");
-	while (<$fh>) {
-
-		# Skip blank lines and comments
-		if (/^\s*$/ || /^\s*#/) {
-			next;
-		}
-
-		# Assume everything else is one BT hash/NZB GUID per line
-		if (/^\s*(\w+)\s*$/) {
-			my $hash = lc($1);
-			if ($DEBUG > 1) {
-				print STDERR 'Excluding hash: ' . $hash . "\n";
-			}
-			$excludes{$hash} = 1;
-		} else {
-			die('Invalid exclude line: ' . $_ . "\n");
-		}
-	}
-	close($fh);
-
-	return \%excludes;
-}
-
-# Find an input directory and read the local config
-sub readInputDir($) {
-	my ($path) = @_;
-	my %series = (
-		'path'                => undef(),
-		'name'                => '',
-		'path_name'           => '',
-		'season'              => 0,
-		'episodes'            => {},
-		'exclude'             => '',
-		'exclude_hash'        => {},
-		'need'                => [],
-		'need_hash'           => {},
-		'season_done'         => 0,
-		'search_name'         => 0,
-		'no_quality_checks'   => 0,
-		'more_number_formats' => 0,
-	);
-
-	# Allow use of the raw series name
-	if (!($path =~ /\//)) {
-		$series{'name'} = $path;
-		$series{'path'} = $CONFIG{'TV_DIR'} . '/' . $path;
-	} else {
-		$series{'path'} = $path;
-	}
-
-	# Allow use of relative paths
-	$series{'path'} = File::Spec->rel2abs($series{'path'});
-
-	# Isolate the season from the path, if provided
-	if ($series{'path'} =~ /\/Season\s+(\d+)\/?$/i) {
-		$series{'season'} = $1;
-		$series{'path'}   = dirname($series{'path'});
-	}
-
-	# Sanity check
-	if ($DEBUG) {
-		print STDERR 'Checking directory: ' . $series{'path'} . "\n";
-	}
-	if (!-d $series{'path'}) {
-		die('Invalid input directory: ' . $series{'path'} . "\n");
-	}
-
-	# Allow the series name to be overriden
-	my $search_name = $series{'path'} . '/search_name';
-	if (-e $search_name) {
-		local ($/, *FH);
-		open(FH, $search_name)
-		  or die('Unable to read search_name for series: ' . $series{'name'} . ': ' . $! . "\n");
-		my $text = <FH>;
-		close(FH);
-		if ($text =~ /^\s*(\S.*\S)\s*$/) {
-			$series{'name'} = $1;
-		} else {
-			warn('Skipping invalid search_name for series: ' . $series{'name'} . ': ' . $text . "\n");
-		}
-	}
-	if ($DEBUG) {
-		print STDERR 'Searching with series title: ' . $series{'name'} . "\n";
-	}
-
-	# Final series name
-	if (!$series{'name'}) {
-		$series{'name'} = basename($series{'path'});
-	}
-	$series{'name'} =~ s/[\'\"\.]//g;
-	$series{'path_name'} = $series{'name'};
-
-	# If no explicit season is provided find the latest
-	if (!$series{'season'}) {
-		opendir(SERIES, $series{'path'})
-		  or die("Unable to open series directory: ${!}\n");
-		while (my $file = readdir(SERIES)) {
-			if ($file =~ /^Season\s+(\d+)$/i) {
-				if (!$series{'season'} || $series{'season'} < $1) {
-					$series{'season'} = $1;
-				}
-			}
-		}
-		closedir(SERIES);
-	}
-
-	# Validate the season number
-	if (!defined($series{'season'}) || $series{'season'} < 1 || $series{'season'} > 2000) {
-		die('Invalid season number: ' . $series{'name'} . ' => ' . $series{'season'} . "\n");
-	}
-
-	# Allow quality checks to be disabled
-	if (-e $series{'path'} . '/no_quality_checks') {
-		$series{'no_quality_checks'} = 1;
-		if ($DEBUG) {
-			print STDERR 'Searching with no quality checks: ' . $series{'name'} . "\n";
-		}
-	}
-
-	# Allow use of more number formats
-	if (-e $series{'path'} . '/more_number_formats') {
-		$series{'more_number_formats'} = 1;
-		if ($DEBUG) {
-			print STDERR 'Searching with more number formats: ' . $series{'name'} . "\n";
-		}
-	}
-
-	# Read the search excludes file, if any
-	if (-e $series{'path'} . '/excludes') {
-		local $/ = undef;
-		open(EX, $series{'path'} . '/excludes')
-		  or die("Unable to open series excludes file: ${!}\n");
-		my $ex = <EX>;
-		close(EX);
-
-		$ex =~ s/^\s+//;
-		$ex =~ s/\s+$//;
-		my @excludes = split(/\s*,\s*/, $ex);
-		foreach my $ex (@excludes) {
-			$series{'excludes_hash'}->{$ex} = 1;
-			if (length($series{'exclude'})) {
-				$series{'exclude'} .= ' ';
-			}
-			$series{'exclude'} .= '-"' . $ex . '"';
-		}
-		$series{'exclude'} = uri_encode(' ' . $series{'exclude'});
-	}
-
-	# Get the last episode number
-	opendir(SEASON, $series{'path'} . '/Season ' . $series{'season'})
-	  or die("Unable to open season directory: ${!}\n");
-	while (my $file = readdir(SEASON)) {
-
-		# Skip support files
-		if ($file =~ /\.(?:png|xml|jpg|gif|tbn|txt|nfo|torrent)\s*$/i) {
-			next;
-		}
-
-		# Check for a season_done file
-		if ($file eq 'season_done') {
-			$series{'season_done'} = 1;
-			next;
-		}
-
-		# Extract the episode number
-		my ($num) = $file =~ /^\s*\.?(\d+)\s*\-\s*/i;
-		if (defined($num)) {
-			$num = int($num);
-			if ($DEBUG) {
-				print STDERR 'Found episode number: ' . $num . ' in file: ' . $file . "\n";
-			}
-
-			# Record it
-			$series{'episodes'}->{$num} = 1;
-		}
-	}
-	close(SEASON);
-
-	# Assume we need any missing episodes, and the next few (unless season_done is set)
-	my $highest = (sort { $b <=> $a } keys(%{ $series{'episodes'} }))[0];
-	for (my $i = 1 ; $i <= $highest ; $i++) {
-		if (!$series{'episodes'}->{$i}) {
-			push(@{ $series{'need'} }, $i);
-		}
-
-	}
-	if (!$series{'season_done'}) {
-		for (my $i = 1 ; $i <= $CONFIG{'NEXT_EPISODES'} ; $i++) {
-			push(@{ $series{'need'} }, $highest + $i);
-		}
-	}
-	if ($DEBUG) {
-		print STDERR 'Needed episodes: ' . join(', ', @{ $series{'need'} }) . "\n";
-	}
-
-	# Reverse the array for later matching
-	foreach my $episode (@{ $series{'need'} }) {
-		$series{'need_hash'}->{$episode} = 1;
-	}
-
-	# Log and return
-	if ($CONFIG{'SYSLOG'}) {
-		syslog(LOG_NOTICE, $series{'name'});
-	}
-	return \%series;
+	return $tor;
 }
 
 sub parseNZB($) {
@@ -1395,7 +1477,7 @@ sub parseNZB($) {
 	my $url = undef();
 	if (exists($item->{'link'}) && $item->{'link'}) {
 		$url = $item->{'link'};
-		$url =~ s/^(https?)\:/${CONFIG{'PROTOCOL'}}\:/;
+		$url =~ s/^(https?)\:/$CONFIG->{'PROTOCOL'}\:/;
 	}
 
 	# Title
@@ -1474,7 +1556,7 @@ sub badTor($) {
 	my ($tor) = @_;
 
 	# Skip files that are in the torrent excludes list
-	if ($tor->{'hash'} && $CONFIG{'EXCLUDES'}->{ $tor->{'hash'} }) {
+	if ($tor->{'hash'} && $CONFIG->{'EXCLUDES'}->{ $tor->{'hash'} }) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
 		}
@@ -1482,9 +1564,9 @@ sub badTor($) {
 	}
 
 	# Skip files that don't start with our show title
-	if (!($tor->{'title'} =~ $showRegex)) {
+	if (!($tor->{'title'} =~ $SERIES->{'name_regex'})) {
 		if ($DEBUG) {
-			print STDERR 'Skipping file: Title does not match (' . $showRegex . '): ' . $tor->{'title'} . "\n";
+			print STDERR 'Skipping file: Title does not match (' . $SERIES->{'name_regex'} . '): ' . $tor->{'title'} . "\n";
 		}
 		return 1;
 
@@ -1563,14 +1645,14 @@ sub seedCleanup($) {
 	if (!exists($tor->{'seeds'}) || !$tor->{'seeds'}) {
 		$tor->{'seeds'} = 0;
 	}
-	if ($tor->{'seeds'} > $CONFIG{'MAX_SEEDS'}) {
-		$tor->{'seeds'} = $CONFIG{'MAX_SEEDS'};
+	if ($tor->{'seeds'} > $CONFIG->{'MAX_SEEDS'}) {
+		$tor->{'seeds'} = $CONFIG->{'MAX_SEEDS'};
 	}
 	if (!exists($tor->{'leaches'}) || !$tor->{'leaches'}) {
 		$tor->{'leaches'} = 0;
 	}
-	if ($tor->{'leaches'} > $CONFIG{'MAX_SEEDS'}) {
-		$tor->{'leaches'} = $CONFIG{'MAX_SEEDS'};
+	if ($tor->{'leaches'} > $CONFIG->{'MAX_SEEDS'}) {
+		$tor->{'leaches'} = $CONFIG->{'MAX_SEEDS'};
 	}
 
 	# Proxy publication date to seeder/leacher quality
@@ -1582,14 +1664,14 @@ sub seedCleanup($) {
 		}
 		$age /= 86400;
 
-		if ($age > $CONFIG{'NZB_AGE_GOOD'}) {
-			$tor->{'seeds'} = $CONFIG{'MIN_COUNT'};
-			if ($age > $CONFIG{'NZB_AGE_MAX'}) {
-				$tor->{'seeds'} = ($CONFIG{'MIN_COUNT'} / 2) - 1;
+		if ($age > $CONFIG->{'NZB_AGE_GOOD'}) {
+			$tor->{'seeds'} = $CONFIG->{'MIN_COUNT'};
+			if ($age > $CONFIG->{'NZB_AGE_MAX'}) {
+				$tor->{'seeds'} = ($CONFIG->{'MIN_COUNT'} / 2) - 1;
 			}
 		} else {
-			my $penalty = ($CONFIG{'MAX_SEEDS'} / 2) / $CONFIG{'NZB_AGE_GOOD'};
-			$tor->{'seeds'} = $CONFIG{'MAX_SEEDS'} - ($age * $penalty);
+			my $penalty = ($CONFIG->{'MAX_SEEDS'} / 2) / $CONFIG->{'NZB_AGE_GOOD'};
+			$tor->{'seeds'} = $CONFIG->{'MAX_SEEDS'} - ($age * $penalty);
 		}
 		$tor->{'seeds'}   = int($tor->{'seeds'});
 		$tor->{'leaches'} = $tor->{'seeds'};
@@ -1600,7 +1682,7 @@ sub lowQualityTor($) {
 	my ($tor) = @_;
 
 	# Skip torrents with too few seeders/leachers
-	if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $CONFIG{'MIN_COUNT'}) {
+	if (($tor->{'seeds'} + $tor->{'leaches'}) * $SOURCES->{ $tor->{'source'} }->{'weight'} < $CONFIG->{'MIN_COUNT'}) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Insufficient seeder/leacher count ('
 			  . $tor->{'seeds'} . '/'
@@ -1611,8 +1693,8 @@ sub lowQualityTor($) {
 
 		# Skip torrents with unusual seed/leach ratios
 	} elsif ($tor->{'seeds'} > 1
-		&& $tor->{'seeds'} < $CONFIG{'SEED_RATIO_COUNT'}
-		&& $tor->{'seeds'} > $tor->{'leaches'} * $CONFIG{'MAX_SEED_RATIO'})
+		&& $tor->{'seeds'} < $CONFIG->{'SEED_RATIO_COUNT'}
+		&& $tor->{'seeds'} > $tor->{'leaches'} * $CONFIG->{'MAX_SEED_RATIO'})
 	{
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Unusual seeder/leacher ratio ('
@@ -1623,7 +1705,7 @@ sub lowQualityTor($) {
 		return 1;
 
 		# Skip torrents that are too small
-	} elsif ($tor->{'size'} < $CONFIG{'MIN_SIZE'}) {
+	} elsif ($tor->{'size'} < $CONFIG->{'MIN_SIZE'}) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Insufficient size (' . $tor->{'size'} . ' MiB): ' . $tor->{'title'} . "\n";
 		}
@@ -1686,7 +1768,7 @@ sub resolveSecondary($) {
 
 	# Extract the hash
 	getHash($tor);
-	if (!$tor->{'hash'} || $CONFIG{'EXCLUDES'}->{ $tor->{'hash'} }) {
+	if (!$tor->{'hash'} || $CONFIG->{'EXCLUDES'}->{ $tor->{'hash'} }) {
 		if ($DEBUG) {
 			print STDERR 'Skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
 		}
@@ -1702,7 +1784,7 @@ sub resolveTrackers($) {
 
 	# Always append a few static trackers to the URI
 	if ($url =~ /^magnet\:/i) {
-		foreach my $tracker (@{ $CONFIG{'TRACKERS'} }) {
+		foreach my $tracker (@{ $CONFIG->{'TRACKERS'} }) {
 			my $arg = '&tr=' . uri_encode($tracker, { 'encode_reserved' => 1 });
 			my $match = quotemeta($arg);
 			if (!($url =~ /${match}/)) {
@@ -1712,7 +1794,7 @@ sub resolveTrackers($) {
 	}
 
 	# Fetch a dynamic tracker list for any hashinfo from TorrentZ
-	if ($CONFIG{'TRACKER_LOOKUP'} && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
+	if ($CONFIG->{'TRACKER_LOOKUP'} && defined($SOURCES->{'Z'}) && $url =~ /^magnet\:/ && $url =~ /\bxt\=urn\:btih\:(\w+)/i) {
 		my $hash    = lc($1);
 		my $baseURL = $SOURCES->{'Z'}->{'protocol'} . '://' . $SOURCES->{'Z'}->{'host'};
 		my $hashURL = $baseURL . '/' . $hash;
@@ -1850,10 +1932,10 @@ sub initSources() {
 	my %sources = ();
 
 	# NZBplanet.net
-	if ($CONFIG{'SOURCES'}->{'PLANET'}) {
+	if ($CONFIG->{'SOURCES'}->{'PLANET'}) {
 		my @proxies = ('api.nzbplanet.net/api');
 		my $source = findProxy(\@proxies, '\bNzbplanet\b');
-		if ($source && exists($CONFIG{'PLANET_APIKEY'}) && $CONFIG{'PLANET_APIKEY'}) {
+		if ($source && exists($CONFIG->{'PLANET_APIKEY'}) && $CONFIG->{'PLANET_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
 			$source->{'quote'}          = 0;
 			$source->{'search_exclude'} = 0;
@@ -1868,7 +1950,7 @@ sub initSources() {
 				  . $season . '&ep='
 				  . $episode
 				  . '&apikey='
-				  . $CONFIG{'PLANET_APIKEY'};
+				  . $CONFIG->{'PLANET_APIKEY'};
 				push(@{$urls}, $url);
 			};
 			$sources{'PLANET'} = $source;
@@ -1876,10 +1958,10 @@ sub initSources() {
 	}
 
 	# NZB.is
-	if ($CONFIG{'SOURCES'}->{'IS'}) {
+	if ($CONFIG->{'SOURCES'}->{'IS'}) {
 		my @proxies = ('nzb.is/api');
 		my $source = findProxy(\@proxies, '\bnzb\.is\b');
-		if ($source && exists($CONFIG{'IS_APIKEY'}) && $CONFIG{'IS_APIKEY'}) {
+		if ($source && exists($CONFIG->{'IS_APIKEY'}) && $CONFIG->{'IS_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
 			$source->{'quote'}          = 0;
 			$source->{'search_exclude'} = 0;
@@ -1894,7 +1976,7 @@ sub initSources() {
 				  . $season . '&ep='
 				  . $episode
 				  . '&apikey='
-				  . $CONFIG{'IS_APIKEY'};
+				  . $CONFIG->{'IS_APIKEY'};
 				push(@{$urls}, $url);
 			};
 			$sources{'IS'} = $source;
@@ -1902,10 +1984,10 @@ sub initSources() {
 	}
 
 	# Usenet Crawler
-	if ($CONFIG{'SOURCES'}->{'UC'}) {
+	if ($CONFIG->{'SOURCES'}->{'UC'}) {
 		my @proxies = ('www.usenet-crawler.com/api');
 		my $source = findProxy(\@proxies, '\busenet-crawler\b');
-		if ($source && exists($CONFIG{'UC_APIKEY'}) && $CONFIG{'UC_APIKEY'}) {
+		if ($source && exists($CONFIG->{'UC_APIKEY'}) && $CONFIG->{'UC_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
 			$source->{'quote'}          = 0;
 			$source->{'search_exclude'} = 0;
@@ -1920,7 +2002,7 @@ sub initSources() {
 				  . $season . '&ep='
 				  . $episode
 				  . '&apikey='
-				  . $CONFIG{'UC_APIKEY'};
+				  . $CONFIG->{'UC_APIKEY'};
 				push(@{$urls}, $url);
 			};
 			$sources{'UC'} = $source;
@@ -1928,10 +2010,10 @@ sub initSources() {
 	}
 
 	# NZB Cat
-	if ($CONFIG{'SOURCES'}->{'NCAT'}) {
+	if ($CONFIG->{'SOURCES'}->{'NCAT'}) {
 		my @proxies = ('nzb.cat/api');
 		my $source = findProxy(\@proxies, '\bforgottenpassword\b');
-		if ($source && exists($CONFIG{'NCAT_APIKEY'}) && $CONFIG{'NCAT_APIKEY'}) {
+		if ($source && exists($CONFIG->{'NCAT_APIKEY'}) && $CONFIG->{'NCAT_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
 			$source->{'quote'}          = 0;
 			$source->{'search_exclude'} = 0;
@@ -1946,7 +2028,7 @@ sub initSources() {
 				  . $season . '&ep='
 				  . $episode
 				  . '&apikey='
-				  . $CONFIG{'NCAT_APIKEY'};
+				  . $CONFIG->{'NCAT_APIKEY'};
 				push(@{$urls}, $url);
 			};
 			$sources{'NCAT'} = $source;
@@ -1954,7 +2036,7 @@ sub initSources() {
 	}
 
 	# The Pirate Bay
-	if ($CONFIG{'SOURCES'}->{'TPB'}) {
+	if ($CONFIG->{'SOURCES'}->{'TPB'}) {
 		my @proxies = ('thepiratebay.org/search/', 'tpb.unblocked.co/search/');
 		my $source = findProxy(\@proxies, '\bPirate Search\b');
 		if ($source) {
@@ -1967,7 +2049,7 @@ sub initSources() {
 	}
 
 	# ISOhunt
-	if ($CONFIG{'SOURCES'}->{'ISO'}) {
+	if ($CONFIG->{'SOURCES'}->{'ISO'}) {
 		my @proxies = ('isohunt.to/torrents/?ihq=', 'isohunters.net/torrents/?ihq=');
 		my $source = findProxy(\@proxies, 'Last\s+\d+\s+files\s+indexed');
 		if ($source) {
@@ -1980,7 +2062,7 @@ sub initSources() {
 	}
 
 	# Kickass
-	if ($CONFIG{'SOURCES'}->{'KICK'}) {
+	if ($CONFIG->{'SOURCES'}->{'KICK'}) {
 		my @proxies = ('kickass.cd/search.php?q=', 'kickass.mx/search.php?q=');
 		my $source = findProxy(\@proxies, '/search.php');
 		if ($source) {
@@ -1993,7 +2075,7 @@ sub initSources() {
 	}
 
 	# Torrentz
-	if ($CONFIG{'SOURCES'}->{'Z'}) {
+	if ($CONFIG->{'SOURCES'}->{'Z'}) {
 		my @proxies = ('torrentz.eu/search?q=', 'torrentz.me/search?q=', 'torrentz.ch/search?q=', 'torrentz.in/search?q=');
 		my $source = findProxy(\@proxies, 'Indexing [\d\,]+ active torrents');
 		if ($source) {
@@ -2002,14 +2084,14 @@ sub initSources() {
 			$source->{'search_exclude'} = 1;
 			$source->{'search_suffix'}  = '';
 			if (!$SERIES->{'no_quality_checks'}) {
-				$source->{'search_suffix'} = '+peer+%3E+' . $CONFIG{'MIN_COUNT'};
+				$source->{'search_suffix'} = '+peer+%3E+' . $CONFIG->{'MIN_COUNT'};
 			}
 			$sources{'Z'} = $source;
 		}
 	}
 
 	# ExtraTorrent
-	if ($CONFIG{'SOURCES'}->{'ET'}) {
+	if ($CONFIG->{'SOURCES'}->{'ET'}) {
 		my @proxies = (
 			'extra.to/search/?search=',    'etmirror.com/search/?search=',
 			'etproxy.com/search/?search=', 'extratorrentlive.com/search/?search='
@@ -2044,7 +2126,7 @@ sub findProxy($$) {
 		my $path;
 		($protocol, $host, $path) = $url =~ /^(?:(https?)\:\/\/)?([^\/]+)(\/.*)?$/i;
 		if (!$protocol) {
-			$protocol = $CONFIG{'PROTOCOL'};
+			$protocol = $CONFIG->{'PROTOCOL'};
 		}
 		if (!$host) {
 			print STDERR 'Could not parse proxy URL: ' . $url . "\n";
@@ -2089,9 +2171,9 @@ sub fetch($;$$) {
 
 	# Random delay
 	if ($DEBUG > 1) {
-		sleep($CONFIG{'SLEEP'} * 0.25);
+		sleep($CONFIG->{'SLEEP'} * 0.25);
 	} else {
-		sleep($CONFIG{'DELAY'} * (rand($CONFIG{'SLEEP'}) + ($CONFIG{'SLEEP'} / 2)));
+		sleep($CONFIG->{'DELAY'} * (rand($CONFIG->{'SLEEP'}) + ($CONFIG->{'SLEEP'} / 2)));
 	}
 
 	# Allow JS processing
@@ -2106,8 +2188,8 @@ sub fetch($;$$) {
 		}
 		$FETCH = Fetch->new(
 			'cookiefile' => $COOKIES,
-			'timeout'    => $CONFIG{'TIMEOUT'},
-			'uas'        => $CONFIG{'UA'}
+			'timeout'    => $CONFIG->{'TIMEOUT'},
+			'uas'        => $CONFIG->{'UA'}
 		);
 	}
 
@@ -2136,12 +2218,12 @@ sub phantomFetch($$) {
 		$SCRIPT = mktemp('/tmp/findTorrent.phantom.XXXXXXXX');
 		open(my $fh, '>', $SCRIPT)
 		  or die('Unable to open PhantomJS script file: ' . $! . "\n");
-		print $fh $CONFIG{'PHANTOM_CONFIG'};
+		print $fh $CONFIG->{'PHANTOM_CONFIG'};
 		close($fh);
 	}
 
 	# Capture STDOUT, drop STDERR
-	my @cmd = ($CONFIG{'PHANTOM_BIN'}, $SCRIPT, $url);
+	my @cmd = ($CONFIG->{'PHANTOM_BIN'}, $SCRIPT, $url);
 	my ($content, undef(), undef()) = capture { system(@cmd); };
 
 	# Debug as requested
