@@ -121,10 +121,10 @@ page.onResourceReceived = function(response) {
 );
 
 # Sanity checks
-if (ref($CONFIG->{'SOURCES'}) ne 'HASH' || !exists($CONFIG->{'SOURCES'}) || scalar(keys(%{ $CONFIG->{'SOURCES'} })) < 1) {
+if (!exists($CONFIG->{'SOURCES'}) || ref($CONFIG->{'SOURCES'}) ne 'HASH' || scalar(keys(%{ $CONFIG->{'SOURCES'} })) < 1) {
 	die("No sources configured\n");
 }
-if (ref($CONFIG->{'TRACKERS'}) ne 'ARRAY' || !exists($CONFIG->{'TRACKERS'}) || scalar(@{ $CONFIG->{'TRACKERS'} }) < 1) {
+if (!exists($CONFIG->{'TRACKERS'}) || ref($CONFIG->{'TRACKERS'}) ne 'ARRAY' || scalar(@{ $CONFIG->{'TRACKERS'} }) < 1) {
 	warn("No trackers configured\n");
 }
 if (!exists($CONFIG->{'NZB_AGE_GOOD'}) || !exists($CONFIG->{'NZB_AGE_MAX'})) {
@@ -143,7 +143,7 @@ $CONFIG->{'EXCLUDES'} = readGlobalExcludes($CONFIG->{'EXCLUDES_FILE'});
 my $URLS    = undef();
 my $CONTENT = undef();
 my $SERIES  = readInputDir($dir);
-my $OUTPUT = undef();
+my $OUTPUT  = undef();
 
 # Setup our sources
 $SOURCES = initSources();
@@ -1208,13 +1208,8 @@ sub parseJSON($) {
 		if ($DEBUG > 1) {
 			print STDERR "Empty JSON array\n";
 		}
-	} elsif (exists($json->{'channel'})
-		&& ref($json->{'channel'}) eq 'HASH'
-		&& exists($json->{'channel'}->{'title'})
-		&& $json->{'channel'}->{'title'} =~ /nzbplanet/i)
-	{
-		print STDERR "Index: NZBplanet\n";
-	} elsif (exists($json->{'channel'})
+	} elsif (ref($json) eq 'HASH'
+		&& exists($json->{'channel'})
 		&& ref($json->{'channel'}) eq 'HASH'
 		&& exists($json->{'channel'}->{'title'})
 		&& $json->{'channel'}->{'title'} =~ /usenet\-crawler/i)
@@ -1223,16 +1218,23 @@ sub parseJSON($) {
 	} elsif (ref($json) eq 'ARRAY'
 		&& scalar(@{$json}) > 0
 		&& ref($json->[0]) eq 'HASH'
-		&& exists($json->[0]->{'guid'}))
+		&& exists($json->[0]->{'guid'})
+		&& exists($json->[0]->{'postdate'}))
 	{
-		print STDERR "Index: NZB.is\n";
-	} elsif (exists($json->{'title'}) && $json->{'title'} =~ /NZBCat/i) {
+		foreach my $item (@{$json}) {
+			my $tmp = parseNZB($item);
+			if ($tmp) {
+				$tmp->{'source'} = 'IS';
+				$tor = $tmp;
+			}
+		}
+	} elsif (ref($json) eq 'HASH' && exists($json->{'title'}) && $json->{'title'} =~ /NZBCat/i) {
 		my $list = $json->{'item'};
 		if (!$list || ref($list) ne 'ARRAY') {
 			if ($DEBUG) {
 				warn("Empty/invalid NCAT list\n");
 			}
-			next;
+			return undef();
 		}
 
 		foreach my $item (@{$list}) {
@@ -1252,7 +1254,7 @@ sub parseJSON($) {
 			if ($DEBUG) {
 				print STDERR "Empty/invalid NZB Planet result\n";
 			}
-			next;
+			return undef();
 		}
 		foreach my $item (@{ $json->{'channel'}->{'item'} }) {
 			my $tmp = parseNZB($item);
@@ -1292,11 +1294,20 @@ sub parseNZB($) {
 	if (exists($item->{'link'}) && $item->{'link'}) {
 		$url = $item->{'link'};
 		$url =~ s/^(https?)\:/$CONFIG->{'PROTOCOL'}\:/;
+	} else {
+
+		# Special case for IS, which leaks very little in its JSON results
+		# Whatever consumes this will need to follow a 302 redirect
+		$url = $SOURCES->{'IS'}->{'search_url'} . '?t=get&id=' . $id;
 	}
 
 	# Title
 	my $title = undef();
-	if (exists($item->{'title'}) && $item->{'title'}) {
+	if (exists($item->{'searchname'}) && $item->{'searchname'}) {
+		$title = $item->{'searchname'};
+	} elsif (exists($item->{'name'}) && $item->{'name'}) {
+		$title = $item->{'name'};
+	} elsif (exists($item->{'title'}) && $item->{'title'}) {
 		$title = $item->{'title'};
 	} elsif (exists($item->{'description'}) && $item->{'description'}) {
 		$title = $item->{'description'};
@@ -1313,7 +1324,7 @@ sub parseNZB($) {
 	if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
 		foreach my $hash (@{ $item->{'newznab:attr'} }) {
 			if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size') {
-				$size = int($hash->{'_value'}) / 1024;
+				$size = int($hash->{'_value'} / 1024);
 				last;
 			}
 		}
@@ -1324,16 +1335,20 @@ sub parseNZB($) {
 			}
 			$hash = $hash->{'@attributes'};
 			if (exists($hash->{'name'}) && $hash->{'name'} eq 'size' && exists($hash->{'value'})) {
-				$size = int($hash->{'value'}) / 1024;
+				$size = int($hash->{'value'} / 1024);
 				last;
 			}
 		}
+	} elsif (exists($item->{'size'})) {
+		$size = int($item->{'size'} / 1024);
 	}
 
 	# Date
 	my $date = undef();
 	if (exists($item->{'pubDate'}) && $item->{'pubDate'}) {
 		$date = str2time($item->{'pubDate'});
+	} elsif (exists($item->{'postdate'}) && $item->{'postdate'}) {
+		$date = str2time($item->{'postdate'});
 	}
 
 	# Sanity checks
@@ -1357,6 +1372,7 @@ sub parseNZB($) {
 	# Save the extracted data
 	my %tor = (
 		'title'   => $title,
+		'hash'    => $id,
 		'season'  => $season,
 		'episode' => $episode,
 		'date'    => $date,
@@ -1544,6 +1560,9 @@ sub getHash($) {
 
 	# Allow either a URL or a tor hashref
 	if (ref($tor) eq 'HASH') {
+		if ($tor->{'hash'}) {
+			return $tor->{'hash'};
+		}
 		$url = $tor->{'url'};
 	} else {
 		$url = $tor;
@@ -1555,6 +1574,8 @@ sub getHash($) {
 	if ($url =~ /\bxt\=urn\:btih\:(\w+)/i) {
 		$hash = lc($1);
 	} elsif ($url =~ /\/getnzb\/(\w+)\.nzb\&/i) {
+		$hash = lc($1);
+	} elsif ($url =~ /\bt=get\b/i && $url =~ /\bid=(\w+)/) {
 		$hash = lc($1);
 	}
 
@@ -1828,7 +1849,7 @@ sub resolveTrackers($) {
 
 # Pick the best-adjusted-count torrent for each episode
 sub chooseTORs() {
-	my %urls = ();
+	my %urls   = ();
 	my @output = ();
 
 	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
@@ -1867,7 +1888,7 @@ sub chooseTORs() {
 			print STDERR 'No URL for: ' . $episode . "\n";
 		}
 	}
-	
+
 	return \@output;
 }
 
