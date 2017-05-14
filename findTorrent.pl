@@ -1372,7 +1372,6 @@ sub parseNZB($) {
 	# Save the extracted data
 	my %tor = (
 		'title'   => $title,
-		'hash'    => $id,
 		'season'  => $season,
 		'episode' => $episode,
 		'date'    => $date,
