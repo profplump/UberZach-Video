@@ -33,8 +33,11 @@ sub badTor($);
 sub seedCleanup($);
 sub lowQualityTor($);
 sub getHash($);
+sub checkTORs();
+sub checkSize();
 sub resolveSecondary($);
 sub resolveTrackers($);
+sub chooseTORs();
 sub splitTags($$$$);
 sub findSE($);
 sub initSources();
@@ -117,27 +120,6 @@ page.onResourceReceived = function(response) {
 };"
 );
 
-# Re-parse a few config items
-if (exists($CONFIG->{'TRACKERS'})) {
-	my @trackers = ();
-	foreach my $tracker (split(/\s*,\s*/, $CONFIG->{'TRACKERS'})) {
-		$tracker =~ s/^\s+//;
-		$tracker =~ s/\s+$//;
-		push(@trackers, $tracker);
-	}
-	$CONFIG->{'TRACKERS'} = \@trackers;
-}
-if (exists($CONFIG->{'SOURCES'})) {
-	my %sources = ();
-	foreach my $source (split(/\s*,\s*/, $CONFIG->{'SOURCES'})) {
-		$source =~ s/^\s+//;
-		$source =~ s/\s+$//;
-		$source = uc($source);
-		$sources{$source} = 1;
-	}
-	$CONFIG->{'SOURCES'} = \%sources;
-}
-
 # Sanity checks
 if (ref($CONFIG->{'SOURCES'}) ne 'HASH' || !exists($CONFIG->{'SOURCES'}) || scalar(keys(%{ $CONFIG->{'SOURCES'} })) < 1) {
 	die("No sources configured\n");
@@ -161,6 +143,7 @@ $CONFIG->{'EXCLUDES'} = readGlobalExcludes($CONFIG->{'EXCLUDES_FILE'});
 my $URLS    = undef();
 my $CONTENT = undef();
 my $SERIES  = readInputDir($dir);
+my $OUTPUT = undef();
 
 # Setup our sources
 $SOURCES = initSources();
@@ -178,6 +161,7 @@ if (!defined($URLS) || ref($URLS) ne 'ARRAY' || scalar(@{$URLS}) < 1) {
 	die("No search URLs\n");
 }
 
+# Execute searches
 $CONTENT = fetchURLs($URLS);
 for (my $i = 0 ; $i < scalar(@{$CONTENT}) ; $i++) {
 	if ($CONTENT->[$i] =~ /^\s*[\{\[]/) {
@@ -193,203 +177,12 @@ for (my $i = 0 ; $i < scalar(@{$CONTENT}) ; $i++) {
 	}
 }
 
-# Filter for size/count/etc.
-if (!$SERIES->{'name_regex'}) {
-	my $clean = $SERIES->{'name'};
-	$clean =~ s/[\"\']//g;
-	$clean =~ s/[\W_]+/\[\\W_\].*/g;
-	$SERIES->{'name_regex'} = qr/^${clean}[\W_]/i;
-}
-
-foreach my $tor (@{ $SERIES->{'tors'} }) {
-
-	# Extract the BTIH/GUID, if available
-	getHash($tor);
-
-	# Skip bad TORs based on name/etc.
-	if (badTor($tor)) {
-		next;
-	}
-
-	# Skip files that contain a word from the series exclude list
-	my $exclude = undef();
-	foreach my $ex (keys(%{ $SERIES->{'exclude_hash'} })) {
-		$ex = quotemeta($ex);
-		if ($tor->{'title'} =~ m/${ex}/i) {
-			$exclude = $ex;
-			last;
-		}
-	}
-	if (defined($exclude)) {
-		if ($DEBUG) {
-			print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
-		}
-		next;
-	}
-
-	# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
-	if (!$CONFIG->{'CUSTOM_SEARCH'}) {
-
-		# Skip files that don't contain the right season number
-		if (!defined($tor->{'season'}) || $tor->{'season'} != $SERIES->{'season'}) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for season number (' . $SERIES->{'season'} . '): ' . $tor->{'title'} . "\n";
-			}
-			next;
-
-			# Skip files that don't contain a needed episode number, unless there is no episode number and no_quality_checks is set
-		} elsif ((defined($tor->{'episode'}) && !$SERIES->{'need_hash'}->{ $tor->{'episode'} })
-			|| (!defined($tor->{'episode'}) && !$SERIES->{'no_quality_checks'}))
-		{
-			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for episode number (' . $tor->{'episode'} . '): ' . $tor->{'title'} . "\n";
-			}
-			next;
-		}
-	} elsif (ref($CONFIG->{'CUSTOM_SEARCH'}) eq 'Regexp') {
-
-		# Skip files that don't match the regex
-		if (!($tor->{'title'} =~ $CONFIG->{'CUSTOM_SEARCH'})) {
-			if ($DEBUG) {
-				print STDERR 'Skipping file: No match for CUSTOM_SEARCH regex ('
-				  . $CONFIG->{'CUSTOM_SEARCH'} . '): '
-				  . $tor->{'title'} . "\n";
-			}
-			next;
-		}
-	}
-
-	# Ensure the seed/leach count is usable
-	seedCleanup($tor);
-
-	# Only apply the quality rules if no_quality_checks is not in effect
-	if (!$SERIES->{'no_quality_checks'} && lowQualityTor($tor)) {
-		next;
-	}
-
-	# Save good torrents
-	push(@{ $SERIES->{'tors_hash'}->{ $tor->{'episode'} } }, $tor);
-	if ($DEBUG) {
-		print STDERR 'Possible URL ('
-		  . $tor->{'seeds'} . '/'
-		  . $tor->{'leaches'}
-		  . ' seeds/leaches, '
-		  . $tor->{'size'}
-		  . ' MiB): '
-		  . $tor->{'title'} . "\n";
-	}
-}
-
-# Find the average torrent size for each episode
-my %size = ();
-{
-	my %max = ();
-	my %avg = ();
-
-	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
-		my $count = 0;
-		$avg{$episode} = 0.001;
-		$max{$episode} = 0.001;
-		foreach my $tor (@{ $SERIES->{'tors_hash'}->{$episode} }) {
-			$count++;
-			$avg{$episode} += $tor->{'size'};
-
-			if ($tor->{'size'} > $max{$episode}) {
-				$max{$episode} = $tor->{'size'};
-			}
-		}
-		if ($count > 0) {
-			$avg{$episode} /= $count;
-		}
-		if (!defined($max{$episode})) {
-			warn("Invalid max episode\n");
-		}
-		if (!defined($avg{$episode})) {
-			warn("Invalid avg episode\n");
-		}
-		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
-
-		if ($DEBUG) {
-			print STDERR 'Episode '
-			  . $episode
-			  . ' max/avg/cmp size: '
-			  . int($max{$episode}) . '/'
-			  . int($avg{$episode}) . '/'
-			  . int($size{$episode})
-			  . " MiB\n";
-		}
-	}
-}
-
-# Calculate an adjusted count based on the peer count, relative file size, and title contents
-foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
-	foreach my $tor (@{ $SERIES->{'tors_hash'}->{$episode} }) {
-		my $count = $tor->{'seeds'} + $tor->{'leaches'};
-
-		# Start with the peer count
-		$tor->{'adj_count'} = $count;
-
-		# Adjust based on file size
-		{
-			my $size_ratio = $tor->{'size'} / $size{$episode};
-			if ($tor->{'size'} >= $size{$episode}) {
-				$tor->{'adj_count'} *= $CONFIG->{'SIZE_BONUS'} * $size_ratio;
-			} else {
-				$tor->{'adj_count'} *= (1 / $CONFIG->{'SIZE_PENALTY'}) * $size_ratio;
-			}
-		}
-
-		# Adjust based on title contents
-		if ($tor->{'title'} =~ /Subtitulado/i) {
-			$tor->{'adj_count'} *= 1 / $CONFIG->{'TITLE_PENALTY'};
-		}
-
-		# Truncate to an integer
-		$tor->{'adj_count'} = int($tor->{'adj_count'});
-
-		if ($DEBUG) {
-			print STDERR 'Possible URL (' . $tor->{'adj_count'} . ' size-adjusted sources): ' . $tor->{'url'} . "\n";
-		}
-	}
-}
-
-# Pick the best-adjusted-count torrent for each episode
-my %urls = ();
-foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
-	my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $SERIES->{'tors_hash'}->{$episode} };
-	my $max = undef();
-	foreach my $tor (@sorted) {
-		if (!defined($max) || $tor->{'adj_count'} > $max) {
-			if ($urls{$episode} = resolveSecondary($tor)) {
-				if (!$tor->{'hash'} || $CONFIG->{'EXCLUDES'}->{ $tor->{'hash'} }) {
-					print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
-					next;
-				}
-				$max = $tor->{'adj_count'};
-			}
-			if ($DEBUG) {
-				print STDERR 'Semi-final URL (adjusted count: ' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
-			}
-		} elsif ($DEBUG) {
-			print STDERR 'Skipping for lesser adjusted count (' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
-		}
-	}
-}
-
-# Output
-foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
-	if (defined($urls{$episode})) {
-		$urls{$episode} = resolveTrackers($urls{$episode});
-		print $urls{$episode} . "\n";
-		if ($CONFIG->{'SYSLOG'}) {
-			syslog(LOG_NOTICE, $SERIES->{'name'} . ': ' . getHash($urls{$episode}));
-		}
-		if ($DEBUG) {
-			print STDERR 'Final URL: ' . $urls{$episode} . "\n";
-		}
-	} elsif ($DEBUG) {
-		print STDERR 'No URL for: ' . $episode . "\n";
-	}
+# Find the best source for each result set
+checkTORs();
+checkSize();
+$OUTPUT = chooseTORs();
+foreach my $url (@{$OUTPUT}) {
+	print $url . "\n";
 }
 
 # Cleanup
@@ -444,6 +237,27 @@ sub readConfig($) {
 		}
 	}
 	close($fh);
+
+	# Re-parse a few config items
+	if (exists($config{'TRACKERS'})) {
+		my @trackers = ();
+		foreach my $tracker (split(/\s*,\s*/, $config{'TRACKERS'})) {
+			$tracker =~ s/^\s+//;
+			$tracker =~ s/\s+$//;
+			push(@trackers, $tracker);
+		}
+		$config{'TRACKERS'} = \@trackers;
+	}
+	if (exists($config{'SOURCES'})) {
+		my %sources = ();
+		foreach my $source (split(/\s*,\s*/, $config{'SOURCES'})) {
+			$source =~ s/^\s+//;
+			$source =~ s/\s+$//;
+			$source = uc($source);
+			$sources{$source} = 1;
+		}
+		$config{'SOURCES'} = \%sources;
+	}
 
 	return \%config;
 }
@@ -1555,6 +1369,14 @@ sub parseNZB($) {
 sub badTor($) {
 	my ($tor) = @_;
 
+	# Pre-calculate the regex
+	if (!$SERIES->{'name_regex'}) {
+		my $clean = $SERIES->{'name'};
+		$clean =~ s/[\"\']//g;
+		$clean =~ s/[\W_]+/\[\\W_\].*/g;
+		$SERIES->{'name_regex'} = qr/^${clean}[\W_]/i;
+	}
+
 	# Skip files that are in the torrent excludes list
 	if ($tor->{'hash'} && $CONFIG->{'EXCLUDES'}->{ $tor->{'hash'} }) {
 		if ($DEBUG) {
@@ -1745,6 +1567,165 @@ sub getHash($) {
 	return $hash;
 }
 
+# Save plausible results
+sub checkTORs() {
+	foreach my $tor (@{ $SERIES->{'tors'} }) {
+
+		# Extract the BTIH/GUID, if available
+		getHash($tor);
+
+		# Skip bad TORs based on name/etc.
+		if (badTor($tor)) {
+			next;
+		}
+
+		# Skip files that contain a word from the series exclude list
+		my $exclude = undef();
+		foreach my $ex (keys(%{ $SERIES->{'exclude_hash'} })) {
+			$ex = quotemeta($ex);
+			if ($tor->{'title'} =~ m/${ex}/i) {
+				$exclude = $ex;
+				last;
+			}
+		}
+		if (defined($exclude)) {
+			if ($DEBUG) {
+				print STDERR 'Skipping file: Title contains "' . $exclude . '": ' . $tor->{'title'} . "\n";
+			}
+			next;
+		}
+
+		# Enforce season and episode number matches for standard searches, or CUSTOM_SEARCH matching (if it's a regex)
+		if (!$CONFIG->{'CUSTOM_SEARCH'}) {
+
+			# Skip files that don't contain the right season number
+			if (!defined($tor->{'season'}) || $tor->{'season'} != $SERIES->{'season'}) {
+				if ($DEBUG) {
+					print STDERR 'Skipping file: No match for season number ('
+					  . $SERIES->{'season'} . '): '
+					  . $tor->{'title'} . "\n";
+				}
+				next;
+
+			 # Skip files that don't contain a needed episode number, unless there is no episode number and no_quality_checks is set
+			} elsif ((defined($tor->{'episode'}) && !$SERIES->{'need_hash'}->{ $tor->{'episode'} })
+				|| (!defined($tor->{'episode'}) && !$SERIES->{'no_quality_checks'}))
+			{
+				if ($DEBUG) {
+					print STDERR 'Skipping file: No match for episode number ('
+					  . $tor->{'episode'} . '): '
+					  . $tor->{'title'} . "\n";
+				}
+				next;
+			}
+		} elsif (ref($CONFIG->{'CUSTOM_SEARCH'}) eq 'Regexp') {
+
+			# Skip files that don't match the regex
+			if (!($tor->{'title'} =~ $CONFIG->{'CUSTOM_SEARCH'})) {
+				if ($DEBUG) {
+					print STDERR 'Skipping file: No match for CUSTOM_SEARCH regex ('
+					  . $CONFIG->{'CUSTOM_SEARCH'} . '): '
+					  . $tor->{'title'} . "\n";
+				}
+				next;
+			}
+		}
+
+		# Ensure the seed/leach count is usable
+		seedCleanup($tor);
+
+		# Only apply the quality rules if no_quality_checks is not in effect
+		if (!$SERIES->{'no_quality_checks'} && lowQualityTor($tor)) {
+			next;
+		}
+
+		# Save good torrents
+		push(@{ $SERIES->{'tors_hash'}->{ $tor->{'episode'} } }, $tor);
+		if ($DEBUG) {
+			print STDERR 'Possible URL ('
+			  . $tor->{'seeds'} . '/'
+			  . $tor->{'leaches'}
+			  . ' seeds/leaches, '
+			  . $tor->{'size'}
+			  . ' MiB): '
+			  . $tor->{'title'} . "\n";
+		}
+	}
+}
+
+# Find the average size and adjust the availablilty counts for easily comparison
+sub checkSize() {
+	my %size = ();
+	my %max  = ();
+	my %avg  = ();
+
+	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+		my $count = 0;
+		$avg{$episode} = 0.001;
+		$max{$episode} = 0.001;
+		foreach my $tor (@{ $SERIES->{'tors_hash'}->{$episode} }) {
+			$count++;
+			$avg{$episode} += $tor->{'size'};
+
+			if ($tor->{'size'} > $max{$episode}) {
+				$max{$episode} = $tor->{'size'};
+			}
+		}
+		if ($count > 0) {
+			$avg{$episode} /= $count;
+		}
+		if (!defined($max{$episode})) {
+			warn("Invalid max episode\n");
+		}
+		if (!defined($avg{$episode})) {
+			warn("Invalid avg episode\n");
+		}
+		$size{$episode} = ($max{$episode} + $avg{$episode}) / 2;
+
+		if ($DEBUG) {
+			print STDERR 'Episode '
+			  . $episode
+			  . ' max/avg/cmp size: '
+			  . int($max{$episode}) . '/'
+			  . int($avg{$episode}) . '/'
+			  . int($size{$episode})
+			  . " MiB\n";
+		}
+	}
+
+	# Calculate an adjusted count based on the peer count, relative file size, and title contents
+	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+		foreach my $tor (@{ $SERIES->{'tors_hash'}->{$episode} }) {
+			my $count = $tor->{'seeds'} + $tor->{'leaches'};
+
+			# Start with the peer count
+			$tor->{'adj_count'} = $count;
+
+			# Adjust based on file size
+			{
+				my $size_ratio = $tor->{'size'} / $size{$episode};
+				if ($tor->{'size'} >= $size{$episode}) {
+					$tor->{'adj_count'} *= $CONFIG->{'SIZE_BONUS'} * $size_ratio;
+				} else {
+					$tor->{'adj_count'} *= (1 / $CONFIG->{'SIZE_PENALTY'}) * $size_ratio;
+				}
+			}
+
+			# Adjust based on title contents
+			if ($tor->{'title'} =~ /Subtitulado/i) {
+				$tor->{'adj_count'} *= 1 / $CONFIG->{'TITLE_PENALTY'};
+			}
+
+			# Truncate to an integer
+			$tor->{'adj_count'} = int($tor->{'adj_count'});
+
+			if ($DEBUG) {
+				print STDERR 'Possible URL (' . $tor->{'adj_count'} . ' size-adjusted sources): ' . $tor->{'url'} . "\n";
+			}
+		}
+	}
+}
+
 # Resolve secondary URLs
 sub resolveSecondary($) {
 	my ($tor) = @_;
@@ -1843,6 +1824,51 @@ sub resolveTrackers($) {
 
 	return $url;
 
+}
+
+# Pick the best-adjusted-count torrent for each episode
+sub chooseTORs() {
+	my %urls = ();
+	my @output = ();
+
+	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+		my @sorted = sort { $b->{'adj_count'} <=> $a->{'adj_count'} } @{ $SERIES->{'tors_hash'}->{$episode} };
+		my $max = undef();
+		foreach my $tor (@sorted) {
+			if (!defined($max) || $tor->{'adj_count'} > $max) {
+				if ($urls{$episode} = resolveSecondary($tor)) {
+					if (!$tor->{'hash'} || $CONFIG->{'EXCLUDES'}->{ $tor->{'hash'} }) {
+						print STDERR 'Double-skipping file: Excluded hash (' . $tor->{'hash'} . '): ' . $tor->{'title'} . "\n";
+						next;
+					}
+					$max = $tor->{'adj_count'};
+				}
+				if ($DEBUG) {
+					print STDERR 'Semi-final URL (adjusted count: ' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
+				}
+			} elsif ($DEBUG) {
+				print STDERR 'Skipping for lesser adjusted count (' . $tor->{'adj_count'} . '): ' . $tor->{'url'} . "\n";
+			}
+		}
+	}
+
+	# Output
+	foreach my $episode (keys(%{ $SERIES->{'tors_hash'} })) {
+		if (defined($urls{$episode})) {
+			$urls{$episode} = resolveTrackers($urls{$episode});
+			push(@output, $urls{$episode});
+			if ($CONFIG->{'SYSLOG'}) {
+				syslog(LOG_NOTICE, $SERIES->{'name'} . ': ' . getHash($urls{$episode}));
+			}
+			if ($DEBUG) {
+				print STDERR 'Final URL: ' . $urls{$episode} . "\n";
+			}
+		} elsif ($DEBUG) {
+			print STDERR 'No URL for: ' . $episode . "\n";
+		}
+	}
+	
+	return \@output;
 }
 
 sub splitTags($$$$) {
