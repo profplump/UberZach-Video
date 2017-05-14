@@ -1178,6 +1178,10 @@ sub parseHTML($) {
 		if ($DEBUG) {
 			print STDERR "Source request limit reached\n";
 		}
+	} elsif ($content =~ /\(wrong\s+API\s+key\)/i) {
+		if ($DEBUG) {
+			print STDERR "IS API failure\n";
+		}
 	} elsif ($content =~ /Not\s+Found\<\/title\>/i) {
 		if ($DEBUG) {
 			print STDERR "No results\n";
