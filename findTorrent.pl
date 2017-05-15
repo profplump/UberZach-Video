@@ -1328,7 +1328,7 @@ sub parseNZB($) {
 	if (exists($item->{'newznab:attr'}) && $item->{'newznab:attr'} && ref($item->{'newznab:attr'}) eq 'ARRAY') {
 		foreach my $hash (@{ $item->{'newznab:attr'} }) {
 			if (ref($hash) eq 'HASH' && exists($hash->{'_name'}) && exists($hash->{'_value'}) && $hash->{'_name'} eq 'size') {
-				$size = int($hash->{'_value'} / 1024);
+				$size = int($hash->{'_value'} / 1024 / 1024);
 				last;
 			}
 		}
@@ -1339,12 +1339,12 @@ sub parseNZB($) {
 			}
 			$hash = $hash->{'@attributes'};
 			if (exists($hash->{'name'}) && $hash->{'name'} eq 'size' && exists($hash->{'value'})) {
-				$size = int($hash->{'value'} / 1024);
+				$size = int($hash->{'value'} / 1024 / 1024);
 				last;
 			}
 		}
 	} elsif (exists($item->{'size'})) {
-		$size = int($item->{'size'} / 1024);
+		$size = int($item->{'size'} / 1024 / 1024);
 	}
 
 	# Date
