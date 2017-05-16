@@ -482,7 +482,7 @@ sub readInputDir($) {
 
 	# Assume we need any missing episodes, and the next few (unless season_done is set)
 	my $highest = 0;
-	if (scalar(keys(%{ $series{'episodes'}))) {
+	if (scalar(keys(%{ $series{'episodes' }}))) {
 		$highest = (sort { $b <=> $a } keys(%{ $series{'episodes'} }))[0];
 	}
 	for (my $i = 1 ; $i <= $highest ; $i++) {
