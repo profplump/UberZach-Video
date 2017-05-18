@@ -1503,7 +1503,7 @@ sub seedCleanup($) {
 	if ($tor->{'date'} && !$tor->{'seeds'}) {
 		my $age = time() - $tor->{'date'};
 		if ($age < 0) {
-			warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'name'} . "\n");
+			warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'title'} . "\n");
 			$age = 0;
 		}
 		$age /= 86400;
