@@ -401,7 +401,7 @@ sub readInputDir($) {
 	}
 
 	# Validate the season number
-	if (!defined($series{'season'}) || $series{'season'} < 1 || $series{'season'} > 2000) {
+	if (!defined($series{'season'}) || $series{'season'} < 1) {
 		die('Invalid season number: ' . $series{'name'} . ' => ' . $series{'season'} . "\n");
 	}
 
