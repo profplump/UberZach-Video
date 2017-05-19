@@ -87,6 +87,8 @@ confDefault('MAX_DAYS_BACK',    3);
 confDefault('SYSLOG',           1);
 confDefault('CUSTOM_SEARCH',    0);
 confDefault('MIN_COUNT',        10);
+confDefault('NZB_AGE_GOOD',     14);
+confDefault('NZB_AGE_MAX',      180);
 confDefault('MIN_SIZE',         100);
 confDefault('SIZE_BONUS',       5);
 confDefault('SIZE_PENALTY',     $CONFIG->{'SIZE_BONUS'});
@@ -126,9 +128,6 @@ if (!exists($CONFIG->{'SOURCES'}) || ref($CONFIG->{'SOURCES'}) ne 'HASH' || scal
 }
 if (!exists($CONFIG->{'TRACKERS'}) || ref($CONFIG->{'TRACKERS'}) ne 'ARRAY' || scalar(@{ $CONFIG->{'TRACKERS'} }) < 1) {
 	warn("No trackers configured\n");
-}
-if (!exists($CONFIG->{'NZB_AGE_GOOD'}) || !exists($CONFIG->{'NZB_AGE_MAX'})) {
-	warn("No NZB good/max age provided\n");
 }
 
 # Open the log if enabled
@@ -272,7 +271,7 @@ sub confDefault($;$) {
 	if (defined($ENV{$name})) {
 		$CONFIG->{$name} = $ENV{$name};
 	} elsif (!defined($CONFIG->{$name})) {
-		if ($default) {
+		if (defined($default)) {
 			$CONFIG->{$name} = $default;
 		} else {
 			$CONFIG->{$name} = undef();
