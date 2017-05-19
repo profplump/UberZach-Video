@@ -641,7 +641,9 @@ sub save() {
 	# Bail on bad HTTP result codes (if we're checking)
 	if (!$params{'nocheck'}) {
 		if ($self->Fetch::status_code() != 200) {
-			print STDERR "Fetch::save: Refusing to save file with bad status code\n";
+			if ($DEBUG) {
+				print STDERR "Fetch::save: Refusing to save file with bad status code\n";
+			}
 			return 1;
 		}
 	}
