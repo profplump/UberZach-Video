@@ -48,7 +48,7 @@ if [ -n "${TRANS_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; t
 	fi
 
 # Use NZBGet if the URL is an NZB file
-elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '/getnzb/'; then
+elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '\/(getnzb\/|api\?t\=get\&id\=)'; then
 	if curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" | grep -q 'version'; then
 		IFS=$'\n'
 		SLEEP=0
@@ -80,12 +80,6 @@ if ! echo "${URLS}" | head -n 1 | grep -Eqi '^http'; then
 	fi
 fi
 
-# Download
-cd "${DEST}"
-wget --quiet \
-	--connect-timeout "${TIMEOUT}" \
-	--wait "${DELAY}" --random-wait \
-	"--user-agent=${AGENT}" \
-	--continue \
-	--no-check-certificate \
-	--input-file -
+# Failure
+echo "Cannot fetch: ${URLS}" 1>&2
+exit 1
