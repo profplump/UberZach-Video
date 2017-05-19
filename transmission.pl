@@ -174,7 +174,7 @@ if (available($CONFIG{'TRANS_URL'})) {
 			#}
 
 			# Delete failed NZBs
-			if ($nzb->{'status'} =~ /FAILURE\/(?:HEALTH|PAR|UNPACK|FETCH|SCAN)/) {
+			if ($nzb->{'status'} =~ /FAILURE\/(?:HEALTH|PAR|UNPACK|FETCH|SCAN)/ || $nzb->{'status'} eq 'DELETED/MANUAL') {
 				delNZB($nzb);
 				next;
 			}
