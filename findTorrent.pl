@@ -157,7 +157,7 @@ if (!$URLS) {
 	$URLS = stdSearch();
 }
 if (!defined($URLS) || ref($URLS) ne 'ARRAY' || scalar(@{$URLS}) < 1) {
-	die("No search URLs\n");
+	die('No search URLs: ' . $SERIES->{'name'} . "\n");
 }
 
 # Execute searches
