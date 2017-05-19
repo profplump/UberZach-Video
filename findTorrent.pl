@@ -352,14 +352,6 @@ sub readInputDir($) {
 		$series{'path'}   = dirname($series{'path'});
 	}
 
-	# Sanity check
-	if ($DEBUG) {
-		print STDERR 'Checking directory: ' . $series{'path'} . "\n";
-	}
-	if (!-d $series{'path'}) {
-		die('Invalid input directory: ' . $series{'path'} . "\n");
-	}
-
 	# Allow the series name to be overriden
 	my $search_name = $series{'path'} . '/search_name';
 	if (-e $search_name) {
@@ -374,9 +366,6 @@ sub readInputDir($) {
 			warn('Skipping invalid search_name for series: ' . $series{'name'} . ': ' . $text . "\n");
 		}
 	}
-	if ($DEBUG) {
-		print STDERR 'Searching with series title: ' . $series{'name'} . "\n";
-	}
 
 	# Final series name
 	if (!$series{'name'}) {
@@ -384,6 +373,20 @@ sub readInputDir($) {
 	}
 	$series{'name'} =~ s/[\'\"\.]//g;
 	$series{'path_name'} = $series{'name'};
+	if ($DEBUG) {
+		print STDERR 'Searching with series title: ' . $series{'name'} . "\n";
+	}
+
+	# Sanity check
+	if ($DEBUG) {
+		print STDERR 'Checking directory: ' . $series{'path'} . "\n";
+	}
+	if (!defined($series{'name'}) || $series{'name'} eq '') {
+		die('Invalid series name: ' . $series{'path'} . "\n");
+	}
+	if (!-d $series{'path'}) {
+		die('Invalid input directory: ' . $series{'path'} . "\n");
+	}
 
 	# If no explicit season is provided find the latest
 	if (!$series{'season'}) {
