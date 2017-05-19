@@ -2013,7 +2013,7 @@ sub initSources() {
 
 	# NZB.is
 	if ($CONFIG->{'SOURCES'}->{'IS'}) {
-		my @proxies = ('nzb.is/api');
+		my @proxies = ('http://nzb.is/api');
 		my $source = findProxy(\@proxies, '\bnzb\.is\b');
 		if ($source && exists($CONFIG->{'IS_APIKEY'}) && $CONFIG->{'IS_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
