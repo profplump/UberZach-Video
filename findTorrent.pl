@@ -164,14 +164,14 @@ if (!defined($URLS) || ref($URLS) ne 'ARRAY' || scalar(@{$URLS}) < 1) {
 $CONTENT = fetchURLs($URLS);
 for (my $i = 0 ; $i < scalar(@{$CONTENT}) ; $i++) {
 	if ($CONTENT->[$i] =~ /^\s*[\{\[]/) {
-		my $tor = parseJSON($CONTENT->[$i]);
-		if ($tor) {
-			push(@{ $SERIES->{'tors'} }, $tor);
+		my $tors = parseJSON($CONTENT->[$i]);
+		if (defined($tors) && ref($tors) eq 'ARRAY') {
+			push(@{ $SERIES->{'tors'} }, @{ $tors });
 		}
 	} else {
-		my $tor = parseHTML($CONTENT->[$i]);
-		if ($tor) {
-			push(@{ $SERIES->{'tors'} }, $tor);
+		my $tors = parseHTML($CONTENT->[$i]);
+		if (defined($tors) && ref($tors) eq 'ARRAY') {
+			push(@{ $SERIES->{'tors'} }, @{ $tors });
 		}
 	}
 }
@@ -782,7 +782,7 @@ sub parseHTML($) {
 	if (!defined($content) || length($content) < 1) {
 		return undef();
 	}
-	my $tor = undef();
+	my @tors = ();
 
 	if ($content =~ /\<title\>The Pirate Bay/i) {
 
@@ -851,7 +851,7 @@ sub parseHTML($) {
 				'url'     => $url,
 				'source'  => 'TPB'
 			);
-			push(@{ $SERIES->{'tors'} }, \%tor);
+			push(@tors, \%tor);
 		}
 
 	} elsif ($content =~ /\<title\>[^\<\>]*\bisoHunt\b[^\<\>]*\<\/title\>/i) {
@@ -934,7 +934,7 @@ sub parseHTML($) {
 				'url'     => $url,
 				'source'  => 'ISO'
 			);
-			push(@{ $SERIES->{'tors'} }, \%tor);
+			push(@tors, \%tor);
 		}
 
 	} elsif ($content =~ /Kickass\s*Torrents\<\/title\>/i) {
@@ -1023,7 +1023,7 @@ sub parseHTML($) {
 				'url'     => $url,
 				'source'  => 'KICK'
 			);
-			push(@{ $SERIES->{'tors'} }, \%tor);
+			push(@tors, \%tor);
 		}
 
 	} elsif ($content =~ /\<a(?:\s+[^\>]*)?\>Torrentz\<\/a\>/i) {
@@ -1095,7 +1095,7 @@ sub parseHTML($) {
 				'url'     => $url,
 				'source'  => 'Z'
 			);
-			push(@{ $SERIES->{'tors'} }, \%tor);
+			push(@tors, \%tor);
 		}
 
 	} elsif ($content =~ /ExtraTorrent\.cc The World\'s Largest BitTorrent System\<\/title\>/i) {
@@ -1154,7 +1154,7 @@ sub parseHTML($) {
 			}
 
 			# Save the extracted data
-			my %tmp = (
+			my %tor = (
 				'title'   => $title,
 				'season'  => $fileSeason,
 				'episode' => $episode,
@@ -1164,7 +1164,7 @@ sub parseHTML($) {
 				'url'     => $url,
 				'source'  => 'ET'
 			);
-			$tor = \%tmp;
+			push(@tors, \%tor);
 		}
 
 	} elsif ($content =~ /\<title\>Sorry/) {
@@ -1195,7 +1195,7 @@ sub parseHTML($) {
 		warn("Unknown HTML content:\n" . $content . "\n\n");
 	}
 
-	return $tor;
+	return \@tors;
 }
 
 # Handle JSON content
@@ -1204,14 +1204,13 @@ sub parseJSON($) {
 	if (!defined($content) || length($content) < 1) {
 		return undef();
 	}
+	my @tors = ();
 
 	my $json = eval { decode_json($content); };
 	if (!defined($json) || !ref($json)) {
 		warn('JSON parsing failure on: ' . $content . "\n");
 		return undef();
 	}
-
-	my $tor = undef();
 
 	if (ref($json) eq 'ARRAY' && scalar(@{$json}) == 0) {
 		if ($DEBUG > 1) {
@@ -1231,10 +1230,10 @@ sub parseJSON($) {
 		&& exists($json->[0]->{'postdate'}))
 	{
 		foreach my $item (@{$json}) {
-			my $tmp = parseNZB($item);
-			if ($tmp) {
-				$tmp->{'source'} = 'IS';
-				$tor = $tmp;
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'IS';
+				push(@tors, $tor);
 			}
 		}
 	} elsif (ref($json) eq 'HASH' && exists($json->{'title'}) && $json->{'title'} =~ /NZBCat/i) {
@@ -1247,10 +1246,10 @@ sub parseJSON($) {
 		}
 
 		foreach my $item (@{$list}) {
-			my $tmp = parseNZB($item);
-			if ($tmp) {
-				$tmp->{'source'} = 'NCAT';
-				$tor = $tmp;
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'NCAT';
+				push(@tors, $tor);
 			}
 		}
 	} elsif (ref($json) eq 'HASH'
@@ -1266,17 +1265,17 @@ sub parseJSON($) {
 			return undef();
 		}
 		foreach my $item (@{ $json->{'channel'}->{'item'} }) {
-			my $tmp = parseNZB($item);
-			if ($tmp) {
-				$tmp->{'source'} = 'PLANET';
-				$tor = $tmp;
+			my $tor = parseNZB($item);
+			if ($tor) {
+				$tor->{'source'} = 'PLANET';
+				push(@tors, $tor);
 			}
 		}
 	} else {
 		print STDERR "Unknown JSON content:\n" . $content . "\n\n";
 	}
 
-	return $tor;
+	return \@tors;
 }
 
 sub parseNZB($) {
