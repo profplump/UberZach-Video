@@ -1191,6 +1191,10 @@ sub parseHTML($) {
 		if ($DEBUG) {
 			print STDERR "No results\n";
 		}
+	} elsif ($content =~ /Error\s+404\<\/title\>/i) {
+		if ($DEBUG) {
+			print STDERR "Cloundflare offline\n";
+		}
 	} else {
 		warn("Unknown HTML content:\n" . $content . "\n\n");
 	}
