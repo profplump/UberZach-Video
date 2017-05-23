@@ -37,6 +37,11 @@ if [ "${USER}" == "tv" ]; then
 	REMOTE_USER="atv"
 fi
 
+function cleanup {
+	rm -f "${LOCK}"
+	exit $1
+}
+
 function findMedia {
 	MEDIA=""
 	
@@ -60,8 +65,23 @@ function writeLinks {
 	if [ -e "${HOME}/media" ] || [ -h "${HOME}/media" ]; then
 		rm -f "${HOME}/media"
 		ln -s "${DEST}" "${HOME}/media"
+	else
+		echo "No such path: ${HOME}/media" 1>&2
+		cleanup 1
 	fi
 }
+
+# Lock
+touch "${LOCK}"
+read MOUNT_PID < "${LOCK}"
+if [ -n "${MOUNT_PID}" ]; then
+	if ps -A -o pid | grep -q "${MOUNT_PID}"; then
+		sleep 5
+		exit 1
+	fi
+fi
+echo $$ > "${LOCK}"
+export MEDIA_MOUNTING=$$
 
 # Determine if we have a remote link
 if [ -h "${HOME}/media" ] && readlink "${HOME}/media" | grep -qE "^${LOCAL_MEDIA}"; then
@@ -70,7 +90,7 @@ fi
 
 # Skip this whole shebang if we've got a valid, remote link
 if [ $LOCAL_LINK -eq 0 ] && [ $FORCE -eq 0 ] && ~/bin/video/isMediaMounted; then
-	exit 0
+	cleanup 0
 fi
 
 # Check for connectivity and server live-ness
@@ -87,26 +107,14 @@ fi
 
 # At this point any valid link is acceptable
 if [ $FORCE -eq 0 ] && ~/bin/video/isMediaMounted; then
-	exit 0
+	cleanup 0
 fi
 
 # Connect if needed and possible
 findMedia
 if [ -z "${MEDIA}" ] && [ $OFFLINE -eq 0 ]; then
-	LOCKED=0
-	touch "${LOCK}"
-	read MOUNT_PID < "${LOCK}"
-	if [ -n "${MOUNT_PID}" ]; then
-		if ps -A -o pid | grep -q "${MOUNT_PID}"; then
-			LOCKED=1
-		fi
-	fi
-	if [ $LOCKED -eq 0 ]; then
-		echo $$ > "${LOCK}"
-		~/bin/video/timeout -t 30 osascript -e 'tell application "Finder" to mount volume "smb://'"${REMOTE_USER}@${HOST}/${SHARE}"'"'
-		sleep 5
-		rm -f "${LOCK}"
-	fi
+	~/bin/video/timeout -t 30 osascript -e 'tell application "Finder" to mount volume "smb://'"${REMOTE_USER}@${HOST}/${SHARE}"'"'
+	sleep 5
 fi
 
 # Create links to the best media we can find
@@ -115,5 +123,8 @@ if [ -n "${MEDIA}" ]; then
 	writeLinks "${MEDIA}"
 else
 	echo "`basename "${0}"`: Unable to link media volume" 1>&2
-	exit 1
+	cleanup 1
 fi
+
+# Exit cleanly
+cleanup 0

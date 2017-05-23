@@ -15,5 +15,11 @@ if [ -d "${MEDIA}/TV" ]; then
 	exit 0
 fi
 
-# Return false if we don't find anything
+# If we didn't find anything attempt to mount
+MOUNT="${HOME}/bin/video/mountMedia"
+if [ -x "${MOUNT}" ] && [ -z "${MEDIA_MOUNTING}" ]; then
+	"${MOUNT}"
+fi
+
+# Fail even if the mount succeeds, so that children can see the error
 exit 1
