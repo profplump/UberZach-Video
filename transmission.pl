@@ -450,9 +450,8 @@ sub storeFiles($$$) {
 			}
 			last;
 		} else {
-			print STDERR 'Error storing file "' . basename($file) . '" from: ' . $name . "\n";
+			warn('Error storing file "' . basename($file) . '" from: ' . $name . "\n");
 			$failure = 1;
-			last;
 		}
 	}
 
