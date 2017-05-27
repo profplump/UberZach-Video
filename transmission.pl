@@ -609,7 +609,7 @@ sub storeNZB($) {
 	# Process any files we found
 	if (scalar(@files) < 1) {
 		print STDERR 'No media files found in NZB: ' . $nzb->{'name'} . "\n";
-		next;
+		return undef();
 	}
 	return storeFiles($nzb->{'path'}, \@files, $nzb->{'name'});
 }
