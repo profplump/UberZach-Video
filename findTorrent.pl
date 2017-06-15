@@ -45,6 +45,9 @@ sub findProxy($$);
 sub fetch($;$$);
 sub phantomFetch($$);
 
+# Constants
+my $DAY_IN_SECS = 86400;
+
 # Globals
 my $CONFIG  = undef();
 my $SOURCES = undef();
@@ -560,7 +563,7 @@ sub dateSearch() {
 	for (my $days_back = $CONFIG->{'MIN_DAYS_BACK'} ; $days_back <= $CONFIG->{'MAX_DAYS_BACK'} ; $days_back++) {
 
 		# Calculate the date
-		my (undef(), undef(), undef(), $day, $month, $year) = localtime(time() - (86400 * $days_back));
+		my (undef(), undef(), undef(), $day, $month, $year) = localtime(time() - ($DAY_IN_SECS * $days_back));
 
 		# Format as strings
 		$year  = sprintf('%04d', $year + 1900);
@@ -1507,11 +1510,11 @@ sub seedCleanup($) {
 	# Proxy publication date to seeder/leacher quality
 	if ($tor->{'date'} && !$tor->{'seeds'}) {
 		my $age = time() - $tor->{'date'};
-		if ($age < 0) {
+		if ($age < -$DAY_IN_SECS) {
 			warn('Invalid date (' . $tor->{'date'} . '): ' . $tor->{'title'} . "\n");
 			$age = 0;
 		}
-		$age /= 86400;
+		$age /= $DAY_IN_SECS;
 
 		if ($age > $CONFIG->{'NZB_AGE_GOOD'}) {
 			$tor->{'seeds'} = $CONFIG->{'MIN_COUNT'};
@@ -2017,7 +2020,7 @@ sub initSources() {
 
 	# NZB.is
 	if ($CONFIG->{'SOURCES'}->{'IS'}) {
-		my @proxies = ('http://nzb.is/api');
+		my @proxies = ('nzb.is/api');
 		my $source = findProxy(\@proxies, '\bnzb\.is\b');
 		if ($source && exists($CONFIG->{'IS_APIKEY'}) && $CONFIG->{'IS_APIKEY'}) {
 			$source->{'weight'}         = 1.00;
