@@ -65,7 +65,9 @@ if ($ENV{'DEBUG'}) {
 }
 my $DELETE = 0;
 if ($ENV{'DELETE'}) {
-	print STDERR "Failure mode: DELETE\n";
+	if ($DEBUG) {
+		print STDERR "Failure mode: DELETE\n";
+	}
 	$DELETE = 1;
 }
 
