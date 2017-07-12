@@ -902,6 +902,7 @@ sub seriesCleanup($) {
 	my ($name) = @_;
 	$name =~ s/\s*\(?US\)?\s*$//;
 	$name =~ s/\s*\(?20[01][0-9]\)?\s*$//;
+	$name =~ s/^\s*www\.scenetime\.com(?:\s+\-)?\s*//i;
 	return seriesCleanupCore($name);
 }
 
