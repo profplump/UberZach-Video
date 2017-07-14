@@ -20,14 +20,14 @@ sub session($);
 sub fetch($);
 sub getSSE($);
 sub getDest($$$$);
-sub storeFiles($$$);
+sub storeFiles($$$$);
 sub readNZB($$);
 sub storeNZB($);
 sub storeTor($);
 sub delNZB($);
 sub delTor($);
 sub guessExt($);
-sub processFile($$);
+sub processFile($$$);
 sub unrar($$);
 sub seriesCleanupLocal($);
 sub seriesCleanupCore($);
@@ -433,14 +433,14 @@ sub getDest($$$$) {
 	return $dest;
 }
 
-sub storeFiles($$$) {
-	my ($path, $files, $name) = @_;
+sub storeFiles($$$$) {
+	my ($path, $files, $name, $id) = @_;
 
 	my $failure = 0;
 	foreach my $file (@{$files}) {
 		my $result = -1;
 		if (defined($file) && length($file) > 0 && -r $file) {
-			$result = &processFile($file, $path);
+			$result = &processFile($file, $path, $id);
 		}
 		if (defined($result) && $result == 1) {
 			if ($DEBUG) {
@@ -584,7 +584,7 @@ sub storeTor($) {
 		print STDERR 'No media files found in torrent: ' . $tor->{'name'} . "\n";
 		return 0;
 	}
-	my $retval = storeFiles($path, \@files, $tor->{'name'});
+	my $retval = storeFiles($path, \@files, $tor->{'name'}, $tor->{'id'});
 
 	# Delete any files we added
 	foreach my $file (@newFiles) {
@@ -612,7 +612,7 @@ sub storeNZB($) {
 		print STDERR 'No media files found in NZB: ' . $nzb->{'name'} . "\n";
 		return undef();
 	}
-	return storeFiles($nzb->{'path'}, \@files, $nzb->{'name'});
+	return storeFiles($nzb->{'path'}, \@files, $nzb->{'name'}, $nzb->{'id'});
 }
 
 sub delNZB($) {
@@ -744,8 +744,8 @@ sub guessExt($) {
 	return $ext;
 }
 
-sub processFile($$) {
-	my ($file, $path) = @_;
+sub processFile($$$) {
+	my ($file, $path, $id) = @_;
 	if ($DEBUG) {
 		print STDERR 'Attempting to process file: ' . basename($file) . "\n";
 	}
@@ -811,7 +811,7 @@ sub processFile($$) {
 			}
 
 			# Otherwise we just fail
-			print STDERR 'No destination for: ' . basename($file) . "\n";
+			print STDERR 'No destination for: ' . basename($file) . ' (' . $id . ")\n";
 			return;
 		}
 	}
