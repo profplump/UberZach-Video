@@ -1328,7 +1328,7 @@ sub parseNZB($) {
 		$title = $item->{'description'};
 	}
 	if ($title) {
-		$url .= '#' . $title;
+		$url .= '#' . uri_encode($title);
 	}
 
 	# Extract the season and episode numbers
