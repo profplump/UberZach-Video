@@ -39,7 +39,8 @@ if [ -n "${TRANS_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; t
 				--header "${SESSION_ID}" "${TRANS_URL}" \
 				-d '{"method":"torrent-add", "arguments":{"paused": "false", "filename": "'${i}'"}}'`"
 			if ! echo "${RESULT}" | grep -q '"result":"success"'; then
-				echo "${RESULT}" 1>&2
+				echo "Remote error: ${RESULT}" 1>&2
+				echo "Magnet URL: ${i}"
 				exit 10
 			fi
 		done
@@ -61,7 +62,8 @@ elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '\/(getnzb\/|
 			RESULT="`curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" \
 				-d '{"method":"append","params":["'"${NAME}"'.nzb","'"${URL}"'","",0,false,false,"",0,"force"]}'`"
 			if ! echo "${RESULT}" | grep 'result' | grep -q '[1-9]'; then
-				echo "${RESULT}" 1>&2
+				echo "Remote error: ${RESULT}" 1>&2
+				echo "NZB URL: ${i}"
 				exit 11
 			fi
 		done
