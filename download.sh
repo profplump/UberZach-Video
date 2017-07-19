@@ -16,7 +16,7 @@ fi
 # Choose an inter-file delay
 DELAY="${2}"
 if [ -z "${DELAY}" ]; then
-	DELAY=10
+	DELAY=5
 fi
 
 # Find the destination directory
@@ -26,14 +26,16 @@ if [ -z "${DEST}" ]; then
 	if [ -e "${DEST}" ]; then DEST="${HOME}"; fi
 fi
 
-# Use Transmission if the URL is a magenet link
-if [ -n "${TRANS_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; then
-	SESSION_ID=$(curl --silent --max-time "${TIMEOUT}" "${TRANS_URL}" | sed 's/.*<code>//g;s/<\/code>.*//g')
-	if [ -n "${SESSION_ID}" ]; then
-		IFS=$'\n'
-		SLEEP=0
-		for i in ${URLS}; do
-			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
+SLEEP=0
+IFS=$'\n'
+for i in ${URLS}; do
+	if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
+	SLEEP="${DELAY}"
+
+	# Use Transmission if the URL is a magenet link
+	if [ -n "${TRANS_URL}" ] && echo "${i}" | grep -Eqi '^magnet:'; then
+		SESSION_ID=$(curl --silent --max-time "${TIMEOUT}" "${TRANS_URL}" | sed 's/.*<code>//g;s/<\/code>.*//g')
+		if [ -n "${SESSION_ID}" ]; then
 			SLEEP="${DELAY}"
 			RESULT="`curl --silent --max-time "${TIMEOUT}" \
 				--header "${SESSION_ID}" "${TRANS_URL}" \
@@ -41,22 +43,14 @@ if [ -n "${TRANS_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '^magnet:'; t
 			if ! echo "${RESULT}" | grep -q '"result":"success"'; then
 				echo "Remote error: ${RESULT}" 1>&2
 				echo "Magnet URL: ${i}"
-				exit 10
 			fi
-		done
-		exit 0
-	else
-		echo "Transmission not available for magnet link, falling back..." 1>&2
-	fi
+		else
+			echo "Transmission not available for magnet link: ${i}" 1>&2
+		fi
 
-# Use NZBGet if the URL is an NZB file
-elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '\/(getnzb\/|api\?t\=get\&)'; then
-	if curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" | grep -q 'version'; then
-		IFS=$'\n'
-		SLEEP=0
-		for i in ${URLS}; do
-			if [ $SLEEP -gt 0 ]; then sleep $SLEEP; fi
-			SLEEP="${DELAY}"
+	# Use NZBGet if the URL is an NZB file
+	elif [ -n "${NZB_URL}" ] && echo "${i}" | grep -Eqi '\/(getnzb\/|api\?t\=get\&)'; then
+		if curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" | grep -q 'version'; then
 			URL="`echo "${i}" | cut -d '#' -f 1`"
 			NAME="`echo "${i}" | cut -d '#' -f 2-`"
 			RESULT="`curl -k --silent --max-time "${TIMEOUT}" "${NZB_URL}" \
@@ -64,26 +58,13 @@ elif [ -n "${NZB_URL}" ] && echo "${URLS}" | head -n 1 | grep -Eqi '\/(getnzb\/|
 			if ! echo "${RESULT}" | grep 'result' | grep -q '[1-9]'; then
 				echo "Remote error: ${RESULT}" 1>&2
 				echo "NZB URL: ${i}"
-				exit 11
 			fi
-		done
-		exit 0
-	else
-		echo "NZBGet not available for NZB link, falling back..." 1>&2
-	fi
-fi
+		else
+			echo "NZBGet not available for NZB link: ${i}" 1>&2
+		fi
 
-# Use "open", if available, for non-HTTP URLs
-if ! echo "${URLS}" | head -n 1 | grep -Eqi '^http'; then
-	if open >/dev/null 2>&1; then
-		echo "${URLS}" | xargs -n 1 open
-		exit "${?}"
+	# Unknown URL type
 	else
-		echo "Non-HTTP URL, open() not available. Aborting..." 1>&2
-		exit 100
+		echo "Cannot fetch unknown URL type: ${i}" 1>&2
 	fi
-fi
-
-# Failure
-echo "Cannot fetch: ${URLS}" 1>&2
-exit 1
+done
