@@ -351,7 +351,12 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 			print STDERR "\tLocal file: <missing>\n";
 		} else {
 			print STDERR "\tLocal media: " . $files->{$id}->{'path'} . "\n";
-			print STDERR "\tLocal NFO: " . $files->{$id}->{'nfo'} . "\n";
+			print STDERR "\tLocal NFO: ";
+			if ($files->{$id}->{'nfo'}) {
+				print STDERR $files->{$id}->{'nfo'} . "\n";
+			} else {
+				print STDERR "<none>\n";
+			}
 		}
 	}
 	my $nfo = videoPath($videos->{$id}->{'season'}, $videos->{$id}->{'number'}, $id, 'nfo');
@@ -431,6 +436,7 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 					warn('Error executing youtube-dl for name: ' . $NAME . '/' . $id . ' (' . $EXITVAL . ")\n");
 					next FETCH_LOOP;
 				}
+				$file =~ s/^.*\n//;
 				$file =~ s/^\s+//;
 				$file =~ s/\s+$//;
 
@@ -438,6 +444,8 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 				if (!$file) {
 					warn('No file name available for video: ' . $NAME . '/' . $id . "\n");
 					next FETCH_LOOP;
+				} elsif ($DEBUG > 0) {
+					print STDERR 'Output video file: ' . $file . "\n";
 				}
 
 				# Download
@@ -456,6 +464,11 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 					warn('Partial download detected: ' . $NAME . '/' . $file . "\n");
 					next FETCH_LOOP;
 				}
+				# Sometimes the downloader lies about file extensions
+				if (!-s $file && $file =~ /\.webm$/i) {
+					$file =~ s/\.webm$/.mp4/;
+				}
+				# But we still need *a* file
 				if (!-s $file) {
 					warn('No output video file: ' . $NAME . '/' . $file . "\n");
 					next FETCH_LOOP;
