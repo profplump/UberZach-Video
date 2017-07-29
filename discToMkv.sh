@@ -5,6 +5,13 @@ DRIVE_NAME="iHBS112"
 OUT_DIR="/Users/Shared/EncodeQueue/in"
 APP_PATH="/Applications/Zach/Media/MakeMKV.app"
 
+# Tracks are extracted with the default profile (as set in the GUI)
+# Recommended selection string:
+#	-sel:all,+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
+# This preserves all audio and subtitles in your prefered language, all audio and subtitles with no language, and all special tracks, but excludes the core audio from DTS-HD tracks
+# Or if you capture films with no soundtrack in your favorite language:
+#	-sel:all,+sel:(audio),-sel:(havemulti),+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
+
 # Globals
 BIN_PATH="${APP_PATH}/Contents/MacOS/makemkvcon"
 TMP="`mktemp -t discToMkv`"
@@ -61,6 +68,17 @@ if [ -z "${NAME}" ]; then
 	NAME="${SHORT}"
 fi
 
+# Find the main feature, if available
+# Fall back to "all" if it's not
+MAIN="all"
+TINFO="`grep '^TINFO\:' "${TMP}" | grep ',"FPL_MainFeature"$'`"
+if [ -n "${TINFO}" ]; then
+	TRACK="`echo "${TINFO}" | cut -d ':' -f 2 | cut -d ',' -f 1 | sed 's%[^0-9]%%g'`"
+	if [ -n "${TRACK}" ]; then
+		MAIN="${TRACK}"
+	fi
+fi
+
 # Cleanup the parse data
 rm -f "${TMP}"
 
@@ -71,21 +89,15 @@ if [ -z "${NAME}" ]; then
 fi
 
 # Ensure the name is filesystem-safe
-NAME="`echo "${NAME}" | sed 's%[^a-zA-Z0-9_\-\ ,;\.!@#$\%\^&\*()=\+\?]%_%'`"
+NAME="`echo "${NAME}" | sed 's%[^a-zA-Z0-9_\-\ ,;\.!@#$\%\^&\*()=\+]%_%'`"
 
 # Create the output directory
 if [ ! -d "${OUT_DIR}/${NAME}" ]; then
 	mkdir "${OUT_DIR}/${NAME}"
 fi
 
-# Extract all tracks to MKVs
-# Tracks are selected with the default profile (as set in the GUI)
-# Recommended selection string:
-#	-sel:all,+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
-# This preserves all audio and subtitles in your prefered language, all audio and subtitles with no language, and all special tracks, but excludes the core audio from DTS-HD tracks
-# Or if you capture films with no soundtrack in your favorite language:
-#	-sel:all,+sel:(audio),-sel:(havemulti),+sel:(favlang|nolang),-sel:(core),+sel:special,-sel:mvcvideo,=100:all,-10:favlang
-"${BIN_PATH}" --noscan --robot mkv "disc:${DRIVE_NUM_MKV}" all "${OUT_DIR}/${NAME}"
+# Execute
+"${BIN_PATH}" --noscan --robot mkv "disc:${DRIVE_NUM_MKV}" "${MAIN}" "${OUT_DIR}/${NAME}"
 
 # Bail on error
 if [ $? -ne 0 ]; then
