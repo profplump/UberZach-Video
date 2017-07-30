@@ -436,7 +436,9 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 					warn('Error executing youtube-dl for name: ' . $NAME . '/' . $id . ' (' . $EXITVAL . ")\n");
 					next FETCH_LOOP;
 				}
-				$file =~ s/^.*\n//;
+				if ($file =~ /\n\S/) {
+					$file =~ s/^.*\n//;
+				}
 				$file =~ s/^\s+//;
 				$file =~ s/\s+$//;
 
