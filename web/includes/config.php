@@ -19,7 +19,7 @@ $TVDB_URL         = 'http://thetvdb.com/?tab=series';
 
 ### App Config
 $EXISTS_FILES  = array('scan_now', 'no_quality_checks', 'more_number_formats', 'skip');
-$CONTENT_FILES = array('must_match', 'search_name', 'excludes', 'search_by_date');
+$CONTENT_FILES = array('must_match', 'search_name', 'excludes', 'search_by_date', 'source_excludes');
 
 ### Login Config
 $LOGIN_PAGE  = 'login';

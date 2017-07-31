@@ -320,22 +320,25 @@ sub readGlobalExcludes($) {
 sub readInputDir($) {
 	my ($path) = @_;
 	my %series = (
-		'path'                => undef(),
-		'name'                => '',
-		'path_name'           => '',
-		'season'              => 0,
-		'episodes'            => {},
-		'exclude'             => '',
-		'exclude_hash'        => {},
-		'need'                => [],
-		'need_hash'           => {},
-		'season_done'         => 0,
-		'search_name'         => 0,
-		'search_by_date'      => 0,
-		'no_quality_checks'   => 0,
-		'more_number_formats' => 0,
-		'tors'                => [],
-		'tors_hash'           => {},
+		'path'                 => undef(),
+		'name'                 => '',
+		'path_name'            => '',
+		'season'               => 0,
+		'episodes'             => {},
+		'exclude'              => '',
+		'exclude_hash'         => {},
+		'need'                 => [],
+		'need_hash'            => {},
+		'scan_now'             => 0,
+		'source_excludes'      => '',
+		'source_excludes_hash' => {},
+		'season_done'          => 0,
+		'search_name'          => 0,
+		'search_by_date'       => 0,
+		'no_quality_checks'    => 0,
+		'more_number_formats'  => 0,
+		'tors'                 => [],
+		'tors_hash'            => {},
 	);
 
 	# Allow use of the raw series name
@@ -455,6 +458,28 @@ sub readInputDir($) {
 		$series{'exclude'} = uri_encode(' ' . $series{'exclude'});
 	}
 
+	# Read the source excludes file, if any
+	if (-e $series{'path'} . '/source_excludes') {
+		local $/ = undef;
+		open(EX, $series{'path'} . '/source_excludes')
+		  or die("Unable to open series source_excludes file: ${!}\n");
+		my $ex = <EX>;
+		close(EX);
+
+		my @excludes = split(/\s*,\s*/, $ex);
+		foreach my $source (@excludes) {
+			$source =~ s/[^\w\-]//g;
+			$source = uc($source);
+			if (defined($source) && $source ne '') {
+				$series{'source_excludes_hash'}->{$source} = 1;
+			}
+		}
+		$series{'source_excludes'} = join(',', keys(%{ $series{'source_excludes_hash'} }));
+		if ($DEBUG) {
+			print STDERR 'Source excludes: ' . $series{'source_excludes'} . "\n";
+		}
+	}
+
 	# Get the last episode number
 	opendir(SEASON, $series{'path'} . '/Season ' . $series{'season'})
 	  or die("Unable to open season directory: ${!}\n");
@@ -531,6 +556,9 @@ sub customSearch($) {
 
 	# Create the relevent search strings
 	foreach my $key (keys(%{$SOURCES})) {
+		if (exists($SERIES->{'source_excludes_hash'}->{$key})) {
+			next;
+		}
 		my $source = $SOURCES->{$key};
 		push(@urls, $source->{'search_url'} . $search . $SERIES->{'exclude'} . $source->{'search_suffix'});
 	}
@@ -600,6 +628,9 @@ sub dateSearch() {
 		$search_str =~ s/%m/${month}/g;
 		$search_str =~ s/%d/${day}/g;
 		foreach my $key (keys(%{$SOURCES})) {
+			if (exists($SERIES->{'source_excludes_hash'}->{$key})) {
+				next;
+			}
 			my $source = $SOURCES->{$key};
 			push(@urls, $source->{'search_url'} . $search_str . $SERIES->{'exclude'} . $source->{'search_suffix'});
 		}
@@ -712,7 +743,11 @@ sub stdSearch() {
 			if (!$SERIES->{'season_long'}) {
 				$SERIES->{'season_long'} = sprintf('%02d', $SERIES->{'season'});
 			}
-			foreach my $source (values(%{$SOURCES})) {
+			foreach my $key (keys(%{$SOURCES})) {
+				my $source = $SOURCES->{$key};
+				if (exists($SERIES->{'source_excludes_hash'}->{$key})) {
+					next;
+				}
 
 				# Allow custom handling
 				# Future APIs will *require* custom handling; the std process will be exposed as a sub
