@@ -29,8 +29,22 @@ if [ ! -d "${TMPDIR}" ]; then
         fi
 fi
 
+# Bail if the media share isn't available
+if ! ~/bin/video/isMediaMounted; then
+	echo 'Media not mounted' 1>&2
+	exit 1
+fi
+
+# Bail if the load is high
+if ! ~/bin/video/checkLoad.sh; then
+	if [ -n "${DEBUG}" ] && [ $DEBUG -gt 0 ]; then
+		echo 'Load too high' 1>&2
+	fi
+	exit 0
+fi
+
 # Bail if we're already running
-LOCK="${TMPDIR}/folderFixup.run"
+LOCK="${TMPDIR}/folderFixup.`basename "${inFolder}"`.run"
 touch "${LOCK}"
 read MOUNT_PID < "${LOCK}"
 if [ -n "${MOUNT_PID}" ]; then
@@ -42,20 +56,6 @@ if [ -n "${MOUNT_PID}" ]; then
 	fi
 fi
 echo $$ > "${LOCK}"
-
-# Bail if the load is high
-if ! ~/bin/video/checkLoad.sh; then
-	if [ -n "${DEBUG}" ] && [ $DEBUG -gt 0 ]; then
-		echo 'Load too high' 1>&2
-	fi
-	exit 0
-fi
-
-# Bail if the media share isn't available
-if ! ~/bin/video/isMediaMounted; then
-	echo 'Media not mounted' 1>&2
-	exit 1
-fi
 
 # Cache output
 tmp="`mktemp -t 'folderFixup.XXXXXXXX'`"
