@@ -67,7 +67,7 @@ DEST_DIR="${BASE_DIR}/${DIR}"
 FILES="`~/bin/video/sync/recentlyUnwatched.sh "${1}"`"
 
 # Ensure the input is sane
-if [ `echo "${FILES}" | wc -l` -lt 5 ]; then
+if [ `echo "${FILES}" | wc -l` -lt 1 ]; then
 	echo -e "Invalid sync file list:\n${FILE}" 1>&2
 	exit -2
 fi
