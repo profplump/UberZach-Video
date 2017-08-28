@@ -18,7 +18,7 @@ SHARE="media"
 LOCK="${TMPDIR}/mountMedia.mounting"
 REMOTE_USER="${USER}"
 LOCAL_MEDIA="/Users/Shared/Plex"
-MEDIA_CHECK_DIR="TV/John Plays FIFA"
+MEDIA_CHECK_DIR="TV/Rick and Morty"
 
 # Globals
 OFFLINE=0

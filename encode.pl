@@ -64,7 +64,6 @@ if ($ENV{'MOBILE'}) {
 	$ENV{'WIDTH'}         = 1280;
 	$ENV{'AUDIO_BITRATE'} = 128;
 	$ENV{'STEREO_ONLY'}   = 1;
-	$ENV{'ENCODER'}       = 'x264';
 }
 
 # Allow overrides for audio languages
