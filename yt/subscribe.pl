@@ -467,8 +467,11 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 					next FETCH_LOOP;
 				}
 				# Sometimes the downloader lies about file extensions
-				if (!-s $file && $file =~ /\.webm$/i) {
+				if (!-s $file) {
 					$file =~ s/\.webm$/.mp4/;
+				}
+				if (!-s $file) {
+					$file =~ s/\.mp4$/.webm/;
 				}
 				# But we still need *a* file
 				if (!-s $file) {
