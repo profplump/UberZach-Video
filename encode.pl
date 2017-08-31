@@ -32,7 +32,8 @@ my %ENCODER_OPTS      = (
 );
 
 # Applicaton configuration
-my $HD_WIDTH        = 1350;
+my $X265_MAX_WIDTH = 1080 * (16 / 9) * 1.1;
+my $HD_WIDTH       = 720 *  (16 / 9) * 1.1;
 my $MIN_VIDEO_WIDTH = 100;
 my $MAX_CROP_DIFF   = .1;
 my $MAX_DURA_DIFF   = 5;
@@ -127,13 +128,15 @@ if ($ENV{'HEIGHT'}) {
 	if (!($ENV{'HEIGHT'} =~ /^\d+$/)) {
 		die($0 . ': Invalid HEIGHT: ' . $ENV{'HEIGHT'} . "\n");
 	}
-	push(@video_params, '--maxHeight', $ENV{'HEIGHT'});
+	$HEIGHT = $ENV{'HEIGHT'};
+	push(@video_params, '--maxHeight', $HEIGHT);
 }
 if ($ENV{'WIDTH'}) {
 	if (!($ENV{'WIDTH'} =~ /^\d+$/)) {
 		die($0 . ': Invalid WIDTH: ' . $ENV{'WIDTH'} . "\n");
 	}
-	push(@video_params, '--maxWidth', $ENV{'WIDTH'});
+	$WIDTH = $ENV{'WIDTH'};
+	push(@video_params, '--maxWidth', $WIDTH);
 }
 
 # Allow autocrop disable
@@ -153,7 +156,6 @@ if ($ENV{'ENCODER'}) {
 	}
 	$VIDEO_ENCODER = $ENV{'ENCODER'};
 }
-push(@video_params, '--encoder', $VIDEO_ENCODER, @{ $ENCODER_OPTS{$VIDEO_ENCODER} });
 
 # Additional arguments for HandBrake, to allow options not supported directly by this script
 # Split on spaces; if you need spaces you'll have to work out something else
@@ -255,17 +257,11 @@ if ($OUT_DIR) {
 	$out_file = $OUT_DIR . '/' . basename($out_file);
 }
 
-# Keep copies of our defaults so we can reset between tracks
-my $format_default = $FORMAT;
-
 # Encode each title
 foreach my $title (keys(%titles)) {
 	if ($DEBUG) {
 		print STDERR 'Setting options for title: ' . $title . "\n";
 	}
-
-	# Reset
-	$FORMAT = $format_default;
 
 	# Select a title
 	my $scan = $titles{$title};
@@ -300,6 +296,13 @@ foreach my $title (keys(%titles)) {
 		$title_quality = $HD_QUALITY;
 	}
 
+	# Fall back to x264 if the video is larger than $X265_MAX_WIDTH
+	# Even x86 systems have trouble with x265 @ 4k and hardware support is (as of 2017) rare
+	my $encoder = $VIDEO_ENCODER;
+	if ($scan->{'size'}[0] > $X265_MAX_WIDTH && (!defined($WIDTH) || $WIDTH > $X265_MAX_WIDTH)) {
+		$encoder = 'x264';
+	}
+
 	# Detect unlikely autocrop values
 	my $bad_crop = 0;
 	if (   abs($scan->{'crop'}[0] - $scan->{'crop'}[1]) > $scan->{'size'}[0] * $MAX_CROP_DIFF
@@ -319,9 +322,10 @@ foreach my $title (keys(%titles)) {
 	}
 
 	# Force MKV muxing if the output contains PGS subtitles (there's no support in the MP4 muxer)
+	my $format = $FORMAT;
 	foreach my $track (values(%{ $scan->{'subtitle_selected'} })) {
 		if ($track->{'type'} eq 'PGS') {
-			$FORMAT = 'av_mkv';
+			$format = 'av_mkv';
 			last;
 		}
 	}
@@ -329,7 +333,7 @@ foreach my $title (keys(%titles)) {
 	# Force MKV muxing if the output contains DTS audio (technically MP4 supports it but QuickTime hates it)
 	foreach my $track (values(%{ $scan->{'audio_selected'} })) {
 		if ($track->{'codec'} =~ /DTS/i) {
-			$FORMAT = 'av_mkv';
+			$format = 'av_mkv';
 			last;
 		}
 	}
@@ -337,7 +341,7 @@ foreach my $title (keys(%titles)) {
 	# Select a file name extension that matches the format
 	my $title_out_file = $out_file;
 	$title_out_file =~ s/\.(?:\w{2,4}|dvdmedia)$//i;
-	if ($FORMAT eq 'av_mp4') {
+	if ($format eq 'av_mp4') {
 		$title_out_file .= '.m4v';
 	} else {
 		$title_out_file .= '.mkv';
@@ -359,9 +363,10 @@ foreach my $title (keys(%titles)) {
 	push(@args, '--title',   $title);
 	push(@args, '--input',   $in_file);
 	push(@args, '--output',  $title_out_file);
-	push(@args, '--format',  $FORMAT);
+	push(@args, '--format',  $format);
 	push(@args, '--quality', $title_quality);
 	push(@args, '--crop',    join(':', @{ $scan->{'crop'} }));
+	push(@args, '--encoder', $encoder, @{ $ENCODER_OPTS{$encoder} });
 	push(@args, @video_params);
 
 	# Include subtitles if available
