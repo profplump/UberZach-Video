@@ -18,7 +18,7 @@ for k in *; do
 		s="`echo "${i}" | cut -d 'S' -f 2 | cut -d 'E' -f 1`"
 		e="`echo "${i}" | cut -d 'E' -f 2 | cut -d ' ' -f 1`"
 		ext="`echo "${i}" | awk -F '.' '{print $NF}'`"
-		id="`echo "${i}" | sed 's%^S[0-9]*E[0-9]* - \(.*\)\.'"${ext}"'$%\1%'`"
+		id="`echo "${i}" |  sed 's%^S[0-9]*E[0-9]* - %%' | sed 's%\.'"${ext}"'$%%' | sed 's%-recode%%'
 
 		# Duplicate by season/episode
 		if [ `ls "S${s}E${e} - "*".${ext}" | wc -l` -gt 1 ]; then

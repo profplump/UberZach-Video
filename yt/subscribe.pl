@@ -1381,7 +1381,7 @@ sub renameVideo($$$$$$) {
 
 sub parseFilename($) {
 	my ($file) = @_;
-	return $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)\.(\w\w\w)$/i;
+	return $file =~ /^S(\d+)+E(\d+) - ([\w\-]+)(?:\-recode)?\.(\w\w\w)$/i;
 }
 
 # GET the requested URL, accepting encoded data and extracting the HTTP status code
