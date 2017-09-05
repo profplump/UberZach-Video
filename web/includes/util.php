@@ -7,8 +7,9 @@ function cleanSeries($series) {
 	# Clearly unreasonable characters
 	$series = preg_replace('/[\0\n\r]/', ' ', $series);
 
-	# Not allowed by the SMB filesystem
+	# Not allowed by the SMB filesystem -- :?
 	$series = preg_replace('/\s*[\/\:]\s*/', ' - ', $series);
+	$series = preg_replace('/\?/', "\xef\x80\xa5", $series);
 
 	# General string cleanup
 	$series = preg_replace('/\s+/', ' ', $series);
