@@ -38,7 +38,7 @@ my $MIN_VIDEO_WIDTH = 100;
 my $MAX_CROP_DIFF   = .1;
 my $MAX_DURA_DIFF   = 5;
 my $NO_CROP         = 0;
-my @CODEC_ORDER     = ('DTS-HD', 'FLAC', 'DTS', 'E-AC3', 'TRUEHD', 'AC3', 'PCM', 'VORBIS', $MIXDOWN_CODEC, 'OTHER');
+my @CODEC_ORDER     = ('DTS-HD', 'FLAC', 'TRUEHD', 'PCM', 'DTS', 'E-AC3', 'AC3', 'VORBIS', $MIXDOWN_CODEC, 'OTHER');
 my $HB_EXEC         = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG           = 0;
 
