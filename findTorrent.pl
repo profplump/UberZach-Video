@@ -93,6 +93,7 @@ confDefault('MIN_COUNT',        10);
 confDefault('NZB_AGE_GOOD',     14);
 confDefault('NZB_AGE_MAX',      180);
 confDefault('MIN_SIZE',         100);
+confDefault('HEVC_BONUS',       2.0);
 confDefault('SIZE_BONUS',       5);
 confDefault('SIZE_PENALTY',     $CONFIG->{'SIZE_BONUS'});
 confDefault('TITLE_PENALTY',    $CONFIG->{'SIZE_BONUS'} / 2);
@@ -1773,6 +1774,11 @@ sub checkSize() {
 			# Start with the peer count
 			$tor->{'adj_count'} = $count;
 
+			# HVEC encoding gets a size bonus for efficency
+			if ($tor->{'title'} =~ /HEVC/ || $tor->{'title'} =~ /x265/) {
+				$tor->{'size'} *= $CONFIG->{'HEVC_BONUS'};
+			}
+
 			# Adjust based on file size
 			{
 				my $size_ratio = $tor->{'size'} / $size{$episode};
@@ -1783,7 +1789,7 @@ sub checkSize() {
 				}
 			}
 
-			# Adjust based on title contents
+			# Some titles suggest low quality
 			if ($tor->{'title'} =~ /Subtitulado/i) {
 				$tor->{'adj_count'} *= 1 / $CONFIG->{'TITLE_PENALTY'};
 			}
