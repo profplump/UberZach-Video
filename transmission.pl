@@ -780,7 +780,8 @@ sub processFile($$$) {
 	}
 
 	# Allow multiple guesses at the series/season/episode
-	my $dest = '';
+	my $dest   = '';
+	my $folder = 0;
   LOOP: {
 
 		# Determine the series, season, and episode number
@@ -803,29 +804,30 @@ sub processFile($$$) {
 
 			# Sometimes we get URL encoding; check for %\x\x
 			if ($filename =~ /\%[[:xdigit:]]{2}/) {
-				if ($DEBUG) {
-					print STDERR 'URI decoding: ' . $filename . "\n";
-				}
 				$filename = uri_decode($filename);
+				if ($DEBUG) {
+					print STDERR 'Decoded: ' . $filename . "\n";
+				}
 				redo LOOP;
 			}
 
 			# Sometimes we get reversed names; check for reversed SXXEYY
 			if ($filename =~ /(?:\b|_)(?:E\d{1,3})?\d{1,3}[_\s\.]*E(?:pisode)?[_\s\.\-]*\d{1,2}[_\s\.\-]*S(?:eason)?(?:\b|_)/i) {
-				if ($DEBUG) {
-					print STDERR 'Reversing: ' . $filename . "\n";
-				}
 				$filename = reverse($filename);
+				if ($DEBUG) {
+					print STDERR 'Reversed: ' . $filename . "\n";
+				}
 				redo LOOP;
 			}
 
 			# Try the folder name if the file name doesn't work
-			if ($file ne $path) {
-				my $newName = basename($path);
-				if ($newName ne $filename) {
-					$filename = basename($path);
-					redo LOOP;
+			if (!$folder) {
+				$folder = 1;
+				$filename = basename($path);
+				if ($DEBUG) {
+					print STDERR 'Folder: ' . $filename . "\n";
 				}
+				redo LOOP;
 			}
 
 			# Otherwise we just fail
