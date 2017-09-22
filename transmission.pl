@@ -10,6 +10,7 @@ use File::Touch;
 use File::Temp 'mktemp';
 use File::Path 'remove_tree';
 use File::Basename;
+use URI::Encode 'uri_decode';
 use Image::ExifTool qw/ :Public/;
 use FindBin qw($Bin);
 use lib $Bin;
@@ -224,8 +225,6 @@ sub getSSE($) {
 		print STDERR 'Finding series/season/episode for: ' . $name . "\n";
 	}
 
-	my $reversed = 0;
-	REDO:
 	my $season      = 0;
 	my $episode     = 0;
 	my $seasonBlock = '';
@@ -252,22 +251,6 @@ sub getSSE($) {
 		$episode = sprintf('%02d', int($episode));
 	}
 	if (!defined($seasonBlock) || $season < 1 || length($episode) < 1 || $episode eq '0') {
-
-		# Sometimes we get reversed names
-		if (!$reversed) {
-			if ($DEBUG) {
-				print STDERR 'Reversing name: ' . $name . "\n";
-			}
-			my ($base, $ext) = $name =~ /^(.*)(\.\w{3,4})$/;
-			if ($ext) {
-				$name = reverse($base) . $ext;
-			} else {
-				$name = reverse($name);
-			}
-			$reversed = 1;
-			goto REDO;
-		}
-
 		if ($DEBUG) {
 			print STDERR 'Could not find seasonBlock in: ' . $name . "\n";
 		}
@@ -818,8 +801,25 @@ sub processFile($$$) {
 		# Sanity/loop check
 		if (!defined($dest) || length($dest) < 1) {
 
-			# If there is no match but the torrent is a folder
-			# retry the guess using the torrent path
+			# Sometimes we get URL encoding; check for %\x\x
+			if ($filename =~ /\%[\da-f]{2}/i) {
+				if ($DEBUG) {
+					print STDERR 'URI decoding: ' . $filename . "\n";
+				}
+				$filename = uri_decode($filename);
+				redo LOOP;
+			}
+
+			# Sometimes we get reversed names; check for reversed SXXEYY
+			if ($filename =~ /(?:\b|_)(?:E\d{1,3})?\d{1,3}[_\s\.]*E(?:pisode)?[_\s\.\-]*\d{1,2}[_\s\.\-]*S(?:eason)?(?:\b|_)/i) {
+				if ($DEBUG) {
+					print STDERR 'Reversing: ' . $filename . "\n";
+				}
+				$filename = reverse($filename);
+				redo LOOP;
+			}
+
+			# Try the folder name if the file name doesn't work
 			if ($file ne $path) {
 				my $newName = basename($path);
 				if ($newName ne $filename) {
