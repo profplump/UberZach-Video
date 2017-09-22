@@ -224,6 +224,8 @@ sub getSSE($) {
 		print STDERR 'Finding series/season/episode for: ' . $name . "\n";
 	}
 
+	my $reversed = 0;
+	REDO:
 	my $season      = 0;
 	my $episode     = 0;
 	my $seasonBlock = '';
@@ -250,6 +252,22 @@ sub getSSE($) {
 		$episode = sprintf('%02d', int($episode));
 	}
 	if (!defined($seasonBlock) || $season < 1 || length($episode) < 1 || $episode eq '0') {
+
+		# Sometimes we get reversed names
+		if (!$reversed) {
+			if ($DEBUG) {
+				print STDERR 'Reversing name: ' . $name . "\n";
+			}
+			my ($base, $ext) = $name =~ /^(.*)(\.\w{3,4})$/;
+			if ($ext) {
+				$name = reverse($base) . $ext;
+			} else {
+				$name = reverse($name);
+			}
+			$reversed = 1;
+			goto REDO;
+		}
+
 		if ($DEBUG) {
 			print STDERR 'Could not find seasonBlock in: ' . $name . "\n";
 		}
