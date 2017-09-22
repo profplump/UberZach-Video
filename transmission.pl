@@ -802,7 +802,7 @@ sub processFile($$$) {
 		if (!defined($dest) || length($dest) < 1) {
 
 			# Sometimes we get URL encoding; check for %\x\x
-			if ($filename =~ /\%[\da-f]{2}/i) {
+			if ($filename =~ /\%[[:xdigit:]]{2}/) {
 				if ($DEBUG) {
 					print STDERR 'URI decoding: ' . $filename . "\n";
 				}
