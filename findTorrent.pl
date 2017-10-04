@@ -2057,6 +2057,7 @@ sub initSources() {
 				  . $CONFIG->{'PLANET_APIKEY'};
 				push(@{$urls}, $url);
 			};
+			$source->{'search_url'} .= '?o=json&apikey=' . $CONFIG->{'PLANET_APIKEY'} . '&t=search&q=';
 			$sources{'PLANET'} = $source;
 		}
 	}
@@ -2083,6 +2084,7 @@ sub initSources() {
 				  . $CONFIG->{'IS_APIKEY'};
 				push(@{$urls}, $url);
 			};
+			$source->{'search_url'} .= '?o=json&apikey=' . $CONFIG->{'IS_APIKEY'} . '&t=search&q=';
 			$sources{'IS'} = $source;
 		}
 	}
@@ -2109,6 +2111,7 @@ sub initSources() {
 				  . $CONFIG->{'UC_APIKEY'};
 				push(@{$urls}, $url);
 			};
+			$source->{'search_url'} .= '?o=json&apikey=' . $CONFIG->{'UC_APIKEY'} . '&t=search&q=';
 			$sources{'UC'} = $source;
 		}
 	}
@@ -2135,6 +2138,7 @@ sub initSources() {
 				  . $CONFIG->{'NCAT_APIKEY'};
 				push(@{$urls}, $url);
 			};
+			$source->{'search_url'} .= '?o=json&apikey=' . $CONFIG->{'NCAT_APIKEY'} . '&t=search&q=';
 			$sources{'NCAT'} = $source;
 		}
 	}
