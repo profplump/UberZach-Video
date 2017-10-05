@@ -1349,7 +1349,9 @@ sub parseNZB($) {
 
 		# Special case for IS, which leaks very little in its JSON results
 		# Whatever consumes this will need to follow a 302 redirect
-		$url = $SOURCES->{'IS'}->{'search_url'} . '?t=get&id=' . $id . '&apikey=' . $CONFIG->{'IS_APIKEY'};
+		$url = $SOURCES->{'IS'}->{'search_url'};
+		$url =~ s/\?.*$//;
+		$url .= '?t=get&id=' . $id . '&apikey=' . $CONFIG->{'IS_APIKEY'};
 	}
 
 	# Title
