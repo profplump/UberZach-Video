@@ -43,7 +43,7 @@ function updateEpisodes($id) {
 			'name' => $episode->name,
 			'desc' => $episode->overview
 		);
-		if (!insertOrUpdate($insert, $update, $data)){
+		if (!insertOrUpdate($insert, $update, $data)) {
 			$err++;
 		}
 	}
