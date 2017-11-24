@@ -44,9 +44,6 @@ function updateEpisodes($id) {
 			'desc' => $episode->overview
 		);
 		if (!insertOrUpdate($insert, $update, $data)){
-			if (DEBUG) {
-				print_r($dbh->errorInfo());
-			}
 			$err++;
 		}
 	}
@@ -79,17 +76,14 @@ function updateSeries($id) {
 		'desc' => $series->overview,
 		'year' => $series->firstAired->format('Y')
 	);
-	if (!insertOrUpdate($insert, $update, $data)){
-		if (DEBUG) {
-			print_r($dbh->errorInfo());
-		}
-		return false;
-	}
-	return true;
+	return insertOrUpdate($insert, $update, $data);
 }
 
 function insertOrUpdate($insert, $update, $data) {
 	if (!$insert->execute($data) && !$update->execute($data)) {
+		if (DEBUG) {
+			print_r($dbh->errorInfo());
+		}
 		return false;
 	}
 	return true;
