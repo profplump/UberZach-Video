@@ -1,11 +1,21 @@
 <?
 
-# Set locale to make basename() and others work reasonably
-setlocale(LC_ALL, "en_US.UTF8");
+# Debug output
+define('DEBUG', false);
+
+# Set locale and TZ to make things sane
+define('TZ', 'America/Los_Angeles');
+date_default_timezone_set(TZ);
+setlocale(LC_ALL, 'en_US.UTF8');
+
+# TVDB API
+define('TVDB_URL',     'http://thetvdb.com');
+define('TVDB_API_KEY', '26877109147D171D');
+define('TVDB_DBN',     'pgsql:dbname=tv');
 
 ### Config
 $TV_PATH    = '/mnt/media/TV';	# Root path for all TV series
-$MAX_AGE    = 86400 * 90;		# Consider a series "old" if it has not been updated for this many seconds
+$MAX_AGE    = 86400 * 90;	# Consider a series "old" if it has not been updated for this many seconds
 $CACHE_AGE  = 300;
 $CACHE_FILE = '/var/tmp/php/tv_web.cache';
 
