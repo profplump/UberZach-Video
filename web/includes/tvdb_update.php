@@ -36,7 +36,12 @@ function tvdb_episodes($id) {
 
 	# Fetch
 	$tvdb = new Moinax\TvDb\Client(TVDB_URL, TVDB_API_KEY);
-	$episodes = $tvdb->getSerieEpisodes($id);
+	try {
+		$episodes = $tvdb->getSerieEpisodes($id);
+	} catch (Exception $e) {
+		echo 'No such series: ' . $id . "\n";
+		return false;
+	}
 
 	# DB init
 	$dbh = new PDO(TVDB_DBN);
@@ -81,7 +86,12 @@ function tvdb_series($id) {
 
 	# Fetch series and episodes
 	$tvdb = new Moinax\TvDb\Client(TVDB_URL, TVDB_API_KEY);
-	$series = $tvdb->getSerie($id);
+	try {
+		$series = $tvdb->getSerie($id);
+	} catch (Exception $e) {
+		echo 'No such series: ' . $id . "\n";
+		return false;
+	}
 
 	# DB init
 	$dbh = new PDO(TVDB_DBN);
@@ -97,11 +107,17 @@ function tvdb_series($id) {
 
 
 	# Update
+	$airdate = null;
+	if (is_object($episode->firstAired)) {
+		$airdate = $episode->firstAired->format('Y');
+	} else if (DEBUG) {
+		echo 'No airdate for: ' . $id . '::' . $series->name . "\n";
+	}
 	$data = array(
 		'id' => $id,
 		'name' => $series->name,
 		'desc' => $series->overview,
-		'year' => $series->firstAired->format('Y')
+		'year' => $airdate
 	);
 	if (!tvdb_insert($insert, $update, $data)) {
 		if (DEBUG) {
