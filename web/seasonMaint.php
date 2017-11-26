@@ -4,8 +4,7 @@
 set_time_limit(0);
 require_once 'includes/main.php';
 
-global $TV_PATH;
-$all_series = allSeriesSeasons($TV_PATH, false);
+$all_series = allSeriesSeasons(TV_PATH, false);
 $old_series = array();
 $added_seasons = array();
 $multi_seasons = array();

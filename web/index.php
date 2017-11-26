@@ -25,8 +25,7 @@ if (isset($_REQUEST['series'])) {
 		# Force refresh of the series list
 		if (preg_match('/refresh/i', $_REQUEST['series'])) {
 			set_time_limit(0);
-			global $TV_PATH;
-			allSeriesSeasons($TV_PATH, false);
+			allSeriesSeasons(TV_PATH, false);
 		}
 
 		# Always redirect to the main page

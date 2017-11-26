@@ -7,8 +7,7 @@ function seriesExists($series) {
 }
 
 function seriesPath($series) {
-	global $TV_PATH;
-	return $TV_PATH . '/' . $series;
+	return TV_PATH . '/' . $series;
 }
 
 # Find all series and seasons under a given path

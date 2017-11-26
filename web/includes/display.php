@@ -147,8 +147,7 @@ function printSeries($series) {
 # Print a DL of all series and note the available and monitored seasons
 function printAllSeries() {
 	require 'config.php';
-	global $TV_PATH;
-	$all_series = allSeriesSeasons($TV_PATH);
+	$all_series = allSeriesSeasons(TV_PATH);
 
 	# Header
 	echo '<div data-role="header">';

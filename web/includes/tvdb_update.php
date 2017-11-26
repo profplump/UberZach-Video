@@ -1,20 +1,38 @@
-#!/usr/local/bin/php
 <?php
 require_once('includes/main.php');
 require_once('includes/tvdb/init.php');
 
-# TEST
-if (!update(275557)) {
-	return -1;
-}
-return 0;
-# END TEST
+function tvdb_lastModified($id) {
+	# DB init
+	$dbh = new PDO(TVDB_DBN);
+	$select = $dbh->prepare('SELECT modified FROM series WHERE id=:id');
 
-function update($id) {
-	return (updateSeries($id) && updateEpisodes($id));
+	# Query
+	$select->execute(array('id' => $id));
+	$result = $select->fetch(PDO::FETCH_ASSOC);
+
+	# Cast as a datetime
+	$time = 0;
+	if ($result && is_array($result) && $result['modified']) {
+		$time = strtotime($result['modified']);
+	}
+	return $time;
 }
 
-function updateEpisodes($id) {
+function tvdb_update($id, $force = false) {
+	if (!$force) {
+		$modified = tvdb_lastModified($id);
+		if (time() - $modified < TVDB_UPDATE_TIMEOUT) {
+			if (DEBUG) {
+				echo 'Skipping due to recent update: ' . $id . "\n";
+			}
+			return true;
+		}
+	}
+	return (tvdb_series($id) && tvdb_episodes($id));
+}
+
+function tvdb_episodes($id) {
 
 	# Fetch
 	$tvdb = new Moinax\TvDb\Client(TVDB_URL, TVDB_API_KEY);
@@ -35,22 +53,31 @@ function updateEpisodes($id) {
 	# Update
 	$error = 0;
 	foreach ($episodes['episodes'] as $episode) {
+		$airdate = null;
+		if (is_object($episode->firstAired)) {
+			$airdate = $episode->firstAired->format('c');
+		} else if (DEBUG) {
+			echo 'No airdate for: ' . $id . '::' . $episode->season . ':' . $episode->number . "\n";
+		}
 		$data = array(
 			'id' => $id,
 			'season' => $episode->season,
 			'number' => $episode->number,
-			'airdate' => $episode->firstAired->format('c'), 
+			'airdate' => $airdate,
 			'name' => $episode->name,
 			'desc' => $episode->overview
 		);
-		if (!insertOrUpdate($insert, $update, $data)) {
+		if (!tvdb_insert($insert, $update, $data)) {
+			if (DEBUG) {
+				print_r($dbh->errorInfo());
+			}
 			$err++;
 		}
 	}
 	return ($err == 0);
 }
 
-function updateSeries($id) {
+function tvdb_series($id) {
 
 	# Fetch series and episodes
 	$tvdb = new Moinax\TvDb\Client(TVDB_URL, TVDB_API_KEY);
@@ -76,14 +103,17 @@ function updateSeries($id) {
 		'desc' => $series->overview,
 		'year' => $series->firstAired->format('Y')
 	);
-	return insertOrUpdate($insert, $update, $data);
-}
-
-function insertOrUpdate($insert, $update, $data) {
-	if (!$insert->execute($data) && !$update->execute($data)) {
+	if (!tvdb_insert($insert, $update, $data)) {
 		if (DEBUG) {
 			print_r($dbh->errorInfo());
 		}
+		return false;
+	}
+	return true;
+}
+
+function tvdb_insert($insert, $update, $data) {
+	if (!$insert->execute($data) && !$update->execute($data)) {
 		return false;
 	}
 	return true;
