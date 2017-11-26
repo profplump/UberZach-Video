@@ -1,6 +1,7 @@
 #!/usr/local/bin/php
 <?php
 
+define('DEBUG', true);
 set_time_limit(0);
 require_once 'includes/main.php';
 require_once 'includes/tvdb_update.php';

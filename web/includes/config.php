@@ -1,7 +1,7 @@
 <?
 
 # Debug output
-define('DEBUG', true);
+define('DEBUG', false);
 
 # Set locale and TZ to make things sane
 define('TZ', 'America/Los_Angeles');
