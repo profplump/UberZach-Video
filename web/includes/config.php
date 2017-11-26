@@ -10,8 +10,6 @@ setlocale(LC_ALL, 'en_US.UTF8');
 
 # TVDB API
 define('TVDB_URL',           'http://thetvdb.com');
-define('TVDB_API_KEY',       '26877109147D171D');
-define('TVDB_DBN',           'pgsql:dbname=tv');
 define('TVDB_UPDATE_TIMEOUT', 86400 * 7);
 
 ### Config
