@@ -1,8 +1,12 @@
 #!/bin/bash
 
 # Config
-DRIVE_NAME="iHBS112"
-OUT_DIR="/Users/Shared/EncodeQueue/in"
+if [ -z "${DRIVE_NAME}" ]; then
+	DRIVE_NAME="BD-RE  WH16NS40"
+fi
+if [ -z "${OUT_DIR}" ]; then
+	OUT_DIR="/Users/Shared/EncodeQueue/in"
+fi
 APP_PATH="/Applications/Zach/Media/MakeMKV.app"
 
 # Tracks are extracted with the default profile (as set in the GUI)
@@ -51,7 +55,7 @@ DRIVE_NUM_MKV="`echo "${DRIVE}" | awk -F ',' '{print $1}'`"
 DEV_PATH="`echo "${DRIVE}" | awk -F ',' '{print $7}' | cut -d '"' -f 2`"
 
 # Sanity check
-if [ $DRIVE_NUM_MKV -lt 1 ] || [ $DRIVE_NUM_DR -lt 1 ] || [ -z "${DEV_PATH}" ] || [ ! -c "${DEV_PATH}" ]; then
+if [ -z "${DRIVE_NUM_MKV}" ] || [ $DRIVE_NUM_DR -lt 1 ] || [ -z "${DEV_PATH}" ] || [ ! -c "${DEV_PATH}" ]; then
 	echo "Unable to find drive: ${DRIVE_NAME}" 1>&2
 	exit 1
 fi
