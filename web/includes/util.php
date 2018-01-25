@@ -8,7 +8,7 @@ function cleanSeries($series) {
 	$series = preg_replace('/[\0\n\r]/', ' ', $series);
 
 	# Not allowed by the SMB filesystem -- */:?
-	$series = preg_replace('/\*'/, '_', $series);
+	$series = preg_replace('/\*/', '_', $series);
 	$series = preg_replace('/\s*[\/\:]\s*/', ' - ', $series);
 	$series = preg_replace('/\?/', "\xef\x80\xa5", $series);
 
