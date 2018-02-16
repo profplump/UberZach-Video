@@ -53,7 +53,11 @@ for k in *; do
 			# Duplicate by type-season
 			if [ `ls "S${s}E${e} - "*.* | grep -v '\.nfo$' | wc -l` -gt 1 ]; then
 				echo "Duplicate video by type-season: ${k}/${i}"
-				(cd "${k}" && ~/bin/video/s0rename.sh "${i}")
+
+				# Automatically correct S0 drift
+				if [ $s -eq 0 ]; then
+					(cd "${k}" && ~/bin/video/s0rename.sh "${i}")
+				fi
 			fi
 		fi
 	done
