@@ -6,12 +6,13 @@ use File::Basename;
 use IPC::Cmd qw( can_run );
 
 # Parameters
-my $TOP_URL  = 'http://geekandsundry.com/shows/critical-role/';
-my $PG_MATCH = qr/\<link rel=\'next\' href=\'([^\']+\/page\/\d+\/)\'/;
-my $EP_MATCH = qr/^https?\:\/\/[^\/]+\/(?:critical\-role\-episode\-\d+|\d{4,}\-\d\/)/i;
-my $INI_PATH = `~/bin/video/mediaPath` . '/YouTube/Critical Role (None)/extra_videos.ini';
-my $UA_STR   = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
-my $TIMEOUT  = 10;
+my $TOP_URL    = 'http://geekandsundry.com/shows/critical-role/';
+my $PG_MATCH   = qr/\<link rel=\'next\' href=\'([^\']+\/page\/\d+\/)\'/;
+my $EP_MATCH   = qr/^https?\:\/\/[^\/]+\/(?:critical\-role\-episode\-\d+|.*\bcritical-role\b.*\bcampaign-2-episode-\d+)/i;
+my $EP_EXCLUDE = qr/-podcast-/i;
+my $INI_PATH   = `~/bin/video/mediaPath` . '/YouTube/Critical Role (None)/extra_videos.ini';
+my $UA_STR     = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A';
+my $TIMEOUT    = 10;
 
 # Debug
 our $DEBUG = 0;
@@ -30,6 +31,12 @@ if (exists($ENV{'EP_MATCH'})) {
 	$EP_MATCH = qr/${ENV{'EP_MATCH'}}/i;
 	if ($DEBUG) {
 		print STDERR 'Using ENV EP_MATCH: qr/' . $ENV{'EP_MATCH'} . "/i\n";
+	}
+}
+if (exists($ENV{'EP_EXCLUDE'})) {
+	$EP_EXCLUDE = qr/${ENV{'EP_EXCLUDE'}}/i;
+	if ($DEBUG) {
+		print STDERR 'Using ENV EP_EXCLUDE: qr/' . $ENV{'EP_EXCLUDE'} . "/i\n";
 	}
 }
 if (exists($ENV{'INI_PATH'})) {
@@ -87,6 +94,9 @@ my @episodes = ();
 		foreach my $link (split(/\<a\s+/, $response->decoded_content())) {
 			if ($link =~ /\s+href=\"([^\"]+)\"/) {
 				my $href = $1;
+				if ($href =~ $EP_EXCLUDE) {
+					next;
+				}
 				if ($href =~ $EP_MATCH) {
 					push(@episodes, $href);
 				}
