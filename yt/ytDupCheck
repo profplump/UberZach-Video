@@ -39,6 +39,17 @@ for k in *; do
 				echo "Missing video: ${k}/${i}"
 			fi
 		else
+			# Recode remnants
+			if [ ${#ext} -gt 3 ] && [ "${i}" == "S${s}E${e} - ${id}.${ext}" ]; then
+				MTIME=`stat -c '%Y' "${i}"`
+				TIME=`date '+%s'`
+				if [ $(( $TIME - $MTIME )) -gt 3600 ]; then
+					echo "Deleting recode remnant: ${i}"
+					rm -f -- "${i}"
+					continue
+				fi
+			fi
+
 			# Missing NFO
 			n="`echo "${i}" | sed 's%\.'"${ext}"'$%.nfo%'`"
 			if [ ! -r "${n}" ]; then
