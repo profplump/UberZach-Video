@@ -509,7 +509,7 @@ sub audioOptions($) {
 		}
 
 		# Normalize the codes
-		$iso  = uc($iso);
+		$iso  = defined($iso) ? uc($iso) : '';
 		foreach my $code (@CODEC_ORDER) {
 			my $metacode = quotemeta($code);
 			if ($codec =~ /${metacode}/i) {
