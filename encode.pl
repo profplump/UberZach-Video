@@ -19,6 +19,9 @@ my $HEIGHT        = undef();
 my $WIDTH         = undef();
 my $AUDIO_EXCLUDE_REGEX =
 '\b(?:Chinese|Czech|Deutsch|Espanol|español|Francais|Italiano|Japanese|Korean|Magyar|Polish|Portugues|Russian|Thai|Turkish|Ukrainian)\b';
+my %AUDIO_EXCLUDE_ISO = (
+	'THA' => 1
+);
 my $SUB_INCLUDE_REGEX = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4         = 0;
 my $OUT_DIR           = undef();
@@ -418,7 +421,7 @@ sub subOptions($) {
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'subtitle'} }) {
 		my ($language, $note, $iso, $text, $type) = $track->{'description'} =~
-		  /^([^\(]+)(?:\s+\(([^\)]+)\))?\s+\(iso(\d+\-\d+)\:\s+\w\w\w\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
+		  /^([^\(]+)(?:\s+\(([^\)]+)\))?\s+\(iso\d+\-\d+\:\s+(\w\w\w)\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
 		if (!defined($iso)) {
 			print STDERR 'Could not parse subtitle description: ' . $track->{'description'} . "\n";
 			next;
@@ -431,7 +434,7 @@ sub subOptions($) {
 			$text = 0;
 		}
 
-		# Standardize the codes
+		# Normalize the codes
 		$iso  = uc($iso);
 		$type = uc($type);
 
@@ -492,7 +495,7 @@ sub audioOptions($) {
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'audio'} }) {
 		my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~
-/^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso(\d+\-\d+)\:\s+\w\w\w\))?(?:,\s+(.*))?/;
+/^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso\d+\-\d+\:\s+(\w\w\w)\))?(?:,\s+(.*))?/;
 		if (!defined($channels)) {
 			print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
 			next;
@@ -505,7 +508,8 @@ sub audioOptions($) {
 			$channels = 3.1;
 		}
 
-		# Standardize the codec
+		# Normalize the codes
+		$iso  = defined($iso) ? uc($iso) : '';
 		foreach my $code (@CODEC_ORDER) {
 			my $metacode = quotemeta($code);
 			if ($codec =~ /${metacode}/i) {
@@ -591,8 +595,9 @@ sub audioOptions($) {
 	if (!defined($mixdown) || $mixdown < 1) {
 
 		# If we applied an exclude filter, remove it and try again
-		if ($AUDIO_EXCLUDE_REGEX ne 'ACCEPT_ALL') {
+		if ($AUDIO_EXCLUDE_REGEX ne 'ACCEPT_ALL' || scalar(keys(%AUDIO_EXCLUDE_ISO))) {
 			$AUDIO_EXCLUDE_REGEX = 'ACCEPT_ALL';
+			%AUDIO_EXCLUDE_ISO = ();
 			print STDERR "No usable audio tracks found in title. Removing exclude filter...\n";
 			goto SELECT_AUDIO;
 		}
@@ -887,6 +892,10 @@ sub isValidAudioLanguage($) {
 	my ($lang, $iso) = @_;
 
 	if ($AUDIO_EXCLUDE_REGEX && $lang =~ /${AUDIO_EXCLUDE_REGEX}/i) {
+		return 0;
+	}
+
+	if ($AUDIO_EXCLUDE_ISO{$iso}) {
 		return 0;
 	}
 

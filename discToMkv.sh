@@ -5,7 +5,7 @@ if [ -z "${DRIVE_NAME}" ]; then
 	DRIVE_NAME="BD-RE  WH16NS40"
 fi
 if [ -z "${OUT_DIR}" ]; then
-	OUT_DIR="/Users/Shared/EncodeQueue/in"
+	OUT_DIR="${HOME}/EncodeQueue/in"
 fi
 APP_PATH="/Applications/Zach/Media/MakeMKV.app"
 
