@@ -101,13 +101,14 @@ for infile in $FILES; do
 	# Copy NFO and other metadata, if present
 	OLD_IFS="${IFS}"
 	IFS=" "
-	for meta in "${nobase}.nfo" tvshow.nfo poster.jpg poster.png; do
+	for meta in "${nobase}.nfo" tvshow.nfo poster.jpg poster.png \
+	"../${nobase}.nfo" ../tvshow.nfo ../poster.jpg ../poster.png; do
 		if [ -e "${IN_DIR}/${meta}" ]; then
 			if [ ! -e "${OUT_DIR}/${meta}" ]; then
 				if [ $DEBUG -gt 0 ]; then
 					echo "Copying: ${IN_DIR}/${meta}" 1>&2
 				fi
-				cp "${IN_DIR}/${meta}" "${OUT_DIR}/"
+				cp "${IN_DIR}/${meta}" "${OUT_DIR}/${meta}"
 			fi
 		fi
 	done
