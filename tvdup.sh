@@ -2,16 +2,10 @@
 set failglob
 BASE="/mnt/media/TV"
 
-declare -A seen
-while IFS= read -r -d '' lpath; do
-	count=0
-	file="`basename "${lpath}"`"
-	dir="`dirname "${lpath}"`"
-	num="`echo "${file}" | sed 's%\([0-9]*\).*%\1%'`"
-	if [ -z "${num}" ]; then
-		echo "Error on: ${lpath}" 1>&2
-		continue
-	fi
+NOW="`date '+%s'`"
+THEN=$(( $NOW - 3600 ))
+
+function updateCount() {
 	for i in "${dir}/${num} - "*; do
 		if echo "${i}" | grep -q '.nfo$'; then
 			continue
@@ -21,18 +15,78 @@ while IFS= read -r -d '' lpath; do
 		fi
 		count=$(( $count + 1 ))
 	done
-	if [ $count -ne 1 ]; then
-		id="${dir}/${num} - "
-		if [ -n "${seen["${id}"]}" ]; then
+}
+
+declare -A seen
+while IFS= read -r -d '' lpath; do
+	# Reset the loop
+	count=0
+	file="`basename "${lpath}"`"
+	dir="`dirname "${lpath}"`"
+	num="`echo "${file}" | sed 's%\([0-9]*\).*%\1%'`"
+
+	# Only process things in a format we understand
+	if [ -z "${num}" ]; then
+		echo "Error on: ${lpath}" 1>&2
+		continue
+	fi
+
+	# Skip if we're down to one
+	updateCount
+	if [ $count -lt 2 ]; then
+		continue
+	fi
+
+	# Build a list of checked files and skip dups
+	id="${dir}/${num} - "
+	if [ -n "${seen["${id}"]}" ]; then
+		continue
+	fi
+	seen["${id}"]=1
+
+	# Skip things modified since $THEN
+	if [ "`uname`" == "Darwin" ]; then
+		MTIME="`stat -f '%m' "${id}"*`"
+	else
+		MTIME="`stat -c '%Y' "${id}"*`"
+	fi
+	MTIME="`echo "${MTIME}" | sort | head -n 1`"
+	if [ $MTIME -gt $THEN ]; then
+		echo "Skipping recent file: ${lpath}" 1>&2
+		continue
+	fi
+
+	# Delete empty files
+	DEL=0
+	for i in "${BASE}/${short}"*; do
+		if [ -s "${id}" ]; then
 			continue
 		fi
-		seen["${id}"]=1
+		sudo chattr -i "${i}"
+		echo rm "${i}"
+		DEL=1
+	done
 
-		echo "Multiple matches for: ${id}" 1>&2
-		short="`echo "${id}" | sed "s%^${BASE}/%%"`"
-		(cd "${BASE}" && ls -lhtQ "${short}"*)
-
-		sudo chattr -i "${id}"*
-		touch "${id}"*
+	# Skip if we're down to one
+	updateCount
+	if [ $count -lt 2 ]; then
+		continue
 	fi
+
+	# Use mkvRename
+	sudo chattr -i "${id}"*
+	echo mkvRename "${lpath}"
+
+	# Skip if we're down to one
+	updateCount
+	if [ $count -lt 2 ]; then
+		continue
+	fi
+
+	# Human intervention
+	sudo chattr -i "${id}"*
+	touch "${id}"*
+	echo "Multiple matches for: ${id}" 1>&2
+	short="`echo "${id}" | sed "s%^${BASE}/%%"`"
+	(cd "${BASE}" && ls -lhtQ "${short}"*)
 done< <(find "${BASE}" -type f -path '*Season*' -name '[0-9]*.*' -print0)
