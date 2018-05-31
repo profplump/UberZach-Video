@@ -56,24 +56,7 @@ while IFS= read -r -d '' lpath; do
 		continue
 	fi
 
-	# Delete empty files
-	DEL=0
-	for i in "${BASE}/${short}"*; do
-		if [ -s "${id}" ]; then
-			continue
-		fi
-		sudo chattr -i "${i}"
-		echo rm "${i}"
-		DEL=1
-	done
-
-	# Skip if we're down to one
-	updateCount
-	if [ $count -lt 2 ]; then
-		continue
-	fi
-
-	# Use mkvRename
+	# Use mkvRename (which protects against small files internally)
 	sudo chattr -i "${id}"*
 	echo mkvRename "${lpath}"
 
