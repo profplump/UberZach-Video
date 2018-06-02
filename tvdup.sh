@@ -58,7 +58,7 @@ while IFS= read -r -d '' lpath; do
 
 	# Use mkvRename (which protects against small files internally)
 	sudo chattr -i "${id}"*
-	echo mkvRename "${lpath}"
+	mkvRename "${lpath}"
 
 	# Skip if we're down to one
 	updateCount
