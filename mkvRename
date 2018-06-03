@@ -1,0 +1,92 @@
+#!/bin/bash
+
+MIN_SIZE=$(( 100 * 1024 * 1024 ))
+INPUT="${1}"
+if [ -z "${INPUT}" ] || [ ! -r "${INPUT}" ]; then
+	echo "Invalid file: ${INPUT}" 1>&2
+	exit 1
+fi
+
+BASE="`echo "${INPUT}" | \
+	sed 's%\.mkv\.[a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9]$%.mkv%i' | \
+	sed 's%\-recode\.mkv$%.mkv%i' | \
+	sed 's%\.mkv$%%i' | \
+	sed 's%\.mp4$%%i' | \
+	sed 's%\.avi$%%i'`"
+if [ -z "${BASE}" ] || [ "${BASE}" == "${INPUT}" ]; then
+	echo "Unable to extract base name from: ${INPUT}" 1>&2
+	exit 1
+fi
+OUTPUT="${BASE}.mkv"
+
+OTHER=""
+DEL_OTHER=""
+RENAME_MKV=""
+for i in "${BASE}"*; do
+	if [ "${i}"  == "${OUTPUT}" ]; then
+		continue
+	fi
+	if [ ! -s "${i}" ]; then
+		echo "Removing empty file: ${i}"
+		rm -f "${i}"
+		continue
+	fi
+	if echo "${i}" | grep -Eq '\.avi$'; then
+		DEL_OTHER="${i}"
+	elif echo "${i}" | grep -Eq '\.mp4$'; then
+		DEL_OTHER="${i}"
+	fi
+	if echo "${i}" | grep -Eq '\-recode\.mkv$'; then
+		RENAME_MKV="${i}"
+	elif echo "${i}" | grep -Eiq '\.mkv\.[a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9][a-z0-9]$'; then
+		RENAME_MKV="${i}"
+	fi
+	OTHER="${i}"
+done
+if [ -n "${DEL_OTHER}" ]; then
+	if [ `stat -c '%s' "${DEL_OTHER}"` -lt $MIN_SIZE ]; then
+		echo "File too small: ${DEL_OTHER}" 1>&2
+		DEL_OTHER=""
+	fi
+fi
+if [ -n "${RENAME_MKV}" ]; then
+	if [ `stat -c '%s' "${RENAME_MKV}"` -lt $MIN_SIZE ]; then
+		echo "File too small: ${RENAME_MKV}" 1>&2
+		RENAME_MKV=""
+	fi
+fi
+if [ -z "${DEL_OTHER}" ] && [ -z "${RENAME_MKV}" ]; then
+	echo "Unable to determine pair file for: ${INPUT}" 1>&2
+	exit 1
+fi
+
+if [ -n "${DEBUG}" ] && [ "${DEBUG}" != "0" ]; then
+	echo "Input: ${INPUT}"
+	echo "Base: ${BASE}"
+	ls "${BASE}"* 2>/dev/null
+	echo "Other: ${OTHER}"
+	echo "Output: ${OUTPUT}"
+	echo "Output exists: ${OUTPUT_EXISTS}"
+	echo "Delete other: ${DEL_OTHER}"
+	echo "Rename MKV: ${RENAME_MKV}"
+fi
+
+ACTION=0
+if [ -r "${RENAME_MKV}" ]; then
+	echo "Renaming MKV file ${RENAME_MKV} to ${OUTPUT}"
+	mv "${RENAME_MKV}" "${OUTPUT}"
+	ACTION=1
+fi
+if [ -r "${OUTPUT}" ] && [ -r "${DEL_OTHER}" ]; then
+	echo "Deleting non-MKV file: ${DEL_OTHER}"
+	rm -f "${DEL_OTHER}"
+	ACTION=1
+fi
+
+if [ $ACTION -le 0 ]; then
+	echo "Unable to determine action for: ${INPUT}" 1>&2
+	echo "Related files: `ls "${BASE}."* 2>/dev/null`"
+	exit 1
+fi
+
+exit 0
