@@ -6,6 +6,7 @@ NOW="`date '+%s'`"
 THEN=$(( $NOW - 3600 ))
 
 function updateCount() {
+	count=0
 	for i in "${dir}/${num} - "*; do
 		if echo "${i}" | grep -q '.nfo$'; then
 			continue
@@ -58,7 +59,7 @@ while IFS= read -r -d '' lpath; do
 
 	# Use mkvRename (which protects against small files internally)
 	sudo chattr -i "${id}"*
-	~/bin/video/mkvRename "${lpath}"
+	QUIET=1 ~/bin/video/mkvRename "${lpath}"
 
 	# Skip if we're down to one
 	updateCount
