@@ -27,7 +27,9 @@ for i in "${BASE}"*; do
 		continue
 	fi
 	if [ ! -s "${i}" ]; then
-		echo "Removing empty file: ${i}"
+		if [ -z "${QUIET}" ]; then
+			echo "Removing empty file: ${i}"
+		fi
 		rm -f "${i}"
 		continue
 	fi
@@ -73,19 +75,23 @@ fi
 
 ACTION=0
 if [ -r "${RENAME_MKV}" ]; then
-	echo "Renaming MKV file ${RENAME_MKV} to ${OUTPUT}"
+	if [ -z "${QUIET}" ]; then
+		echo "Renaming MKV file ${RENAME_MKV} to ${OUTPUT}"
+	fi
 	mv "${RENAME_MKV}" "${OUTPUT}"
 	ACTION=1
 fi
 if [ -r "${OUTPUT}" ] && [ -r "${DEL_OTHER}" ]; then
-	echo "Deleting non-MKV file: ${DEL_OTHER}"
+	if [ -z "${QUIET}" ]; then
+		echo "Deleting non-MKV file: ${DEL_OTHER}"
+	fi
 	rm -f "${DEL_OTHER}"
 	ACTION=1
 fi
 
 if [ $ACTION -le 0 ]; then
 	echo "Unable to determine action for: ${INPUT}" 1>&2
-	echo "Related files: `ls "${BASE}."* 2>/dev/null`"
+	echo "Related files: `ls "${BASE}."* 2>/dev/null`" 1>&2
 	exit 1
 fi
 
