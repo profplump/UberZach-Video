@@ -457,7 +457,9 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 				sleep($DELAY);
 				my $exit = run(EXIT_ANY, @fetch);
 				if ($exit != 0) {
-					warn('Error executing youtube-dl for video: ' . $NAME . '/' . $id . "\n");
+					if ($DEBUG) {
+						warn('Error executing youtube-dl for video: ' . $NAME . '/' . $id . "\n");
+					}
 					next FETCH_LOOP;
 				}
 
