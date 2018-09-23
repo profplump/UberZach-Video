@@ -791,8 +791,8 @@ sub getSubscriptions($) {
 				|| ref($item->{'snippet'}->{'resourceId'}) ne 'HASH'
 				|| !exists($item->{'snippet'}->{'resourceId'}->{'channelId'}))
 			{
-				warn($NAME . ": Skipping invalid subscription\n");
 				if ($DEBUG > 2) {
+					warn($NAME . ": Skipping invalid subscription\n");
 					print STDERR prettyPrint($item, "\t") . "\n";
 				}
 				next;
