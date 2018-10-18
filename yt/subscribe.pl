@@ -393,7 +393,9 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 
 	# Warn (and optionally rename) as selected
 	if ($rename) {
-		print STDERR 'Video ' . $id . ' had number ' . $files->{$id}->{'number'} . ' but now has number ' . $videos->{$id}->{'number'} . "\n";
+		if ($DEBUG) {
+			warn('Video ' . $id . ' had number ' . $files->{$id}->{'number'} . ' but now has number ' . $videos->{$id}->{'number'} . "\n");
+		}
 		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, $videos->{$id}->{'season'}, $videos->{$id}->{'number'});
 	}
 
@@ -1381,7 +1383,9 @@ sub renameVideo($$$$$$) {
 		}
 		saveString($nfoNew, $nfoData);
 		if ($nfo ne $nfoNew) {
-			print STDERR 'Renaming ' . $NAME . '/' . $nfo . ' => ' . $nfoNew . "\n";
+			if ($DEBUG) {
+				warn('Renaming ' . $NAME . '/' . $nfo . ' => ' . $nfoNew . "\n");
+			}
 			unlink($nfo)
 			  or warn('Unable to delete NFO during rename: ' . $! . "\n");
 		}
