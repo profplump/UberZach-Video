@@ -323,7 +323,9 @@ foreach my $id (keys(%{$files})) {
 		}
 
 		# Whine when videos do go away
-		warn('Local video not known to YT channel (' . $NAME . '): ' . $id . "\n");
+		if ($DEBUG) {
+			warn('Local video not known to YT channel (' . $NAME . '): ' . $id . "\n");
+		}
 		renameVideo($files->{$id}->{'path'}, $files->{$id}->{'suffix'}, $files->{$id}->{'nfo'}, $id, 0, $files->{$id}->{'season'} . $files->{$id}->{'number'});
 	}
 }
@@ -1095,7 +1097,10 @@ sub getVideoData($) {
 		&& ref($data->{'items'}) eq 'ARRAY')
 	{
 		if (scalar(@{$ids}) > 1 && $data->{'pageInfo'}->{'totalResults'} != scalar(@{$ids})) {
-			die($NAME . ': Video/metadata search count mismatch: ' . $data->{'pageInfo'}->{'totalResults'} . '/' . scalar(@{$ids}) . "\n");
+			if ($DEBUG) {
+				die($NAME . ': Video/metadata search count mismatch: ' . $data->{'pageInfo'}->{'totalResults'} . '/' . scalar(@{$ids}) . "\n");
+			}
+			exit(0);
 		}
 		$data = $data->{'items'};
 	} else {
@@ -1343,7 +1348,9 @@ sub renameVideo($$$$$$) {
 			die($NAME . ': Invalid video source in rename: ' . $video . "\n");
 		}
 		if ($video ne $videoNew) {
-			print STDERR 'Renaming ' . $NAME . '/' . $video . ' => ' . $videoNew . "\n";
+			if ($DEBUG) {
+				warn('Renaming ' . $NAME . '/' . $video . ' => ' . $videoNew . "\n");
+			}
 			if (-e $videoNew) {
 				die($NAME . ': Rename: Target exists: ' . $videoNew . "\n");
 			}

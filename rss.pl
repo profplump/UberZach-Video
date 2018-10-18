@@ -114,10 +114,12 @@ for my $entry ($feed->entries()) {
 					$ext = 'mp3';
 				} elsif ($enc->{'type'} =~ /video\//i) {
 					if ($DEBUG > 1) {
-						print STDERR 'Skipping video file: ' . time2str('%Y-%m-%d', $time) . "\n";
+						warn('Skipping video file: ' . time2str('%Y-%m-%d', $time) . "\n");
 					}
 				} else {
-					print STDERR 'Unknown MIME type: ' . $enc->{'type'} . "\n";
+					if ($DEBUG) {
+						warn('Unknown MIME type: ' . $enc->{'type'} . "\n");
+					}
 				}
 			}
 			if (exists($enc->{'length'})) {
@@ -216,7 +218,12 @@ while (my $file = readdir($fh)) {
 		if (exists($episodes{$time})) {
 			if (exists($episodes{$time}->{'size'}) && $episodes{$time}->{'size'}) {
 				(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($path);
-				my $ratio = ($size / $episodes{$time}->{'size'});
+				my $ratio = 1;
+				if ($episodes{$time}->{'size'} =~ /^\d$/) {
+					$ratio = ($size / $episodes{$time}->{'size'});
+				} elsif ($DEBUG) {
+					warn('Invalid episode size: ' . $episodes{$time}->{'size'});
+				}
 				if ($ratio < (1 - $ERR_RATIO) && $DEBUG) {
 					print STDERR 'Invalid output file size (' . $size . '/' . $episodes{$time}->{'size'} . '): ' . $file . "\n";
 				}
