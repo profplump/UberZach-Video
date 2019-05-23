@@ -16,6 +16,7 @@ echo $$ > "${PID_FILE}"
 # Execute
 find "${MEDIA_PATH}/YouTube" -maxdepth 1 -mindepth 1 -type d \
 	-exec ~/bin/video/yt/subscribe.pl {} \; 2>&1 | \
+	grep -v 'giving up after 10 retries' | \
 	grep -v 'Did not get any data blocks' | \
 	grep -v 'The read operation timed out'
 

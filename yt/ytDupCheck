@@ -67,7 +67,7 @@ for k in *; do
 
 				# Automatically correct S0 drift
 				if [ $s -eq 0 ]; then
-					~/bin/video/yt/s0rename.sh "${i}"
+					~/bin/video/yt/s0rename.sh "S${s}E${e}"
 				fi
 			fi
 		fi

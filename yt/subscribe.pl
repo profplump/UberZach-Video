@@ -853,6 +853,14 @@ sub saveSubscriptions($$) {
 			next;
 		}
 
+		# Skip the weird dual Ask a Ninja thing, which vascilates
+		if ($id eq 'UCpYQ53cR1p2VzFijrXYz4WQ') {
+			if ($DEBUG) {
+				print STDERR 'Ignoring weird Ask a Ninja subscription: ' . $file . "\n";
+			}
+			next;
+		}
+
 		# Anything else should be in the list
 		if (!$subs->{$id}) {
 			my (undef(), undef(), $hour) = localtime(time);
