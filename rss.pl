@@ -219,7 +219,7 @@ while (my $file = readdir($fh)) {
 			if (exists($episodes{$time}->{'size'}) && $episodes{$time}->{'size'}) {
 				(undef(), undef(), undef(), undef(), undef(), undef(), undef(), my $size) = stat($path);
 				my $ratio = 1;
-				if ($episodes{$time}->{'size'} =~ /^\d$/) {
+				if ($episodes{$time}->{'size'} =~ /^\d+$/) {
 					$ratio = ($size / $episodes{$time}->{'size'});
 				} elsif ($DEBUG) {
 					warn('Invalid episode size: ' . $episodes{$time}->{'size'});
