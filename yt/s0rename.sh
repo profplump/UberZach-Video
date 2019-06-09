@@ -1,5 +1,7 @@
 #!/bin/bash
 
+MAX_MOVE=25
+
 PREFIX="${1}"
 if [ -z "${PREFIX}" ]; then
 	echo "Usage: ${0} PREFIX" 1>&2
@@ -52,7 +54,7 @@ fi
 function checkNew() {
 	if [ -z "${NUM_NEW}" ]; then
 		COUNT=0
-		for i in "S0E${1}"*; do
+		for foo in "S0E${1}"*; do
 			COUNT=$(( $COUNT + 1 ))
 		done
 		if [ $COUNT -eq 0 ]; then
@@ -63,12 +65,12 @@ function checkNew() {
 
 # Find a new file name
 NUM_NEW=""
-checkNew $(( NUM + 1 ))
-checkNew $(( NUM - 1 ))
-checkNew $(( NUM + 2 ))
-checkNew $(( NUM - 2 ))
-checkNew $(( NUM + 3 ))
-checkNew $(( NUM - 3 ))
+i=1
+while [ $i -lt $MAX_MOVE ]; do
+	checkNew $(( NUM + $i ))
+	checkNew $(( NUM - $i ))
+	i=$(( $i + 1 ))
+done
 if [ -z "${NUM_NEW}" ]; then
 	echo "Unable to find new number for: ${PREFIX}" 1>&2
 	exit 1
