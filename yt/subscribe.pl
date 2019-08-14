@@ -31,8 +31,9 @@ my $MAX_INDEX     = 25000;
 my $FETCH_LIMIT   = 50;
 my $DELAY         = 0.5;
 my $HTTP_TIMEOUT  = 10;
-my $HTTP_UA       = 'ZachBot/1.0 (Plex)';
+my $HTTP_UA       = 'ZachBot/1.1 (Firewall)';
 my $HTTP_VERIFY   = 0;
+my $API_HTML      = $ENV{'API_HTML'};
 my $API_URL       = 'https://www.googleapis.com/youtube/v3/';
 my $API_KEY       = $ENV{'YT_API_KEY'};
 my $API_ST_REL    = 0.50;
@@ -342,6 +343,38 @@ foreach my $id (keys(%{$files})) {
 		}
 		$videos->{$id}->{'number'} = $num++;
 	}
+}
+
+# HTML output
+if ($API_HTML) {
+	my $html = undef();
+	my $hdate = time() - (86400 * 28);
+	open($html, '>', $API_HTML) or warn('Could not open file "' . $API_HTML . '": ' . $!);
+	if (!$html) {
+		goto END_HTML;
+	}
+
+	print $html '<html><head><title>' . $NAME . '(' . $ID . ')' . '</title></head>' . "\n";
+	print $html '<body><form method="post" action="https://firewall.local/yt/update.py">' . "\n";
+	print $html '<h1>' . $NAME . '</h1><table>' . "\n";
+
+	my @byDate = sort { $videos->{$b}->{'date'} <=> $videos->{$a}->{'date'} || $a cmp $b } keys %{$videos};
+	foreach my $id (@byDate) {
+		my $val = 'Block';
+		if ($videos->{$id}->{'date'} > $hdate) {
+			$val = 'Allow';
+		}
+		print $html '<tr>';
+		print $html '<td>' . time2str('%Y-%m-%d', $videos->{$id}->{'date'}) . '</td>';
+		print $html '<td><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v='
+			. $id . '">' . $videos->{$id}->{'title'} . '</a></td>';
+		print $html '<td><input type="submit" name="ytid|' . $id . '" value="' . $val . '" /></td>';
+		print $html "</tr>\n";
+	}
+
+	print $html '</table></form></body></html>' . "\n";
+	close($html);
+	END_HTML:
 }
 
 # Fill in missing videos and NFOs
