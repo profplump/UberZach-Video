@@ -26,11 +26,13 @@ my @YTDL_ARGS     = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', 
 my @YTDL_QUIET    = ('--quiet', '--no-warnings');
 my @YTDL_DEBUG    = ('--verbose');
 my $CHATTR        = '/usr/bin/chattr';
-my $BATCH_SIZE    = 50;
+my $BATCH_SIZE    = int(rand(32));
 my $MAX_INDEX     = 25000;
 my $FETCH_LIMIT   = 50;
-my $DELAY         = 0.5;
-my $HTTP_TIMEOUT  = 10;
+my $DELAY         = 5;
+my $MIN_DELAY     = 0.75;
+my $FORK_DELAY    = 5;
+my $HTTP_TIMEOUT  = 12;
 my $HTTP_UA       = 'ZachBot/1.1 (Firewall)';
 my $HTTP_VERIFY   = 0;
 my $API_HTML      = $ENV{'API_HTML'};
@@ -129,6 +131,7 @@ sub videoPath($$$$);
 sub renameVideo($$$$$$);
 sub parseFilename($);
 sub fetch($$);
+sub delay(;$);
 
 # Debug
 my $DEBUG = 0;
@@ -138,7 +141,7 @@ if ($ENV{'DEBUG'}) {
 	} else {
 		$DEBUG = 1;
 	}
-	$DELAY /= 2;
+	$DELAY = 0;
 }
 
 # Sanity check
@@ -467,7 +470,7 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 				if ($DEBUG > 1) {
 					print STDERR join(' ', @name) . "\n";
 				}
-				sleep($DELAY);
+				delay();
 				my $file = capture(EXIT_ANY, @name);
 				if ($EXITVAL != 0) {
 					warn('Error executing youtube-dl for name: ' . $NAME . '/' . $id . ' (' . $EXITVAL . ")\n");
@@ -491,7 +494,7 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 				if ($DEBUG > 1) {
 					print STDERR join(' ', @fetch) . "\n";
 				}
-				sleep($DELAY);
+				delay();
 				my $exit = run(EXIT_ANY, @fetch);
 				if ($exit != 0) {
 					if ($DEBUG) {
@@ -759,7 +762,7 @@ sub fetchParse($$) {
 	if ($DEBUG > 1) {
 		print STDERR 'Fetching ' . $name . ' API URL: ' . $url . "\n";
 	}
-	sleep($DELAY);
+	delay();
 	my $content;
 	my $code = fetch($url, \$content);
 	if ($code != 200 || !defined($content) || length($content) < 10) {
@@ -773,9 +776,9 @@ sub fetchParse($$) {
 
 		if ($code >= 400 && $code < 500) {
 			if ($DEBUG) {
-				print STDERR "Wainting 30 seconds after 400 error\n";
+				print STDERR "Waiting 30 seconds after 400 error\n";
 			}
-			sleep(30);
+			delay(30);
 		}
 		die($msg);
 	}
@@ -1239,7 +1242,11 @@ sub findVideos($) {
 		# Loop status
 		my $count = scalar(keys(%videos));
 		if ($DEBUG && $totalCount) {
-			print STDERR 'Fetching ' . $count . ' of ' . $totalCount . ' (' . int(100 * $count / $totalCount) . "%)\n";
+			my $date = $params{'publishedBefore'};
+			$date =~ s/T.*$//;
+			print STDERR 'Fetching ' . $count . ' of ' . $totalCount .
+				"\t" . $date .
+				"\t(" . int(100 * $count / $totalCount) . "%)\n";
 		}
 
 		# Build, fetch, parse, check
@@ -1296,6 +1303,10 @@ sub findVideos($) {
 		}
 
 		# Loop if there are results left to fetch
+		if ($DEBUG > 1) {
+			print STDERR "more \t => ${more}\n";
+			print STDERR "count \t => ${count}\n";
+		}
 		if ($more && $params{'publishedBefore'} && $count <= $MAX_INDEX) {
 			redo LOOP;
 		}
@@ -1462,4 +1473,22 @@ sub fetch($$) {
 	}
 	${$data} = $response->decoded_content();
 	return $code;
+}
+
+# Inter-operation delay
+sub delay(;$) {
+	my $retval = 0;
+	my ($extra) = ($@);
+	if (!Scalar::Util::looks_like_number($extra)) {
+		$extra = 0;
+	}
+
+	my $sleep = rand($DELAY) + $MIN_DELAY + $extra;
+	if ($sleep > $FORK_DELAY) {
+		# Fork, signal the loop to exit in the child, and resume the parent
+		$retval = 1;
+	}
+
+	sleep($sleep);
+	return($retval);
 }
