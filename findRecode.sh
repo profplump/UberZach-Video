@@ -47,7 +47,7 @@ if [ -n "${NO_LAST_RECODE_FILE}" ]; then
 fi
 
 # Find large video files that match the regex filter
-FILES="`find "${FOLDER}" -type f -maxdepth 1 -size "+${MIN_SIZE}" | grep -iE "${NAME_REGEX}"`"
+FILES="`find "${FOLDER}" -maxdepth 1 -type f -size "+${MIN_SIZE}" | grep -iE "${NAME_REGEX}"`"
 
 # Record the last scan start time, in a temp file
 LAST_RECODE_TMP=""
