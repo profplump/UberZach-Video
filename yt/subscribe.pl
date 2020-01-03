@@ -22,7 +22,8 @@ my %USERS         = ('profplump' => 'UCkj-Ob6eYHvzo-P0UWfnQzA', 'shanda' => 'UCh
 my $EXTRAS_FILE   = 'extra_videos.ini';
 my $EXCLUDES_FILE = 'exclude_videos.ini';
 my $YTDL_BIN      = $ENV{'HOME'} . '/bin/video/yt/youtube-dl';
-my @YTDL_ARGS     = ('--force-ipv4', '--socket-timeout', '10', '--no-playlist', '--max-downloads', '1', '--age-limit', '99');
+my @YTDL_ARGS     = ('--force-ipv4', '--socket-timeout', '10', '--retries', '1', 
+			'--no-playlist', '--max-downloads', '1', '--age-limit', '99');
 my @YTDL_QUIET    = ('--quiet', '--no-warnings');
 my @YTDL_DEBUG    = ('--verbose');
 my $CHATTR        = '/usr/bin/chattr';
