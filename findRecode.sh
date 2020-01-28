@@ -2,12 +2,37 @@
 
 # Parameters
 FOLDER="`~/bin/video/mediaPath`"
-MIN_RATE=275000
-MIN_SIZE="425M"
-MIN_HEIGHT=500
-NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg|m4v)$"
+if [ -z "${MIN_RATE}" ]; then
+	MIN_RATE=275000
+fi
+if [ -z "${MIN_SIZE}" ]; then
+	MIN_SIZE="425M"
+fi
+if [ -z "${MIN_HEIGHT}" ]; then
+	MIN_HEIGHT=500
+fi
+if [ -z "${NAME_REGEX}" ]; then
+	NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg|m4v)$"
+fi
+if [ -z "${CODEC_REGEX}" ]; then
+	CODEC_REGEX='^(x264|Nx265)'
+fi
+if [ -z "${CODEC_BUILD_REGEX}" ]; then
+	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148)|Nx265 \(build 95\))'
+fi
 SCAN_DEPTH_FAST=10
 SCAN_DEPTH_SLOW=100
+
+# Standard overrides for the current official archive format
+if [ -n "${FULL_ARCHIVE}" ]; then
+	MIN_SIZE=50M
+	MIN_RATE=100
+	MIN_HEIGHT=100
+	CODEC_BUILD_REGEX='Nx265 \(build 95\)'
+	# Don't set the codec regex so we get faster scans against
+	# things that we did encode but aren't in the archive format
+	#CODEC_REGEX='^Nx265' 
+fi
 
 # Command-line overrides
 if [ -n "${1}" ]; then
@@ -15,15 +40,19 @@ if [ -n "${1}" ]; then
 fi
 if [ -n "${2}" ]; then
 	MIN_SIZE="${2}"
+	echo "Deprecated: MIN_SIZE" 1>&2
 fi
 if [ -n "${3}" ]; then
 	MIN_RATE="${3}"
+	echo "Deprecated: MIN_RATE" 1>&2
 fi
 if [ -n "${4}" ]; then
 	MIN_HEIGHT="${4}"
+	echo "Deprecated: MIN_HEIGHT" 1>&2
 fi
 if [ -n "${5}" ]; then
 	NAME_REGEX="${5}"
+	echo "Deprecated: NAME_REGEX" 1>&2
 fi
 
 # Name-based paramters
@@ -34,7 +63,7 @@ fi
 
 # Sanity check
 if [ ! -d "${FOLDER}" ]; then
-	echo "Usage: `basename "${0}"` [folder] [min_size] [min_rate] [min_height] [name_regex]" 1>&2
+	echo "Usage: `basename "${0}"` [folder]" 1>&2
 	exit 1
 fi
 
@@ -72,16 +101,14 @@ for i in ${FILES}; do
 
 	# Find the x264/Nx265 header, if present. Scan deeper if the fast scan fails.
 	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
-	if ! echo "${STRINGS}" | grep -Eq '^(x264|Nx265)'; then
+	if ! echo "${STRINGS}" | grep -Eq "${CODEC_REGEX}"; then
 		STRINGS="`head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n 100`"
 	fi
 
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
 	if echo "${STRINGS}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		if echo "${STRINGS}" | grep -Eq '^x264 - core (79|112|120|125|129|130|142|148)'; then
-			HANDBRAKE=1
-		elif echo "${STRINGS}" | grep -Eq '^Nx265 \(build 95\)'; then
+		if echo "${STRINGS}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
 			HANDBRAKE=1
 		fi
 	elif echo "${STRINGS}" | grep -q HandBrake; then
