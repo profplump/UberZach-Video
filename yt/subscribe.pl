@@ -437,14 +437,16 @@ FETCH_LOOP: foreach my $id (keys(%{$videos})) {
 	}
 
 	# If we haven't heard of the file, or don't have an NFO for it
-	# Checking for the NFO allows use to resume failed downloads
+	# Checking for the NFO allows us to resume in-process failures
 	if (!exists($files->{$id}) || !-e $nfo) {
 		if ($DEBUG) {
 			print STDERR 'Fetching video: ' . $id . "\n";
 		}
 
-		# Let youtube-dl handle the URLs and downloading
+		# Mark the video as reviewed
 		{
+			my $reviewed = videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . $id . '.reviewed';
+			touch($reviewed);
 			my @args = ('--output', videoSE($videos->{$id}->{'season'}, $videos->{$id}->{'number'}) . '%(id)s.%(ext)s', '--', $id);
 			my @name = ($YTDL_BIN);
 			push(@name, @YTDL_ARGS);
