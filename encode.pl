@@ -63,12 +63,13 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
 
 # Shortcut config
 if ($ENV{'MOBILE'}) {
-	$ENV{'QUALITY'}       = 24;
+	$ENV{'QUALITY'}       = 25;
 	$ENV{'HEIGHT'}        = 720;
 	$ENV{'WIDTH'}         = 1280;
 	$ENV{'AUDIO_BITRATE'} = 128;
 	$ENV{'STEREO_ONLY'}   = 1;
 	$ENV{'ENCODER'}       = 'x264';
+	$ENV{'FORCE_MP4'}     = 1;
 }
 
 # Allow overrides for audio languages
@@ -240,19 +241,17 @@ if ($title) {
 	}
 }
 
-# Ensure we have an output file name
-# Force MKV/MP4 output if the output file name is provided and includes an extension
+# Ensure we have an output file name with a reasonable extension
+# Force the output format by file name or flag, keeping the input format by default
 if (!defined($out_file) || length($out_file) < 1) {
 	$out_file = $in_file;
+}
+if ($FORCE_MP4) {
+	$FORMAT = 'av_mp4';
 } else {
-	my ($force_format) = $out_file =~ /\.(\w{2,4})$/;
-	if (defined($force_format)) {
-		$force_format = lc($force_format);
-		if ($force_format eq 'mkv') {
-			$FORMAT = 'av_mkv';
-		} elsif ($force_format eq 'mp4' || $force_format eq 'm4v') {
-			$FORMAT = 'av_mp4';
-		}
+	my ($format) = $out_file =~ /\.(\w{2,4})$/;
+	if (defined($format)) {
+		$FORMAT = 'av_' . lc($format);
 	}
 }
 
