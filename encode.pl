@@ -242,17 +242,21 @@ if ($title) {
 }
 
 # Ensure we have an output file name with a reasonable extension
-# Force the output format by file name or flag, keeping the input format by default
+# Force the output format by file name or flag
+# Default to MKV if neither is specified
 if (!defined($out_file) || length($out_file) < 1) {
 	$out_file = $in_file;
-}
-if ($FORCE_MP4) {
-	$FORMAT = 'av_mp4';
 } else {
 	my ($format) = $out_file =~ /\.(\w{2,4})$/;
 	if (defined($format)) {
 		$FORMAT = 'av_' . lc($format);
 	}
+}
+if ($FORCE_MP4) {
+	$FORMAT = 'av_mp4';
+}
+if (!$FORMAT) {
+	$FORMAT = 'av_mkv';
 }
 
 # Override the output directory, if requested
