@@ -27,7 +27,7 @@ my $data = run_mplayer(@args);
 
 # Sanity check
 if (!defined($data->{'VIDEO_FORMAT'}) || length($data->{'VIDEO_FORMAT'}) < 1) {
-	die(basename($0) . ': Unable to find any video streams in: ' . $infile . "\n");
+	die(basename($0) . ': Unable to find video streams in: ' . $infile . "\n");
 }
 
 # Duplicate the audio data for track 0 with the appropriate index
@@ -101,5 +101,8 @@ sub run_mplayer(@) {
 		close($child_out);
 		alarm(0);
 	};
+	if ($@ ne "") {
+		print(STDERR $@);
+	}
 	return \%data;
 }
