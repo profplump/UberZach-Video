@@ -3,10 +3,10 @@
 # Parameters
 FOLDER="`~/bin/video/mediaPath`"
 if [ -z "${MIN_RATE}" ]; then
-	MIN_RATE=275000
+	MIN_RATE=200000
 fi
 if [ -z "${MIN_SIZE}" ]; then
-	MIN_SIZE="425M"
+	MIN_SIZE="250M"
 fi
 if [ -z "${MIN_HEIGHT}" ]; then
 	MIN_HEIGHT=500
@@ -22,6 +22,7 @@ if [ -z "${CODEC_BUILD_REGEX}" ]; then
 fi
 SCAN_DEPTH_FAST=10
 SCAN_DEPTH_SLOW=100
+STRINGS_MINLEN=100
 
 # Standard overrides for the current official archive format
 if [ -n "${FULL_ARCHIVE}" ]; then
@@ -29,7 +30,7 @@ if [ -n "${FULL_ARCHIVE}" ]; then
 	MIN_RATE=100
 	MIN_HEIGHT=100
 	CODEC_BUILD_REGEX='Nx265 \(build 95\)'
-	# Don't set the codec regex so we get faster scans against
+	# Don't limit the codec regex so we get faster scans against
 	# things that we did encode but aren't in the archive format
 	#CODEC_REGEX='^Nx265' 
 fi
@@ -84,6 +85,9 @@ if [ -n "${LAST_RECODE_FILE}" ]; then
 	LAST_RECODE_TMP="`mktemp "${LAST_RECODE_FILE}.XXXXXX" 2>/dev/null`"
 fi
 
+# We need a strings scratch file, apparently, since strings doesn't handle STDIN correctly
+STRINGS_TMP="`mktemp -t findRecode`"
+
 # Loop with newline-as-IFS
 OLDIFS="${IFS}"
 IFS=$'\n'
@@ -100,18 +104,18 @@ for i in ${FILES}; do
 	fi
 
 	# Find the x264/Nx265 header, if present. Scan deeper if the fast scan fails.
-	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
-	if ! echo "${STRINGS}" | grep -Eq "${CODEC_REGEX}"; then
-		STRINGS="`head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n 100`"
+	head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n "${STRINGS_MINLEN}" > "${STRINGS_TMP}"
+	if ! strings -n 1 "${STRINGS_TMP}" | grep -Eq "${CODEC_REGEX}"; then
+		head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n "${STRINGS_MINLEN}" > "${STRINGS_TMP}"
 	fi
 
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
-	if echo "${STRINGS}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		if echo "${STRINGS}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
+	if strings -n 1 "${STRINGS_TMP}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
+		if strings -n 1 "${STRINGS_TMP}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
 			HANDBRAKE=1
 		fi
-	elif echo "${STRINGS}" | grep -q HandBrake; then
+	elif strings -n 1 "${STRINGS_TMP}" | grep -q HandBrake; then
 		echo "Matched literal 'HandBrake': ${i}" 1>&2
 		HANDBRAKE=1
 	fi
@@ -158,6 +162,9 @@ for i in ${FILES}; do
 	fi
 done
 IFS="${OLDIFS}"
+
+# Remove the strings temp file
+rm -f "${STRINGS_TMP}"
 
 # Move the temporary timestamp file into place
 if [ -n "${LAST_RECODE_TMP}" ]; then
