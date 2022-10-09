@@ -22,7 +22,8 @@ fi
 if ~/bin/video/canRecode.sh; then
 
 	# Prefer recoding to rewrapping if the file is overrate
-	~/bin/video/findRecode0 "${inFolder}" | xargs -0 -n1 ~/bin/video/recode
+	NO_LAST_RECODE_FILE=1 ~/bin/video/findRecode0 "${inFolder}" | \
+		xargs -0 -n1 ~/bin/video/recode
 
 	# MPEGs must be recoded, not just re-wrapped
 	for i in "${inFolder}/"*.[mM][pP][gG] "${inFolder}/"*.[mM][pP][eE][gG]; do
