@@ -9,12 +9,13 @@ use File::Basename;
 
 # Default configuration
 my $FORMAT        = 'av_mkv';
-my $AUDIO_BITRATE = 192;
 my $QUALITY       = 20;
 my $HD_QUALITY    = 22;
+my $NO_MIXDOWN    = 1;
 my $AUDIO_COPY    = 0;
 my $STEREO_ONLY   = 0;
 my $VIDEO_ONLY    = 0;
+my $AUDIO_BITRATE = undef();
 my $HEIGHT        = undef();
 my $WIDTH         = undef();
 my $AUDIO_EXCLUDE_REGEX =
@@ -26,8 +27,7 @@ my $SUB_INCLUDE_REGEX = '\b(?:English|Unknown|Closed\s+Captions)\b';
 my $FORCE_MP4         = 0;
 my $OUT_DIR           = undef();
 my $MIXDOWN_CODEC     = 'AAC';
-my $MIXDOWN_CHANNELS  = 2.0;
-my $AAC_ENCODER       = 'ffaac';
+my $MIXDOWN_CHANNELS  = 5.1;
 my $VIDEO_ENCODER     = 'x265';
 my %ENCODER_OPTS      = (
 	'x264' => [ '--encopts',        'b-adapt=2:rc-lookahead=50' ],
@@ -41,20 +41,15 @@ my $MIN_VIDEO_WIDTH = 100;
 my $MAX_CROP_DIFF   = .1;
 my $MAX_DURA_DIFF   = 5;
 my $NO_CROP         = 0;
-my @CODEC_ORDER     = ('DTS-HD', 'FLAC', 'TRUEHD', 'PCM', 'DTS', 'E-AC3', 'AC3', 'VORBIS', $MIXDOWN_CODEC, 'OTHER');
+my @CODEC_ORDER     = ('DTS-HD', 'FLAC', 'TRUEHD', 'AAC', 'PCM', 'DTS', 'E-AC3', 'AC3', 'VORBIS', 'OTHER');
 my $HB_EXEC         = $ENV{'HOME'} . '/bin/video/HandBrakeCLI';
 my $DEBUG           = 0;
 
 # General parameters for HandBrake
 # Someday we will also --use-opencl, but not today
 my @video_params = ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic');
-my @audio_params = ('--audio-copy-mask', 'dtshd,dts,truehd,eac3,ac3,aac', '--audio-fallback', 'eac3');
-
-# Use CoreAudio where available
-my ($OS) = POSIX::uname();
-if ($OS eq 'Darwin') {
-	$AAC_ENCODER = 'ca_aac';
-}
+# HD Audio: 'dtshd,dts,truehd,eac3,ac3,aac'
+my @audio_params = ('--audio-copy-mask', 'aac,dts,eac3,ac3', '--audio-fallback', 'aac');
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
@@ -97,11 +92,17 @@ if ($ENV{'AUDIO_COPY'}) {
 # Allow AAC-only audio transfers (for use in mobile encoding)
 if ($ENV{'STEREO_ONLY'}) {
 	$STEREO_ONLY = 1;
+	$MIXDOWN_CHANNELS = 2.0;
 }
 
 # Allow MP4-only output format (for use in mobile encoding)
 if ($ENV{'FORCE_MP4'}) {
 	$FORCE_MP4 = 1;
+}
+
+# Allow mixdown if requested
+if ($STEREO_ONLY || (defined($ENV{'NO_MIXDOWN'}) && !$ENV{'NO_MIXDOWN'})) {
+	$NO_MIXDOWN = 0;
 }
 
 # Allow overrides for video quality
@@ -294,9 +295,6 @@ foreach my $title (keys(%titles)) {
 			print STDERR basename($0) . ': No audio detected in: ' . $in_file . ':' . $title . ". Skipping title...\n";
 			next;
 		}
-
-		# Set the bitrate for transcoded audio tracks
-		push(@audio, '--ab', $AUDIO_BITRATE);
 	}
 
 	# Set the video quality, using $HD_QUALITY for images larger than $HD_WIDTH (to allow lower quality on HD streams)
@@ -613,8 +611,8 @@ sub audioOptions($) {
 		return;
 	}
 
-	# Clear the mixdown selection if we're copying audio
-	if ($AUDIO_COPY) {
+	# Clear the mixdown track if not required
+	if ($AUDIO_COPY || $NO_MIXDOWN) {
 		$mixdown = undef();
 	}
 
@@ -622,21 +620,20 @@ sub audioOptions($) {
 	my @audio_tracks = ();
 	if (defined($mixdown) && $mixdown > 0) {
 		if ($DEBUG) {
-			print STDERR 'Using track ' . $mixdown . " as default AAC audio\n";
-			if ($tracks{$mixdown}->{'channels'} > 2) {
-				push(@retval, '--mixdown', 'dpl2');
-				print STDERR "\tMixing down with Dolby Pro Logic II encoding\n";
-			}
+			print STDERR 'Using track ' . $mixdown . " as mixdown audio (" . $MIXDOWN_CODEC . ")\n";
 		}
-		my %track = ('index' => $mixdown, 'encoder' => $AAC_ENCODER);
+		my %track = ('index' => $mixdown, 'encoder' => codecToEncoder($MIXDOWN_CODEC));
 		push(@audio_tracks, \%track);
+
+		# Include mixdown params for this track
+		push(@retval, mixdownParams($tracks{$mixdown}->{'channels'}));
 	}
 
 	# Keep all other audio tracks, unless STEREO_ONLY is set
 	if (!$STEREO_ONLY) {
 
-		# Passthru DTS-MA, DTS, AC3, and AAC
-		# Keep other audio tracks, but recode to AAC (using Handbrake's audio-copy-mask/audio-fallback feature)
+		# Passthru DTS, AC3, and AAC
+		# Keep other audio tracks, but recode to the mixdown codec (using Handbrake's audio-copy-mask/audio-fallback feature)
 		foreach my $index (keys(%tracks)) {
 			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'channels'} <= $MIXDOWN_CHANNELS) {
 				if ($DEBUG) {
@@ -692,7 +689,7 @@ sub audioOptions($) {
 	# Consolidate from the hashes
 	my @output_tracks   = ();
 	my @output_encoders = ();
-	foreach my $track (@audio_tracks) {
+	foreach my $track (sort(@audio_tracks)) {
 		push(@output_tracks,   $track->{'index'});
 		push(@output_encoders, $track->{'encoder'});
 	}
@@ -882,6 +879,57 @@ sub findBestAudioTrack($$) {
 		}
 	}
 	return $best;
+}
+
+sub codecToEncoder($) {
+	my ($codec) = @_;
+	my $encoder = undef();
+
+	if ($codec eq 'AAC') {
+		# Use CoreAudio where available
+		my ($OS) = POSIX::uname();
+		$encoder = ($OS eq 'Darwin') ? 'ca_aac' : 'ffaac';
+	} else {
+		my $t = lc($codec);
+		$t =~ s/[\w]//g;
+		$encoder = $t;
+	}
+
+	return $encoder;
+}
+
+sub mixdownParams() {
+	my ($channels) = @_;
+	my $mixdown = '7point1';
+	my $bitrate = 512;
+
+	# Don't encode more than we need
+	if ($MIXDOWN_CHANNELS < $channels) {
+		$channels = $MIXDOWN_CHANNELS;
+	}
+
+	# Pick mixdown models and appropriate bitrates (for AAC)
+	if ($channels <= 2.0) {
+		$mixdown = 'dpl12';
+		$bitrate = 128;
+	} elsif ($channels <= 5.1) {
+		$mixdown = '5point1';
+		$bitrate = 384;
+	} elsif ($channels <= 6.1) {
+		$mixdown = '6point1';
+		$bitrate = 448;
+	}
+
+	# Allow user override of the bitrate
+	if ($AUDIO_BITRATE) {
+		$bitrate = $AUDIO_BITRATE;
+	}
+
+	if ($DEBUG) {
+		print STDERR "\tMixdown to " . $MIXDOWN_CHANNELS . " channels at " . $bitrate .
+			"kbps with " . $mixdown . " encoding\n";
+	}
+	return ('--mixdown', $mixdown, '--ab', $bitrate);
 }
 
 sub isValidSubLanguage($) {
