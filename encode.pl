@@ -927,7 +927,7 @@ sub mixdownParams() {
 
 	if ($DEBUG) {
 		print STDERR "\tMixdown to " . $MIXDOWN_CHANNELS . " channels at " . $bitrate .
-			"kbps with " . $mixdown . " encoding\n";
+			" kbps with " . $mixdown . " encoding\n";
 	}
 	return ('--mixdown', $mixdown, '--ab', $bitrate);
 }
