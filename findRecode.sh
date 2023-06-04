@@ -15,7 +15,7 @@ if [ -z "${CODEC_REGEX}" ]; then
 	CODEC_REGEX='^(x264|Nx265)'
 fi
 if [ -z "${CODEC_BUILD_REGEX}" ]; then
-	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148)|Nx265 \(build 95\))'
+	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148)|Nx265 \(build (95|206)\))'
 fi
 SCAN_DEPTH_FAST=10
 SCAN_DEPTH_SLOW=100
@@ -25,7 +25,7 @@ STRINGS_MINLEN=100
 if [ -n "${FULL_ARCHIVE}" ]; then
 	MIN_SIZE=50M
 	MIN_RATE=100
-	CODEC_BUILD_REGEX='Nx265 \(build 95\)'
+	CODEC_BUILD_REGEX='Nx265 \(build (95|206)\)'
 	# Don't limit the codec regex so we get faster scans against
 	# things that we did encode but aren't in the archive format
 	#CODEC_REGEX='^Nx265' 
@@ -89,12 +89,17 @@ for i in ${FILES}; do
 		head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n "${STRINGS_MINLEN}" > "${STRINGS_TMP}"
 	fi
 
+	# Check for binary junk that makes grep angry
+	while ! head -c 1 "${STRINGS_TMP}" | grep -q '\w'; do
+		STR_CLEAN="`mktemp -t findRecode.clean`"
+		cat "${STRINGS_TMP}" | cut -b 3- > "${STR_CLEAN}"
+		mv "${STR_CLEAN}" "${STRINGS_TMP}"
+	done
+
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
-	if strings -n 1 "${STRINGS_TMP}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		if strings -n 1 "${STRINGS_TMP}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
-			HANDBRAKE=1
-		fi
+	if strings -n 1 "${STRINGS_TMP}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
+		HANDBRAKE=1
 	elif strings -n 1 "${STRINGS_TMP}" | grep -q HandBrake; then
 		echo "Matched literal 'HandBrake': ${i}" 1>&2
 		HANDBRAKE=1
