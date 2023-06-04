@@ -3,13 +3,10 @@
 # Parameters
 FOLDER="`~/bin/video/mediaPath`"
 if [ -z "${MIN_RATE}" ]; then
-	MIN_RATE=200000
+	MIN_RATE=20000
 fi
 if [ -z "${MIN_SIZE}" ]; then
-	MIN_SIZE="250M"
-fi
-if [ -z "${MIN_HEIGHT}" ]; then
-	MIN_HEIGHT=500
+	MIN_SIZE="100M"
 fi
 if [ -z "${NAME_REGEX}" ]; then
 	NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg|m4v)$"
@@ -28,7 +25,6 @@ STRINGS_MINLEN=100
 if [ -n "${FULL_ARCHIVE}" ]; then
 	MIN_SIZE=50M
 	MIN_RATE=100
-	MIN_HEIGHT=100
 	CODEC_BUILD_REGEX='Nx265 \(build 95\)'
 	# Don't limit the codec regex so we get faster scans against
 	# things that we did encode but aren't in the archive format
@@ -38,22 +34,6 @@ fi
 # Command-line overrides
 if [ -n "${1}" ]; then
 	FOLDER="${1}"
-fi
-if [ -n "${2}" ]; then
-	MIN_SIZE="${2}"
-	echo "Deprecated: MIN_SIZE" 1>&2
-fi
-if [ -n "${3}" ]; then
-	MIN_RATE="${3}"
-	echo "Deprecated: MIN_RATE" 1>&2
-fi
-if [ -n "${4}" ]; then
-	MIN_HEIGHT="${4}"
-	echo "Deprecated: MIN_HEIGHT" 1>&2
-fi
-if [ -n "${5}" ]; then
-	NAME_REGEX="${5}"
-	echo "Deprecated: NAME_REGEX" 1>&2
 fi
 
 # Name-based paramters
@@ -122,20 +102,6 @@ for i in ${FILES}; do
 
 	# We do not want to recode videos that we already encoded
 	if [ $HANDBRAKE -eq 1 ]; then
-		continue
-	fi
-
-	# We only care about "big" videos
-	# Movies with no known height should be left alone
-	# Movies with a "0" height can be assumed to be tall enough
-	HEIGHT="`~/bin/video/movInfo.pl "${i}" VIDEO_HEIGHT 2>/dev/null`"
-	if [ -z "${HEIGHT}" ]; then
-		HEIGHT=1
-	fi
-	if [ $HEIGHT -eq 0 ]; then
-		HEIGHT=$MIN_HEIGHT
-	fi
-	if [ $HEIGHT -lt $MIN_HEIGHT ]; then
 		continue
 	fi
 
