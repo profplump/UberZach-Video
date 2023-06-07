@@ -90,11 +90,11 @@ for i in ${FILES}; do
 	fi
 
 	# Check for binary junk that makes grep angry
-	while ! head -c 1 "${STRINGS_TMP}" | grep -q '\w'; do
+	if ! head -c 1 "${STRINGS_TMP}" | grep -q '\w'; then
 		STR_CLEAN="`mktemp -t findRecode.clean`"
 		cat "${STRINGS_TMP}" | cut -b 3- > "${STR_CLEAN}"
 		mv "${STR_CLEAN}" "${STRINGS_TMP}"
-	done
+	fi
 
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
