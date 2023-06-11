@@ -3,13 +3,10 @@
 # Parameters
 FOLDER="`~/bin/video/mediaPath`"
 if [ -z "${MIN_RATE}" ]; then
-	MIN_RATE=275000
+	MIN_RATE=20000
 fi
 if [ -z "${MIN_SIZE}" ]; then
-	MIN_SIZE="425M"
-fi
-if [ -z "${MIN_HEIGHT}" ]; then
-	MIN_HEIGHT=500
+	MIN_SIZE="100M"
 fi
 if [ -z "${NAME_REGEX}" ]; then
 	NAME_REGEX="\.(mov|avi|mkv|mp4|ts|mpg|mpeg|m4v)$"
@@ -18,18 +15,18 @@ if [ -z "${CODEC_REGEX}" ]; then
 	CODEC_REGEX='^(x264|Nx265)'
 fi
 if [ -z "${CODEC_BUILD_REGEX}" ]; then
-	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148)|Nx265 \(build 95\))'
+	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148)|Nx265 \(build (95|206)\))'
 fi
 SCAN_DEPTH_FAST=10
 SCAN_DEPTH_SLOW=100
+STRINGS_MINLEN=100
 
 # Standard overrides for the current official archive format
 if [ -n "${FULL_ARCHIVE}" ]; then
 	MIN_SIZE=50M
 	MIN_RATE=100
-	MIN_HEIGHT=100
-	CODEC_BUILD_REGEX='Nx265 \(build 95\)'
-	# Don't set the codec regex so we get faster scans against
+	CODEC_BUILD_REGEX='Nx265 \(build (95|206)\)'
+	# Don't limit the codec regex so we get faster scans against
 	# things that we did encode but aren't in the archive format
 	#CODEC_REGEX='^Nx265' 
 fi
@@ -37,22 +34,6 @@ fi
 # Command-line overrides
 if [ -n "${1}" ]; then
 	FOLDER="${1}"
-fi
-if [ -n "${2}" ]; then
-	MIN_SIZE="${2}"
-	echo "Deprecated: MIN_SIZE" 1>&2
-fi
-if [ -n "${3}" ]; then
-	MIN_RATE="${3}"
-	echo "Deprecated: MIN_RATE" 1>&2
-fi
-if [ -n "${4}" ]; then
-	MIN_HEIGHT="${4}"
-	echo "Deprecated: MIN_HEIGHT" 1>&2
-fi
-if [ -n "${5}" ]; then
-	NAME_REGEX="${5}"
-	echo "Deprecated: NAME_REGEX" 1>&2
 fi
 
 # Name-based paramters
@@ -84,6 +65,9 @@ if [ -n "${LAST_RECODE_FILE}" ]; then
 	LAST_RECODE_TMP="`mktemp "${LAST_RECODE_FILE}.XXXXXX" 2>/dev/null`"
 fi
 
+# We need a strings scratch file, apparently, since strings doesn't handle STDIN correctly
+STRINGS_TMP="`mktemp -t findRecode`"
+
 # Loop with newline-as-IFS
 OLDIFS="${IFS}"
 IFS=$'\n'
@@ -100,38 +84,29 @@ for i in ${FILES}; do
 	fi
 
 	# Find the x264/Nx265 header, if present. Scan deeper if the fast scan fails.
-	STRINGS="`head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n 100`"
-	if ! echo "${STRINGS}" | grep -Eq "${CODEC_REGEX}"; then
-		STRINGS="`head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n 100`"
+	head -c $(( $SCAN_DEPTH_FAST * 1024 * 1024 )) "${i}" | strings -n "${STRINGS_MINLEN}" > "${STRINGS_TMP}"
+	if ! strings -n 1 "${STRINGS_TMP}" | grep -Eq "${CODEC_REGEX}"; then
+		head -c $(( $SCAN_DEPTH_SLOW * 1024 * 1024 )) "${i}" | strings -n "${STRINGS_MINLEN}" > "${STRINGS_TMP}"
+	fi
+
+	# Check for binary junk that makes grep angry
+	if ! head -c 1 "${STRINGS_TMP}" | grep -q '\w'; then
+		STR_CLEAN="`mktemp -t findRecode.clean`"
+		cat "${STRINGS_TMP}" | cut -b 3- > "${STR_CLEAN}"
+		mv "${STR_CLEAN}" "${STRINGS_TMP}"
 	fi
 
 	# Check for our particular HandBrake parameters
 	HANDBRAKE=0
-	if echo "${STRINGS}" | grep -Eq 'crf=2[0-5]\.[0-9]'; then
-		if echo "${STRINGS}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
-			HANDBRAKE=1
-		fi
-	elif echo "${STRINGS}" | grep -q HandBrake; then
+	if strings -n 1 "${STRINGS_TMP}" | grep -Eq "${CODEC_BUILD_REGEX}"; then
+		HANDBRAKE=1
+	elif strings -n 1 "${STRINGS_TMP}" | grep -q HandBrake; then
 		echo "Matched literal 'HandBrake': ${i}" 1>&2
 		HANDBRAKE=1
 	fi
 
 	# We do not want to recode videos that we already encoded
 	if [ $HANDBRAKE -eq 1 ]; then
-		continue
-	fi
-
-	# We only care about "big" videos
-	# Movies with no known height should be left alone
-	# Movies with a "0" height can be assumed to be tall enough
-	HEIGHT="`~/bin/video/movInfo.pl "${i}" VIDEO_HEIGHT 2>/dev/null`"
-	if [ -z "${HEIGHT}" ]; then
-		HEIGHT=1
-	fi
-	if [ $HEIGHT -eq 0 ]; then
-		HEIGHT=$MIN_HEIGHT
-	fi
-	if [ $HEIGHT -lt $MIN_HEIGHT ]; then
 		continue
 	fi
 
@@ -158,6 +133,9 @@ for i in ${FILES}; do
 	fi
 done
 IFS="${OLDIFS}"
+
+# Remove the strings temp file
+rm -f "${STRINGS_TMP}"
 
 # Move the temporary timestamp file into place
 if [ -n "${LAST_RECODE_TMP}" ]; then
