@@ -61,13 +61,20 @@ if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
 	$DEBUG = 1;
 }
 
+# Allow video-only transfers
+if ($ENV{'VIDEO_ONLY'}) {
+	$VIDEO_ONLY = 1;
+}
+
 # Shortcut config
 if ($ENV{'MOBILE'}) {
 	$ENV{'QUALITY'}       = 25;
 	$ENV{'HEIGHT'}        = 720;
 	$ENV{'WIDTH'}         = 1280;
 	$ENV{'AUDIO_BITRATE'} = 128;
-	$ENV{'STEREO_ONLY'}   = 1;
+	if (! $VIDEO_ONLY) {
+		$ENV{'STEREO_ONLY'}   = 1;
+	}
 	$ENV{'ENCODER'}       = 'x264';
 	$ENV{'FORCE_MP4'}     = 1;
 }
@@ -90,11 +97,6 @@ if ($ENV{'AUDIO_COPY'}) {
 # Allow AAC-only audio transfers (for use in mobile encoding)
 if ($ENV{'STEREO_ONLY'}) {
 	$STEREO_ONLY = 1;
-}
-
-# Allow video-only transfers
-if ($ENV{'VIDEO_ONLY'}) {
-	$VIDEO_ONLY = 1;
 }
 
 # Allow MP4-only output format (for use in mobile encoding)
