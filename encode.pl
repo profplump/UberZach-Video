@@ -624,9 +624,6 @@ sub audioOptions($) {
 		}
 		my %track = ('index' => $mixdown, 'encoder' => codecToEncoder($MIXDOWN_CODEC));
 		push(@audio_tracks, \%track);
-
-		# Include mixdown params for this track
-		push(@retval, mixdownParams($tracks{$mixdown}->{'channels'}));
 	}
 
 	# Keep all other audio tracks, unless STEREO_ONLY is set
@@ -697,6 +694,7 @@ sub audioOptions($) {
 	# Send back the argument strings
 	push(@retval, '--audio',    join(',', @output_tracks));
 	push(@retval, '--aencoder', join(',', @output_encoders));
+	push(@retval, mixdownParams($tracks{$mixdown}->{'channels'}));
 	return (@retval);
 }
 
