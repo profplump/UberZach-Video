@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+#use Data::Printer;
 
 # Includes
 use POSIX;
@@ -424,26 +425,30 @@ sub subOptions($) {
 
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'subtitle'} }) {
-		my ($language, $note, $iso, $text, $type) = $track->{'description'} =~
-		  /^([^\(]+)(?:\s+\(([^\)]+)\))?\s+\(iso\d+\-\d+\:\s+(\w\w\w)\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
+		my ($language, $iso, $text, $type);
+		($language, $iso, $text, $type) = $track->{'description'} =~
+		  /^([^\(]+)(?:\s+\([^\)]+\))?\s+\(iso\d+\-\d+\:\s+(\w\w\w)\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
+		if (!defined($iso)) {
+			($language, $type) = $track->{'description'} =~
+			  /(\w.*)\ +\[?(CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\]?/i;
+			$iso = 'UND';
+		}
 		if (!defined($iso)) {
 			print STDERR 'Could not parse subtitle description: ' . $track->{'description'} . "\n";
 			next;
 		}
 
-		# Map text/bitmap into a boolean
-		if ($text =~ /TEXT/i) {
-			$text = 1;
-		} else {
-			$text = 0;
-		}
-
 		# Normalize the codes
 		$iso  = uc($iso);
 		$type = uc($type);
+		if ($iso eq 'UND') {
+			if (!defined($language) || $language =~ /English/i) {
+				$iso = 'ENG';
+			}
+		}
 
 		# Push all parsed data into an array
-		my %data = ('language' => $language, 'note' => $note, 'iso' => $iso, 'text' => $text, 'type' => $type);
+		my %data = ('language' => $language, 'iso' => $iso, 'type' => $type);
 		$tracks{ $track->{'index'} } = \%data;
 
 		# Print what we found
