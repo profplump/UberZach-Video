@@ -289,6 +289,7 @@ foreach my $title (keys(%titles)) {
 	# Parse audio tracks, unless we're in VIDEO_ONLY mode
 	my @audio = ();
 	if (!$VIDEO_ONLY) {
+print STDERR "Parsing audio\n";
 		@audio = &audioOptions($scan);
 
 		# Skip tracks that have no audio
@@ -616,14 +617,9 @@ sub audioOptions($) {
 		return;
 	}
 
-	# Clear the mixdown track if not required
-	if ($AUDIO_COPY || $NO_MIXDOWN) {
-		$mixdown = undef();
-	}
-
 	# Mixdown track first
 	my @audio_tracks = ();
-	if (defined($mixdown) && $mixdown > 0) {
+	if (!$NO_MIXDOWN) {
 		if ($DEBUG) {
 			print STDERR 'Using track ' . $mixdown . " as mixdown audio (" . $MIXDOWN_CODEC . ")\n";
 		}
@@ -637,7 +633,7 @@ sub audioOptions($) {
 		# Passthru DTS, AC3, and AAC
 		# Keep other audio tracks, but recode to the mixdown codec (using Handbrake's audio-copy-mask/audio-fallback feature)
 		foreach my $index (keys(%tracks)) {
-			if (defined($mixdown) && $mixdown == $index && $tracks{$index}->{'channels'} <= $MIXDOWN_CHANNELS) {
+			if (!$NO_MIXDOWN && $mixdown == $index && $tracks{$index}->{'channels'} <= $MIXDOWN_CHANNELS) {
 				if ($DEBUG) {
 					print STDERR 'Skipping passthru of track '
 					  . $index
@@ -929,8 +925,8 @@ sub mixdownParams() {
 	}
 
 	if ($DEBUG) {
-		print STDERR "\tMixdown to " . $MIXDOWN_CHANNELS . " channels at " . $bitrate .
-			" kbps with " . $mixdown . " encoding\n";
+		print STDERR "Mixdown to " . $MIXDOWN_CODEC . "_" . $MIXDOWN_CHANNELS . " @ " . $bitrate .
+			"kbps with " . $mixdown . " encoding\n";
 	}
 	return ('--mixdown', $mixdown, '--ab', $bitrate);
 }
