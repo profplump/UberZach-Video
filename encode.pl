@@ -289,7 +289,6 @@ foreach my $title (keys(%titles)) {
 	# Parse audio tracks, unless we're in VIDEO_ONLY mode
 	my @audio = ();
 	if (!$VIDEO_ONLY) {
-print STDERR "Parsing audio\n";
 		@audio = &audioOptions($scan);
 
 		# Skip tracks that have no audio
@@ -434,7 +433,7 @@ sub subOptions($) {
 			  /(\w.*)\ +\[?(CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\]?/i;
 			$iso = 'UND';
 		}
-		if (!defined($iso)) {
+		if (!defined($iso) || !defined($type)) {
 			print STDERR 'Could not parse subtitle description: ' . $track->{'description'} . "\n";
 			next;
 		}
