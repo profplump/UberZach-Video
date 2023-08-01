@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters
-FOLDER="`~/bin/video/mediaPath`"
+FOLDER="/Volumes/Shared/TV"
 if [ -z "${MIN_RATE}" ]; then
 	MIN_RATE=20000
 fi

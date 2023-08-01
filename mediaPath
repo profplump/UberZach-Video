@@ -1,25 +1,3 @@
-#!/bin/bash
-
-# Run silent, run deep
-SILENT=0
-if [ "`basename "${0}"`" == 'isMediaMounted' ]; then
-	SILENT=1
-fi
-
-# Exit cleanly if the TV path exists
-MEDIA="${HOME}/media"
-if [ -d "${MEDIA}/TV" ]; then
-	if [ $SILENT -le 0 ]; then
-		echo -n "${MEDIA}"
-	fi
-	exit 0
-fi
-
-# If we didn't find anything attempt to mount
-MOUNT="${HOME}/bin/video/mountMedia"
-if [ -x "${MOUNT}" ] && [ -z "${MEDIA_MOUNTING}" ]; then
-	"${MOUNT}"
-fi
-
-# Fail even if the mount succeeds, so that children can see the error
-exit 1
+#!/bin/sh
+echo "Someone called: ${0}
+exit 0
