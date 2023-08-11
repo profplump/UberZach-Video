@@ -15,7 +15,7 @@ if [ -z "${CODEC_REGEX}" ]; then
 	CODEC_REGEX='^(x264|Nx265)'
 fi
 if [ -z "${CODEC_BUILD_REGEX}" ]; then
-	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148)|Nx265 \(build (95|206)\))'
+	CODEC_BUILD_REGEX='^(x264 - core (79|112|120|125|129|130|142|148|164)|Nx265 \(build (95|206)\))'
 fi
 SCAN_DEPTH_FAST=10
 SCAN_DEPTH_SLOW=100
