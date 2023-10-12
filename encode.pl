@@ -908,7 +908,7 @@ sub mixdownParams() {
 
 	# Pick mixdown models and appropriate bitrates (for AAC)
 	if ($channels <= 2.0) {
-		$mixdown = 'dpl12';
+		$mixdown = 'dpl2';
 		$bitrate = 128;
 	} elsif ($channels <= 5.1) {
 		$mixdown = '5point1';
