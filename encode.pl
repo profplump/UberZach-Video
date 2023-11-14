@@ -323,7 +323,7 @@ foreach my $title (keys(%titles)) {
 		$bad_crop = 1;
 	}
 
-	# Disable cropping (if no crop argument is passed, HB will autocrop, so set 0:0:0:0 explictly)
+	# Disable cropping (if no crop argument is passed HB will autocrop, so set 0:0:0:0 explictly)
 	if ($NO_CROP || $bad_crop) {
 		my @crop = (0, 0, 0, 0);
 		$scan->{'crop'} = \@crop;
@@ -379,7 +379,8 @@ foreach my $title (keys(%titles)) {
 
 	# Include subtitles if available
 	if (scalar(@subs)) {
-		push(@args, @subs);
+		# Sorted, to keep the original order
+		push(@args, sort(@subs));
 	}
 
 	# Include audio unless specifically excluded
