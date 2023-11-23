@@ -379,8 +379,7 @@ foreach my $title (keys(%titles)) {
 
 	# Include subtitles if available
 	if (scalar(@subs)) {
-		# Sorted, to keep the original order
-		push(@args, sort(@subs));
+		push(@args, @subs);
 	}
 
 	# Include audio unless specifically excluded
@@ -494,6 +493,7 @@ sub subOptions($) {
 	if (scalar(@keep) < 1) {
 		return '';
 	}
+	@keep = sort { $a <=> $b } @keep;
 	return ('--subtitle', join(',', @keep));
 }
 
