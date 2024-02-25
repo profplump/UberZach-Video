@@ -50,7 +50,7 @@ my $DEBUG           = 0;
 # Someday we will also --use-opencl, but not today
 my @video_params = ('--markers', '--optimize', '--detelecine', '--decomb', '--auto-anamorphic');
 # HD Audio: 'dtshd,dts,truehd,eac3,ac3,aac'
-my @audio_params = ('--audio-copy-mask', 'aac,dts,eac3,ac3', '--audio-fallback', 'aac');
+my @audio_params = ('--normalize-mix', '1', '--audio-copy-mask', 'aac,dts,eac3,ac3', '--audio-fallback', 'aac');
 
 # Runtime debug mode
 if (defined($ENV{'DEBUG'}) && $ENV{'DEBUG'}) {
