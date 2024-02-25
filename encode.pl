@@ -498,92 +498,94 @@ sub subOptions($) {
 }
 
 sub audioOptions($) {
-	my ($scan) = @_;
-	my @retval = ();
+  my ($scan) = @_;
+  my @retval = ();
 
-	# Type the audio tracks
-	my %tracks = ();
-	foreach my $track (@{ $scan->{'audio'} }) {
-		my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~
-/^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso\d+\-\d+\:\s+(\w\w\w)\))?(?:,\s+(.*))?/;
-		if (!defined($channels)) {
-			print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
-			next;
-		}
+  # Type the audio tracks
+  my %tracks = ();
+  foreach my $track (@{ $scan->{'audio'} }) {
+    # Sample: English (AAC LC, 2.0 ch, 128 kbps) (iso639-2: eng)
+    my ($language, $codec, $channels, $specs, $iso, $note) = $track->{'description'} =~
+      /^\s*(\S.*)\s+\(([^,]+),\s+([^,]+),\s+([^,]+)\s+\(iso\d+-\d\:\s+(\w\w\w)\)/;
+    # Old: my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso\d+\-\d+\:\s+(\w\w\w)\))?(?:,\s+(.*))?/;
+    if (!defined($channels)) {
+      print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
+      next;
+    }
 
-		# Decode the channels string to a number
-		if ($channels =~ /(\d+\.\d+)\s+ch/i) {
-			$channels = $1;
-		} elsif ($channels =~ /Dolby\s+Surround/i) {
-			$channels = 3.1;
-		}
+    # Decode the channels string to a number
+    if ($channels =~ /(\d+\.\d+)\s+ch/i) {
+      $channels = $1;
+    } elsif ($channels =~ /Dolby\s+Surround/i) {
+      $channels = 3.1;
+    }
 
-		# Normalize the codes
-		$iso  = defined($iso) ? uc($iso) : '';
-		foreach my $code (@CODEC_ORDER) {
-			my $metacode = quotemeta($code);
-			if ($codec =~ /${metacode}/i) {
-				$codec = $code;
-				last;
-			} elsif ($code eq 'OTHER') {
-				if ($codec =~ /MP3/i || $codec =~ /MPEG/i || $codec =~ /MP2/i) {
-					$codec = $code;
-				} elsif ($codec eq 'dca') {
-					print STDERR 'Found incompatible audio (' . $track->{'description'} . ')  in track ' . $track->{'index'} . "\n";
-					$codec = undef();
-				} else {
-					print STDERR 'Found unknown audio (' . $track->{'description'} . ') in track ' . $track->{'index'} . "\n";
-					$codec = $code;
-				}
-			}
-		}
+    # Normalize the codes
+    $iso  = defined($iso) ? uc($iso) : '';
+    foreach my $code (@CODEC_ORDER) {
+      my $metacode = quotemeta($code);
+      if ($codec =~ /${metacode}/i) {
+        $codec = $code;
+        last;
+      } elsif ($code eq 'OTHER') {
+        if ($codec =~ /MP3/i || $codec =~ /MPEG/i || $codec =~ /MP2/i) {
+          $codec = $code;
+        } elsif ($codec eq 'dca') {
+          print STDERR 'Found incompatible audio (' . $track->{'description'} . ')  in track ' . $track->{'index'} . "\n";
+          $codec = undef();
+        } else {
+          print STDERR 'Found unknown audio (' . $track->{'description'} . ') in track ' . $track->{'index'} . "\n";
+          $codec = $code;
+        }
+      }
+    }
 
-		# Standardize the specs
-		my $bitrate    = 0;
-		my $samplerate = 0;
-		if (!$specs) {
-			$specs = '';
-		}
-		if ($specs =~ /(\d+)bps/) {
-			$bitrate = $1 / 1000;
-		} elsif ($specs =~ /(\d+)\s*kb\/s/) {
-			$bitrate = $1;
-		}
-		if ($specs =~ /(\d+)Hz/) {
-			$samplerate = $1;
-		}
+    # Standardize the specs
+    my $bitrate    = 0;
+    my $samplerate = 0;
+    if (!$specs) {
+      $specs = '';
+    }
+    if ($specs =~ /(\d+)b[p\/]s/) {
+      $bitrate = $1 / 1000;
+    } elsif ($specs =~ /(\d+)\s*kb[p\/]s/) {
+      $bitrate = $1;
+    }
+    if ($specs =~ /(\d+)Hz/) {
+      $samplerate = $1;
+    }
 
-		# Push all parsed data into the array
-		my %data = (
-			'language'   => $language,
-			'codec'      => $codec,
-			'channels'   => $channels,
-			'iso'        => $iso,
-			'note'       => $note,
-			'bitrate'    => $bitrate,
-			'samplerate' => $samplerate,
-		);
-		$tracks{ $track->{'index'} } = \%data;
+    # Push all parsed data into the array
+    my %data = (
+      'language'   => $language,
+      'codec'      => $codec,
+      'channels'   => $channels,
+      'iso'        => $iso,
+      'note'       => $note,
+      'bitrate'    => $bitrate,
+      'samplerate' => $samplerate,
+    );
+    $tracks{ $track->{'index'} } = \%data;
 
-		# Print what we found
-		if ($DEBUG) {
-			print STDERR 'Found audio track: ';
-			printHash(\%data);
-		}
-	}
+    # Print what we found
+    if ($DEBUG) {
+      print STDERR 'Found audio track: ';
+      printHash(\%data);
+    }
+  }
 
-	# Push the parsed data back up the chain
-	$scan->{'audio_parsed'} = \%tracks;
+  # Push the parsed data back up the chain
+  $scan->{'audio_parsed'} = \%tracks;
 
-	# Find the track with the most channels for each codec, and the highest number of channels among all types of tracks
-	# Then choose the most desired codec among the set of codecs that contain the highest number of channels
-	# This chooses the track with the most channels for the mixdown, and resolves ties using CODEC_ORDER
-	my $mixdown      = undef();
-	my %bestByCodec  = ();
-	my $bestCodec    = undef();
-	my $mostChannels = 0;
+  # Find the track with the most channels for each codec, and the highest number of channels among all types of tracks
+  # Then choose the most desired codec among the set of codecs that contain the highest number of channels
+  # This chooses the track with the most channels for the mixdown, and resolves ties using CODEC_ORDER
+  my $mixdown      = undef();
+  my %bestByCodec  = ();
+  my $bestCodec    = undef();
+  my $mostChannels = 0;
 
-	# Loop point, in case we need to run the selector more than once
+  # Loop point, in case we need to run the selector more than once
   SELECT_AUDIO:
 	foreach my $codec (@CODEC_ORDER) {
 		$bestByCodec{$codec} = findBestAudioTrack(\%tracks, $codec);
