@@ -55,6 +55,8 @@ LAST_RECODE_FILE="`(cd "${FOLDER}" && pwd)`/.lastFindRecode"
 if [ -n "${NO_LAST_RECODE_FILE}" ]; then
 	LAST_RECODE_FILE=""
 fi
+# Disable .lastFindRecode until further notice
+LAST_RECODE_FILE=""
 
 # Find large video files that match the regex filter
 FILES="`find "${FOLDER}" -maxdepth 1 -type f -size "+${MIN_SIZE}" | grep -iE "${NAME_REGEX}"`"
