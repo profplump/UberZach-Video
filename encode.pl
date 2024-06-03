@@ -426,11 +426,13 @@ sub subOptions($) {
 	my %tracks = ();
 	foreach my $track (@{ $scan->{'subtitle'} }) {
 		my ($language, $iso, $text, $type);
+    # Sample: N/A
 		($language, $iso, $text, $type) = $track->{'description'} =~
 		  /^([^\(]+)(?:\s+\([^\)]+\))?\s+\(iso\d+\-\d+\:\s+(\w\w\w)\)\s+\((Text|Bitmap)\)\((CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\)/i;
+    # Sample: English (UTF-8)
 		if (!defined($iso)) {
 			($language, $type) = $track->{'description'} =~
-			  /(\w.*)\ +\[?(CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)\]?/i;
+			  /(\w.*)\ +(?:\[|\()?(CC|VOBSUB|PGS|SSA|TX3G|UTF\-\d+)(?:\[|\()?/i;
 			$iso = 'UND';
 		}
 		if (!defined($iso) || !defined($type)) {
