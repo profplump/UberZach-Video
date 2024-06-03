@@ -504,9 +504,10 @@ sub audioOptions($) {
   # Type the audio tracks
   my %tracks = ();
   foreach my $track (@{ $scan->{'audio'} }) {
+    # Sample: Unknown (AAC LC, 2.0 ch) (iso639-2: und)
     # Sample: English (AAC LC, 2.0 ch, 128 kbps) (iso639-2: eng)
     my ($language, $codec, $channels, $specs, $iso, $note) = $track->{'description'} =~
-      /^\s*(\S.*)\s+\(([^,]+),\s+([^,]+),\s+([^,]+)\s+\(iso\d+-\d\:\s+(\w\w\w)\)/;
+      /^\s*(\S.*)\s+\(([^,]+),\s+([^,]+)(,\s+([^,]+))?\)\s+\(iso\d+-\d\:\s+(\w\w\w)\)/;
     # Old: my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso\d+\-\d+\:\s+(\w\w\w)\))?(?:,\s+(.*))?/;
     if (!defined($channels)) {
       print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
