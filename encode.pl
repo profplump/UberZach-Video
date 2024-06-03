@@ -507,7 +507,11 @@ sub audioOptions($) {
     # Sample: English (AAC LC, 2.0 ch, 128 kbps) (iso639-2: eng)
     my ($language, $codec, $channels, $specs, $iso, $note) = $track->{'description'} =~
       /^\s*(\S.*)\s+\(([^,]+),\s+([^,]+),\s+([^,]+)\s+\(iso\d+-\d\:\s+(\w\w\w)\)/;
-    # Old: my ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~ /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso\d+\-\d+\:\s+(\w\w\w)\))?(?:,\s+(.*))?/;
+    # Old Sample: English (E-AC3) (5.1 ch) (768 kbps) (iso639-2: eng)
+    if (!defined($channels)) {
+      ($language, $codec, $note, $channels, $iso, $specs) = $track->{'description'} =~
+        /^([^\(]+)\s+\(([^\)]+)\)\s+(?:\(([^\)]*Commentary[^\)]*)\)\s+)?\((\d+\.\d+\s+ch|Dolby\s+Surround)\)(?:\s+\(iso\d+\-\d+\:\s+(\w\w\w)\))?(?:,\s+(.*))?/;
+    }
     if (!defined($channels)) {
       print STDERR 'Could not parse audio description: ' . $track->{'description'} . "\n";
       next;
